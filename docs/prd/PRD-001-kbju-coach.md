@@ -3,7 +3,7 @@ id: PRD-001
 title: "KBJU Coach v0.1"
 version: 0.1.0
 status: draft
-owner: "@OpenClown-bot"
+owner: "@yourmomsenpai"
 author_model: "gpt-5.5-thinking"
 created: 2026-04-25
 updated: 2026-04-25
