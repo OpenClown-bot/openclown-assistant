@@ -1,0 +1,43 @@
+# Node / TypeScript (Executor output)
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.npm/
+.pnpm-store/
+
+# Python (only validators)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Env / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Local artifacts
+*.log
+*.sqlite
+*.db
+data/
+tmp/
+.cache/
+
+# Test coverage / reports
+coverage/
+.nyc_output/
+htmlcov/
+.pytest_cache/
+
+# Misc
+.devin/
