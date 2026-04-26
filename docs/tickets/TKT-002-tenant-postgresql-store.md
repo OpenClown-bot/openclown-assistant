@@ -84,6 +84,8 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- YYYY-MM-DD HH:MM model-id: started -->
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+2026-04-26 20:46 codex-gpt-5.5: started
+2026-04-26 20:46 codex-gpt-5.5: opened PR #12
 
 ---
 
