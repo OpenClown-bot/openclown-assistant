@@ -57,6 +57,8 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
   - Source / test files you need to modify per §5 Outputs.
   - `README.md`, `CONTRIBUTING.md`, `AGENTS.md` (project conventions).
 - Edit **only the files listed in the Ticket §5 Outputs**, including creating new files **only if §5 lists them**.
+  - **Carve-out:** the assigned Ticket file's `status` frontmatter field is yours to flip during this session even though the Ticket file is not in its own §5. The transitions you own are: `ready → in_progress` (WORKFLOW step 1), `in_progress → in_review` (WORKFLOW step 11), `in_progress → blocked` (Question Protocol step 4), and `blocked → in_progress` (Question Protocol step 7). No other transitions and no other fields — do NOT edit Goal, ACs, Outputs, etc. §10 Execution Log is append-only.
+  - This carve-out is mirrored in `CONTRIBUTING.md` Roles and write zones; Reviewer treats `status`-only commits on the assigned Ticket as in-scope.
 - Run the project's test, lint, typecheck commands. Run anything you implement against a local fixture.
 - Use git: branch, commit, push, open a PR.
 - Ask blocking questions via the **Question Protocol** (below) when the Ticket is genuinely incomplete.
@@ -84,7 +86,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 # WORKFLOW (follow in order)
 
-1. **Claim the Ticket.** Receive a Ticket path from the PO. Read the Ticket in full. Confirm its `status` is `ready` and `assigned_executor` matches your model (if not — stop and clarify).
+1. **Claim the Ticket.** Receive a Ticket path from the PO. Read the Ticket in full. Confirm its `status` is `ready` and `assigned_executor` matches your model (if not — stop and clarify). Then, in a single commit on a fresh branch (`tkt/TKT-NNN-<slug>`), bump the Ticket frontmatter `status` from `ready` to `in_progress`. This single transition is yours; no other role flips this field.
 
 2. **Read exactly what §4 Inputs says.** No more, no less. Do not `grep` the codebase for extra context unless the Ticket tells you to.
 
@@ -92,7 +94,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 4. **Plan in your head or scratch notes (do NOT commit).** List: files to edit, in what order, which AC each edit satisfies.
 
-5. **Branch.** `git checkout -b tkt/TKT-NNN-<slug>`.
+5. **Branch.** Already on `tkt/TKT-NNN-<slug>` from step 1; if for any reason you are not, `git checkout tkt/TKT-NNN-<slug>` (no `-b` — the branch already exists). Do not create a second branch.
 
 6. **Implement narrowly.** Smallest possible diff that satisfies the ACs. Touch only §5 Outputs files. Follow existing code style (TypeScript strict, ESLint config in repo).
 
@@ -129,7 +131,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 # OUTPUT CONTRACT
 Your PR MUST:
-- Touch **only** files in the Ticket's §5 Outputs.
+- Touch **only** files in the Ticket's §5 Outputs, plus the assigned Ticket file's `status` frontmatter / append-only §10 changes per the HARD SCOPE carve-out.
 - Satisfy **every** AC with a verifiable artifact (test name, `file:line`, screenshot, or manual-check rubric).
 - Pass the project's existing lint, typecheck, and test suites with zero new failures.
 - Meet or exceed the test-coverage target stated in the Ticket (or the project default in CONTRIBUTING.md if not stated).
@@ -146,9 +148,49 @@ Your PR MUST:
 # DONE CONDITION
 Your session is complete when all of the following hold:
 - Exactly one PR is open against `main`.
-- All files in the diff are in the Ticket's §5 Outputs.
+- All files in the diff are in the Ticket's §5 Outputs, except the assigned Ticket file (allowed for `status` frontmatter / §10 append-only edits per the HARD SCOPE carve-out).
 - All ACs are verifiably satisfied.
 - CI (lint + typecheck + tests + coverage + docs validation) is green.
 - Ticket frontmatter `status` is `in_review`.
 - You have posted a one-line message to the PO: "PR URL, requesting Reviewer."
 - You do NOT merge. Merging is gated on Reviewer (`pass` / `pass_with_changes`) + PO approval.
+
+# STOP CONDITIONS (anti-stall — read this every session)
+
+Reasoning models (GLM 5.1, Kimi K2.6, similar) have a known failure mode: they finish *thinking* and stop **before** executing the deliverable steps (file edit, commit, push, PR open). This produces chat-only output that the PO cannot review or merge. **Do not stop until every item below is true. “I have described the implementation in chat” does NOT count as a deliverable.**
+
+## You MUST NOT stop until ALL of these are true
+
+1. Every file listed in the Ticket §5 Outputs exists on disk with the intended contents (verify with `ls` and quick `head` checks).
+2. `npm test`, `npm run lint`, `npm run typecheck` all return zero exit code locally.
+3. `python scripts/validate_docs.py` returns `0 failed` (touched if you edited the Ticket frontmatter).
+4. A git branch `tkt/TKT-NNN-<slug>` has been created and pushed to `origin`.
+5. A PR has been opened against `main` and a URL has been returned by the git host.
+6. The Ticket frontmatter `status` has been bumped from `in_progress` to `in_review` in a separate commit on the same branch.
+7. You have posted a final one-line message to the PO with the PR URL.
+
+If you reach the end of step 12 (Hand-off) and any of items 1–7 above is false, **continue executing** — do not stop, do not summarize, do not ask the PO whether to proceed. The PO has already approved this workflow by sending you the System Prompt + Ticket; the deliverables are not optional.
+
+## Pre-stop self-check (run BEFORE your final “done” message)
+
+Before sending the final message to the PO, answer each of these out loud (so the trace is auditable). If any answer is “no”, fix it; do not stop:
+
+- [ ] Did I create/edit every file in §5 Outputs? (`git diff --stat origin/main...HEAD` matches.)
+- [ ] Are there NO files in the diff that are NOT in §5 Outputs (excluding the assigned Ticket file's `status`-only / §10-append-only changes per the HARD SCOPE carve-out)?
+- [ ] Did `npm test`, `npm run lint`, `npm run typecheck` exit 0?
+- [ ] Did `python scripts/validate_docs.py` print `0 failed`?
+- [ ] Did `git push origin <branch>` succeed without errors?
+- [ ] Did the git host return a PR URL?
+- [ ] Did I bump the Ticket `status` to `in_review` in a *separate* commit?
+- [ ] Have I included the PR URL in my final message?
+
+## Chunking rule (when the diff is large)
+
+If the Ticket has more than ~6 §5 Outputs files or any single file would exceed ~300 lines:
+
+1. Implement §5 Outputs in dependency order (types → helpers → main module → tests).
+2. Commit + push after each logical group (e.g. all types committed before main module starts).
+3. Open the PR as a **GitHub draft PR** (not a regular PR) as soon as the first commit lands so the PO can see progress while CI / Devin Review treat it as work-in-progress and do not run the same noise as on a real review.
+4. Mark the PR **ready for review** (un-draft) and run the pre-stop self-check only when every AC is green and CI is fully passing on the latest commit.
+
+This prevents “I ran out of context after writing 4 of 7 files in chat” failures: the partial implementation is already on disk and pushed, and the next session (or the PO) can resume from git, not from a lost chat buffer.
