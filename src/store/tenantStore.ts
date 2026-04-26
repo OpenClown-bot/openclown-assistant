@@ -76,6 +76,7 @@ export class OptimisticVersionError extends TenantStoreError {
 }
 
 let pgNumericTypeParserRegistered = false;
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function registerPgNumericTypeParser(): void {
   if (pgNumericTypeParserRegistered) {
@@ -107,6 +108,10 @@ export class TenantPostgresStore implements TenantStore {
     userId: string,
     action: (repository: TenantScopedRepository) => Promise<T>
   ): Promise<T> {
+    if (!UUID_V4_RE.test(userId)) {
+      throw new TenantStoreError("Invalid userId: not a UUID v4");
+    }
+
     const client = await this.pool.connect();
     const repository = new TenantScopedRepositoryImpl(client);
     await client.query("BEGIN");

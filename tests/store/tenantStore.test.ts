@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { TenantStore } from "../../src/store/types.js";
 import {
   OptimisticVersionError,
+  TenantStoreError,
   TenantPostgresStore,
   nextVersion,
   registerPgNumericTypeParser,
@@ -13,6 +14,7 @@ import {
 
 const NUMERIC_OID = pgTypes.builtins.NUMERIC;
 const defaultNumericTextParser = pgTypes.getTypeParser(NUMERIC_OID, "text");
+const VALID_USER_ID = "123e4567-e89b-42d3-a456-426614174000";
 
 type NonUserScopedMethods<T> = {
   [K in keyof T]: T[K] extends (...args: infer Args) => unknown
@@ -88,8 +90,8 @@ describe("tenant store typing and transactions", () => {
     const client = new FakeClient();
     const store = new TenantPostgresStore(new FakePool(client));
 
-    const result = await store.withTransaction("user-1", async (repository) => {
-      const rows = await repository.listConfirmedMeals("user-1", {
+    const result = await store.withTransaction(VALID_USER_ID, async (repository) => {
+      const rows = await repository.listConfirmedMeals(VALID_USER_ID, {
         mealLocalDateFrom: undefined,
         mealLocalDateTo: undefined,
         includeDeleted: false,
@@ -104,7 +106,7 @@ describe("tenant store typing and transactions", () => {
     expect(client.queries[0]).toMatchObject({ text: "BEGIN", values: [] });
     expect(client.queries[1]).toMatchObject({
       text: "SELECT set_config('app.user_id', $1, true)",
-      values: ["user-1"],
+      values: [VALID_USER_ID],
     });
 
     const listQuery = client.queries.find((query) => query.text.includes("FROM confirmed_meals"));
@@ -112,15 +114,41 @@ describe("tenant store typing and transactions", () => {
       throw new Error("Missing confirmed_meals list query");
     }
     expect(listQuery.text).toContain("WHERE user_id = $1");
-    expect(listQuery.values).toEqual(["user-1", null, null, false, 5, 0]);
+    expect(listQuery.values).toEqual([VALID_USER_ID, null, null, false, 5, 0]);
     expect(client.queries.at(-1)).toMatchObject({ text: "COMMIT", values: [] });
+  });
+
+  it("rejects invalid userId values before database interaction", async () => {
+    const emptyUserIdClient = new FakeClient();
+    const emptyUserIdStore = new TenantPostgresStore(new FakePool(emptyUserIdClient));
+    await expect(emptyUserIdStore.getUser("")).rejects.toMatchObject({
+      name: "TenantStoreError",
+      message: "Invalid userId: not a UUID v4",
+    });
+    expect(emptyUserIdClient.queries).toEqual([]);
+    expect(emptyUserIdClient.released).toBe(false);
+
+    const maliciousUserIdClient = new FakeClient();
+    const maliciousUserIdStore = new TenantPostgresStore(new FakePool(maliciousUserIdClient));
+    await expect(maliciousUserIdStore.getUser("1; DROP TABLE users")).rejects.toBeInstanceOf(TenantStoreError);
+    await expect(maliciousUserIdStore.getUser("1; DROP TABLE users")).rejects.toThrow(
+      "Invalid userId: not a UUID v4"
+    );
+    await expect(maliciousUserIdStore.getUser("1; DROP TABLE users")).rejects.not.toThrow("DROP");
+    expect(maliciousUserIdClient.queries).toEqual([]);
+    expect(maliciousUserIdClient.released).toBe(false);
+
+    const validUserIdClient = new FakeClient();
+    const validUserIdStore = new TenantPostgresStore(new FakePool(validUserIdClient));
+    await expect(validUserIdStore.getUser(VALID_USER_ID)).resolves.toBeNull();
+    expect(validUserIdClient.queries[0]).toMatchObject({ text: "BEGIN", values: [] });
   });
 
   it("wraps public repository methods in tenant transactions", async () => {
     const client = new FakeClient();
     const store = new TenantPostgresStore(new FakePool(client));
 
-    const deleted = await store.deleteUser("user-delete");
+    const deleted = await store.deleteUser(VALID_USER_ID);
 
     expect(deleted).toBe(true);
     expect(client.queries.map((query) => query.text)).toEqual([
@@ -129,7 +157,7 @@ describe("tenant store typing and transactions", () => {
       "DELETE FROM users WHERE id = $1",
       "COMMIT",
     ]);
-    expect(client.queries[2]?.values).toEqual(["user-delete"]);
+    expect(client.queries[2]?.values).toEqual([VALID_USER_ID]);
     expect(client.released).toBe(true);
   });
 
@@ -138,7 +166,7 @@ describe("tenant store typing and transactions", () => {
     const store = new TenantPostgresStore(new FakePool(client));
 
     await expect(
-      store.updateMealDraftWithVersion("user-1", {
+      store.updateMealDraftWithVersion(VALID_USER_ID, {
         id: "draft-1",
         expectedVersion: 3,
         status: "awaiting_confirmation",
