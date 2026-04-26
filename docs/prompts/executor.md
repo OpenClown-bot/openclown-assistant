@@ -84,7 +84,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 # WORKFLOW (follow in order)
 
-1. **Claim the Ticket.** Receive a Ticket path from the PO. Read the Ticket in full. Confirm its `status` is `ready` and `assigned_executor` matches your model (if not — stop and clarify).
+1. **Claim the Ticket.** Receive a Ticket path from the PO. Read the Ticket in full. Confirm its `status` is `ready` and `assigned_executor` matches your model (if not — stop and clarify). Then, in a single commit on a fresh branch (`tkt/TKT-NNN-<slug>`), bump the Ticket frontmatter `status` from `ready` to `in_progress`. This single transition is yours; no other role flips this field.
 
 2. **Read exactly what §4 Inputs says.** No more, no less. Do not `grep` the codebase for extra context unless the Ticket tells you to.
 
