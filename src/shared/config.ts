@@ -13,7 +13,7 @@ export interface AppConfig {
   auditDbUrl: string;
 }
 
-export const REQUIRED_CONFIG_NAMES: readonly string[] = [
+export const REQUIRED_CONFIG_NAMES = [
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_PILOT_USER_IDS",
   "DATABASE_URL",
