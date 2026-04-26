@@ -266,6 +266,9 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
   public constructor(private readonly db: TenantQueryable) {}
 
   public async createUser(userId: string, request: CreateUserRequest): Promise<UserRow> {
+    // DESIGN: ARCH-001@0.2.0 §3.3/§9.2 makes `id` the internal tenant key;
+    // conflict on `id` keeps same-UUID retries idempotent while
+    // `telegram_user_id` remains UNIQUE as the external identity guard.
     const result = await this.db.query<UserRow>(
       `INSERT INTO users (id, telegram_user_id, telegram_chat_id, language_code, timezone, onboarding_status)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -377,6 +380,9 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     userId: string,
     request: UpsertSummaryScheduleRequest
   ): Promise<SummaryScheduleRow> {
+    // DESIGN: `(user_id, id)` matches schema.sql UNIQUE (user_id, id).
+    // Summary schedules are id-addressed so daily/weekly/monthly rows can
+    // coexist for one user per ARCH-001@0.2.0 §4.6.
     const result = await this.db.query<SummaryScheduleRow>(
       `INSERT INTO summary_schedules (
          id, user_id, period_type, local_time, timezone, enabled, last_due_period_start
@@ -416,6 +422,9 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     userId: string,
     request: UpsertOnboardingStateRequest
   ): Promise<OnboardingStateRow> {
+    // DESIGN: `(user_id, id)` matches schema.sql UNIQUE (user_id, id);
+    // passing an id resumes/retries a specific onboarding flow state, while
+    // omitting it creates a new state row per ARCH-001@0.2.0 §4.1/§5.
     const result = await this.db.query<OnboardingStateRow>(
       `INSERT INTO onboarding_states (id, user_id, current_step, partial_answers)
        VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4)
