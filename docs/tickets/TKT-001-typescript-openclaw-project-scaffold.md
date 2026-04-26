@@ -1,7 +1,7 @@
 ---
 id: TKT-001
 title: "TypeScript OpenClaw Project Scaffold"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "Shared runtime scaffold"
 depends_on: []
@@ -10,6 +10,11 @@ estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
 updated: 2026-04-26
+closed_at: 2026-04-26
+closed_by: "orchestrator (PO-delegated)"
+closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/9"
+closure_commit: "1a8e05c"
+review_ref: "RV-CODE-001"
 ---
 
 # TKT-001: TypeScript OpenClaw Project Scaffold
