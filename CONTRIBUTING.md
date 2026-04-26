@@ -44,9 +44,11 @@ Each artifact ends with a "Handoff Checklist". CI validates the frontmatter; the
 | From → To | What goes across | Gate |
 |---|---|---|
 | PO → Business Planner | This-epic ask, in chat | — |
-| Business Planner → Architect | One PRD, status `approved` | PO sets status |
-| Architect → Reviewer (SPEC) | ArchSpec + ADRs + Tickets, status `in_review` | Architect runs `validate_docs.py` |
-| Reviewer (SPEC) → PO | One review file, verdict | — |
+| Business Planner → Reviewer (SPEC for PRD) | One PRD, status `in_review` | Business Planner runs `validate_docs.py` |
+| Reviewer (SPEC for PRD) → PO | One review file, verdict | — |
+| PO → Architect | One PRD, status `approved` | PO sets status after Reviewer verdict |
+| Architect → Reviewer (SPEC for ArchSpec) | ArchSpec + ADRs + Tickets, status `in_review` | Architect runs `validate_docs.py` |
+| Reviewer (SPEC for ArchSpec) → PO | One review file, verdict | — |
 | PO → Executor | One Ticket, status `ready`, `assigned_executor` set | PO promotes status |
 | Executor → Reviewer (CODE) | One PR, Ticket status `in_review` | CI green + Executor self-review |
 | Reviewer (CODE) → PO | One review file, verdict | — |
