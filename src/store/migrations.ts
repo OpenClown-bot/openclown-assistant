@@ -32,14 +32,12 @@ export class SchemaVersionError extends Error {
 
 export async function runMigrations(db: TenantQueryable, options: RunMigrationsOptions = {}): Promise<void> {
   const schemaSql = options.schemaSql ?? (await loadSchemaSql(options.schemaPath));
-  await db.query("BEGIN");
-  try {
-    await db.query(schemaSql);
-    await db.query("COMMIT");
-  } catch (error) {
-    await rollbackSafely(db);
-    throw error;
-  }
+  // schema.sql is composed of idempotent DDL with IF NOT EXISTS
+  // guards; PostgreSQL DDL triggers implicit commits per statement,
+  // so we deliberately do NOT wrap this in a transaction. On
+  // partial failure, re-running runMigrations is safe because every
+  // CREATE / ALTER is idempotent.
+  await db.query(schemaSql);
   await validateSchemaVersion(db, options.expectedVersion ?? TENANT_STORE_SCHEMA_VERSION);
 }
 
@@ -60,12 +58,4 @@ export async function validateSchemaVersion(
 async function loadSchemaSql(schemaPath?: string): Promise<string> {
   const resolvedPath = schemaPath ?? resolve(process.cwd(), "src/store/schema.sql");
   return readFile(resolvedPath, "utf8");
-}
-
-async function rollbackSafely(db: TenantQueryable): Promise<void> {
-  try {
-    await db.query("ROLLBACK");
-  } catch {
-    // Preserve the original migration error.
-  }
 }
