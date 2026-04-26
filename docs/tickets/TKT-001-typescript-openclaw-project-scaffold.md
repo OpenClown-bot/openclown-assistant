@@ -1,7 +1,7 @@
 ---
 id: TKT-001
 title: "TypeScript OpenClaw Project Scaffold"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "Shared runtime scaffold"
 depends_on: []
