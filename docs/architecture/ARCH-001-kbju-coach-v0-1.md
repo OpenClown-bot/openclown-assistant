@@ -265,21 +265,307 @@ graph LR
 - Failure modes: cancellation leaves all data unchanged; partial deletion failure rolls back transaction and alerts C10; repeated delete after prior deletion returns a Russian already-deleted/fresh-start message without old personalization; audit query never returns full other-user data in user-facing messages; concurrent delete and meal confirmation serializes on `user_id` lock.
 
 ## 4. Data Flow
-<Step-by-step; what data is produced where.>
+
+### 4.1 Onboarding and target creation
+1. C1 accepts `/start` only from `TELEGRAM_PILOT_USER_IDS`, maps Telegram numeric user ID to internal `users.id`, and creates or resumes an onboarding state in C3.
+2. C2 collects sex, age, height, weight, activity level, goal, optional pace, explicit IANA timezone, and report time preferences through deterministic Russian prompts.
+3. C2 validates each answer against PRD-001@0.2.0 US-1 ranges before persistence; invalid answers are not stored as profile facts.
+4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.1.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
+5. C1 displays the non-medical disclaimer, target summary, and confirmation prompt. Logging mode starts only after the user confirms targets.
+
+### 4.2 Text meal logging
+1. C1 receives a Russian free-form meal text from an onboarded user and creates `meal_drafts` with `source=text`, `status=estimating`, and `version=1`.
+2. C4 normalizes the text and calls C6 with the user's target context and the ADR-006@0.1.0 prompt-injection boundary: user meal text is data, not instructions.
+3. C6 parses item candidates through the ADR-002@0.1.0 model route, uses ADR-005@0.1.0 lookup sources where possible, and returns itemized KBJU plus confidence/source metadata.
+4. C4 updates the draft to `status=awaiting_confirmation` and C1 sends the itemized draft with confirm/edit affordances.
+5. On confirm, C4 copies draft items into `confirmed_meals` and `meal_items` in one transaction, marks the draft `confirmed`, and emits K1/K2/K5 metric events through C10.
+
+### 4.3 Voice meal logging
+1. C1 rejects voice clips longer than 15 seconds before downloading raw media.
+2. For valid clips, C1 keeps Telegram typing status active and gives C5 a temporary raw audio handle scoped to the request.
+3. C5 sends the clip to ADR-003@0.1.0 transcription, stores only the transcript text in `transcripts`, and deletes local raw audio on success or terminal failure.
+4. C4 treats the transcript as text meal input and follows the text meal flow.
+5. On first transcription failure, C1 sends `Не расслышал, напиши текстом`; on the second consecutive voice failure for that user, C1 opens guided manual KBJU entry.
+
+### 4.4 Photo meal logging
+1. C1 receives the Telegram photo, stores only a temporary local file handle, and creates a `meal_drafts` row with `source=photo` and `status=estimating`.
+2. C7 sends a downscaled temporary image to the ADR-004@0.1.0 vision route and requires structured item candidates plus `confidence_0_1`.
+3. C7 deletes local raw photo bytes after success or terminal failure, then writes candidate items, confidence, and `low_confidence_label_shown` if confidence is below `0.70`.
+4. C4 always asks for user confirmation or correction before any photo-derived `confirmed_meals` row exists.
+5. Edits create a new draft version; only the latest version can be confirmed.
+
+### 4.5 Manual entry, edit, and delete history
+1. Manual entry creates a `meal_drafts` row with `source=manual` and user-provided calories/protein/fat/carbs, then confirms it after the final user confirmation.
+2. C8 paginates `confirmed_meals` newest-first with page size 5, always filtered by `user_id` through C3.
+3. Editing a confirmed meal creates an `audit_events` row with before/after KBJU totals and updates the meal version in one transaction.
+4. Deleting a meal either hard-deletes the meal rows or marks them deleted according to the Phase 7 retention finalization, but it always writes an audit event and excludes the meal from future summaries.
+5. Already-delivered summaries are immutable; the next summary includes a correction delta when relevant.
+
+### 4.6 Scheduled summaries
+1. OpenClaw cron invokes C9 for each due `summary_schedules` row using `users.timezone` and idempotency key `(user_id, period_type, period_start)`.
+2. C9 reads confirmed, non-deleted meals for that user and period, computes totals, deltas vs targets, and previous-period comparison.
+3. If there are zero confirmed meals, C9 sends a deterministic Russian nudge without an LLM call.
+4. If meals exist, C9 calls ADR-002@0.1.0 text routing with the ADR-006@0.1.0 system prompt and validator, then stores the delivered `summary_records` row.
+5. Any validator failure sends a deterministic numeric KBJU-only fallback and logs `summary_recommendation_blocked`.
+
+### 4.7 Right-to-delete and tenant audit
+1. C11 starts only after `/forget_me` or the configured Russian natural-language deletion phrase and a single yes/no confirmation.
+2. C11 locks the user, stops future schedules, deletes all user-scoped records listed in §5, and clears flow state in one transaction.
+3. After deletion, the same Telegram user can `/start` and receives fresh onboarding with no previous personalization.
+4. End-of-pilot audit runs the K4 cross-user reference checks over user-owned tables and produces a non-user-facing audit result for PO/Reviewer review.
+
+### 4.8 Cost, latency, and degradation
+1. Every provider call starts with a C10 budget check using configured worst-case cost from ADR-002@0.1.0, ADR-003@0.1.0, and ADR-004@0.1.0.
+2. C10 records start/end timestamps, estimated cost, provider alias, model alias, user_id, request_id, and outcome without raw prompts, raw audio, or raw photos.
+3. If monthly trend risks exceeding $10, C10 enables degrade mode: cheaper text model, skip optional lookup leg when it would add latency/cost, no photo retry beyond one transient transport retry, and deterministic summaries when needed.
+4. C10 sends the PO alert once per degrade episode and suppresses duplicates with a monthly idempotency key.
 
 ## 5. Data Model / Schemas (declarative — no runnable code)
 ```yaml
-EntityName:
+users:
   id: uuid
-  field: type
+  telegram_user_id: string_unique
+  telegram_chat_id: string
+  language_code: string_optional
+  timezone: iana_timezone_string
+  onboarding_status: enum[pending, awaiting_target_confirmation, active, deleted]
+  created_at: timestamptz
+  updated_at: timestamptz
+  deleted_at: timestamptz_optional
+
+user_profiles:
+  id: uuid
+  user_id: uuid_fk_users
+  sex: enum[male, female]
+  age_years: integer_10_120
+  height_cm: decimal_100_250
+  weight_kg: decimal_20_300
+  activity_level: enum[sedentary, light, moderate, active, very_active]
+  weight_goal: enum[lose, maintain, gain]
+  pace_kg_per_week: decimal_0_1_to_2_0_optional
+  default_pace_applied: boolean
+  formula_version: string
+  created_at: timestamptz
+  updated_at: timestamptz
+
+user_targets:
+  id: uuid
+  user_id: uuid_fk_users
+  profile_id: uuid_fk_user_profiles
+  bmr_kcal: integer
+  activity_multiplier: decimal
+  maintenance_kcal: integer
+  goal_delta_kcal_per_day: integer
+  calories_kcal: integer
+  protein_g: integer
+  fat_g: integer
+  carbs_g: integer
+  formula_version: string
+  confirmed_at: timestamptz
+
+summary_schedules:
+  id: uuid
+  user_id: uuid_fk_users
+  period_type: enum[daily, weekly, monthly]
+  local_time: hh_mm_string
+  timezone: iana_timezone_string
+  enabled: boolean
+  last_due_period_start: date_optional
+  created_at: timestamptz
+  updated_at: timestamptz
+
+onboarding_states:
+  id: uuid
+  user_id: uuid_fk_users
+  current_step: string
+  partial_answers: json_object
+  version: integer
+  updated_at: timestamptz
+
+transcripts:
+  id: uuid
+  user_id: uuid_fk_users
+  telegram_message_id: string
+  provider_alias: string
+  audio_duration_seconds: integer_max_15
+  transcript_text: string
+  confidence: decimal_optional
+  raw_audio_deleted_at: timestamptz
+  created_at: timestamptz
+
+meal_drafts:
+  id: uuid
+  user_id: uuid_fk_users
+  source: enum[text, voice, photo, manual, correction]
+  transcript_id: uuid_fk_transcripts_optional
+  status: enum[estimating, awaiting_confirmation, confirmed, abandoned, failed]
+  normalized_input_text: string_optional
+  photo_confidence_0_1: decimal_optional
+  low_confidence_label_shown: boolean
+  total_calories_kcal: integer_optional
+  total_protein_g: decimal_optional
+  total_fat_g: decimal_optional
+  total_carbs_g: decimal_optional
+  confidence_0_1: decimal_optional
+  version: integer
+  created_at: timestamptz
+  updated_at: timestamptz
+
+meal_draft_items:
+  id: uuid
+  user_id: uuid_fk_users
+  draft_id: uuid_fk_meal_drafts
+  item_name_ru: string
+  portion_text_ru: string
+  portion_grams: decimal_optional
+  calories_kcal: integer
+  protein_g: decimal
+  fat_g: decimal
+  carbs_g: decimal
+  source: enum[open_food_facts, usda_fdc, llm_fallback, manual]
+  source_ref: string_optional
+  confidence_0_1: decimal_optional
+
+confirmed_meals:
+  id: uuid
+  user_id: uuid_fk_users
+  source: enum[text, voice, photo, manual]
+  draft_id: uuid_fk_meal_drafts_optional
+  meal_local_date: date
+  meal_logged_at: timestamptz
+  total_calories_kcal: integer
+  total_protein_g: decimal
+  total_fat_g: decimal
+  total_carbs_g: decimal
+  manual_entry: boolean
+  deleted_at: timestamptz_optional
+  version: integer
+  created_at: timestamptz
+  updated_at: timestamptz
+
+meal_items:
+  id: uuid
+  user_id: uuid_fk_users
+  meal_id: uuid_fk_confirmed_meals
+  item_name_ru: string
+  portion_text_ru: string
+  portion_grams: decimal_optional
+  calories_kcal: integer
+  protein_g: decimal
+  fat_g: decimal
+  carbs_g: decimal
+  source: enum[open_food_facts, usda_fdc, llm_fallback, manual]
+  source_ref: string_optional
+
+summary_records:
+  id: uuid
+  user_id: uuid_fk_users
+  period_type: enum[daily, weekly, monthly]
+  period_start_local_date: date
+  period_end_local_date: date
+  idempotency_key: string_unique_per_user
+  totals: kbju_totals_object
+  deltas_vs_target: kbju_deltas_object
+  previous_period_comparison: kbju_deltas_object_optional
+  recommendation_text_ru: string_optional
+  recommendation_mode: enum[llm_validated, deterministic_fallback, no_meal_nudge]
+  blocked_reason: string_optional
+  delivered_at: timestamptz
+
+audit_events:
+  id: uuid
+  user_id: uuid_fk_users
+  event_type: enum[meal_created, meal_edited, meal_deleted, profile_created, right_to_delete_confirmed, right_to_delete_completed, summary_blocked]
+  entity_type: string
+  entity_id: uuid_optional
+  before_snapshot: json_object_optional
+  after_snapshot: json_object_optional
+  reason: string_optional
+  created_at: timestamptz
+
+metric_events:
+  id: uuid
+  user_id: uuid_fk_users
+  request_id: string
+  event_name: string
+  component: enum[C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11]
+  latency_ms: integer_optional
+  outcome: enum[success, user_fallback, provider_failure, validation_blocked, budget_blocked]
+  metadata: json_object_without_raw_prompt_or_media
+  created_at: timestamptz
+
+cost_events:
+  id: uuid
+  user_id: uuid_fk_users
+  request_id: string
+  provider_alias: string
+  model_alias: string
+  call_type: enum[text_llm, vision_llm, transcription, lookup]
+  estimated_cost_usd: decimal
+  actual_cost_usd: decimal_optional
+  input_units: integer_optional
+  output_units: integer_optional
+  billing_unit: enum[token, audio_second, request]
+  created_at: timestamptz
+
+monthly_spend_counters:
+  id: uuid
+  user_id: uuid_fk_users
+  month_utc: yyyy_mm_string
+  estimated_spend_usd: decimal
+  actual_spend_usd: decimal_optional
+  degrade_mode_enabled: boolean
+  po_alert_sent_at: timestamptz_optional
+  updated_at: timestamptz
+
+food_lookup_cache:
+  id: uuid
+  user_id: uuid_fk_users
+  canonical_query_hash: string
+  canonical_food_name: string
+  source: enum[open_food_facts, usda_fdc]
+  source_ref: string
+  per_100g_kbju: kbju_object
+  expires_at: timestamptz
+  created_at: timestamptz
+
+tenant_audit_runs:
+  id: uuid
+  run_type: enum[end_of_pilot_k4]
+  started_at: timestamptz
+  completed_at: timestamptz_optional
+  checked_tables: list_string
+  cross_user_reference_count: integer
+  findings: json_array_without_user_payloads
 ```
+
+Schema invariants:
+- Every user-owned table has `user_id NOT NULL` and is accessed only through C3 repository methods that require `user_id`.
+- Child tables that reference user-owned parents include composite ownership validation: `(user_id, parent_id)` must match a parent row owned by the same user.
+- PostgreSQL RLS from ADR-001@0.1.0 is enabled on all user-owned tables; the app role is not table owner and cannot bypass RLS.
+- Raw voice clips and raw photo bytes are not represented in durable schemas.
+- Logs and metric metadata must never store raw prompt text, raw audio, raw photos, provider keys, or Telegram bot tokens.
 
 ## 6. External Interfaces
 | System | Protocol | Auth | Rate limit | Failure mode |
 |---|---|---|---|---|
-| Telegram Bot API | HTTPS | bot token | 30 msg/s/chat | retry w/ backoff |
-| OpenFoodFacts | HTTPS | none | ≈100 req/min | cache + LLM fallback |
-| Whisper | HTTPS | API key | 50 req/min (OpenAI) | local fallback in v0.2 |
+| Telegram Bot API | HTTPS through OpenClaw Telegram gateway | Bot token injected by runtime secret handling | Telegram returns retry metadata on rate limits; C1 additionally caps outbound sends at 1 message/chat/second and 25 total messages/second for pilot safety | Retry transient sends once, obey retry-after, then log `telegram_send_failed`; typing status uses `sendChatAction` while providers run |
+| OpenClaw runtime | Local skill runtime / sandbox / cron / media handoff | Runtime context and injected secrets | Local process capacity; one cron delivery per due schedule/idempotency key | Startup fails if required secrets, skill manifests, or `PERSONA_PATH` are missing; cron duplicates are ignored by idempotency key |
+| PostgreSQL C3 store | Local Docker network PostgreSQL connection | Non-owner app DB role plus runtime DB secret | Local connection pool sized for pilot; migrations fail startup on mismatch | Transaction rollback and Russian retry-later UX; RLS denial is security error; migration mismatch blocks startup |
+| OmniRoute | Local or private HTTP OpenAI-compatible endpoint | `OMNIROUTE_API_KEY` runtime secret | Provider/account quotas managed by router; skill-level token budgets are hard limits | Fallback to configured direct provider only at runtime layer; C10 budget block or deterministic/manual fallback if router unavailable |
+| Fireworks text / vision models | HTTPS via OmniRoute, runtime fallback only if router path fails | Router credential or fallback Fireworks key outside skill code | Account quota unknown; C10 enforces local max tokens, timeout, and monthly trend guard | One idempotent transport retry only; malformed/suspicious output is validation failure, not retry; degrade to manual/deterministic paths |
+| Fireworks Whisper V3 Turbo | HTTPS via OmniRoute audio path or runtime fallback | Router credential or fallback Fireworks key outside skill code | Account quota unknown; local cap is voice <=15 seconds and one in-flight transcription/user | First failure asks for text; second consecutive voice failure opens manual entry; raw audio deletion failure is high severity |
+| Open Food Facts | HTTPS JSON API or downloaded export-derived lookup | None for public API | Live API is used only for real user-triggered lookups; local cap 60 requests/minute and cache hits first | Timeout or no hit falls through to USDA and then LLM fallback; no scraping from live API |
+| USDA FoodData Central | HTTPS REST API | `USDA_FDC_API_KEY`; `DEMO_KEY` only for local exploration | 1,000 requests/hour/IP default per USDA API guide | Timeout/rate-limit skips USDA leg and continues with available lookup/LLM fallback; repeated failures enable lookup degrade |
+| `PERSONA_PATH` persona file | Read-only local file mounted into skill container | File-system read controlled by deployment | Read once at startup and reloaded only on deploy/restart | Missing/unreadable persona fails C9 startup; C9 sends deterministic summary only until fixed |
+
+Interface sources:
+- Telegram Bot API User, webhook, response, and typing action docs: <https://core.telegram.org/bots/api#user>, <https://core.telegram.org/bots/api#setwebhook>, <https://core.telegram.org/bots/api#sendchataction>.
+- OmniRoute README: <https://github.com/diegosouzapw/OmniRoute>.
+- Fireworks model catalogue for text, vision, and audio prices: <https://fireworks.ai/models>.
+- Open Food Facts data/API reuse guidance: <https://world.openfoodfacts.org/data>.
+- USDA FoodData Central API guide and rate limit: <https://fdc.nal.usda.gov/api-guide>.
+- PostgreSQL RLS behavior: <https://www.postgresql.org/docs/current/ddl-rowsecurity.html>.
 
 ## 7. Tech Stack Decisions (linked ADRs)
 - Language / runtime: OpenClaw TypeScript skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
