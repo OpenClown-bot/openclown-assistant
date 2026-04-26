@@ -4,8 +4,8 @@ This repository is managed by a **multi-LLM pipeline** with strict role separati
 
 | Role | Prompt file | Default model | Runtime |
 |---|---|---|---|
-| Business Planner | `docs/prompts/business-planner.md` | GPT-5.5 thinking | ChatGPT Plus (web) |
-| Technical Architect | `docs/prompts/architect.md` | GPT-5.5 xhigh / Opus 4.6 thinking | Codex CLI / Windsurf |
+| Business Planner | `docs/prompts/business-planner.md` | GPT-5.5 thinking / Claude Opus 4.7 thinking | ChatGPT Plus (web) / Devin |
+| Technical Architect | `docs/prompts/architect.md` | GPT-5.5 xhigh / GPT-5.5 thinking / Opus 4.6 thinking | Codex CLI / opencode CLI / Windsurf |
 | Code Executor | `docs/prompts/executor.md` | GLM 5.1 (default), Qwen 3.6 Plus (parallel), Codex GPT-5.5 (specialist) | opencode + OmniRoute |
 | Reviewer | `docs/prompts/reviewer.md` | Kimi K2.6 | opencode + OmniRoute |
 

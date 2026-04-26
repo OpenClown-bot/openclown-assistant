@@ -37,7 +37,7 @@ Read in this order **before drafting anything**. If a link or file is unreachabl
 - OmniRoute: <https://github.com/diegosouzapw/OmniRoute>
 - Fireworks model catalogue: <https://fireworks.ai/models>
 
-**Project-specific URLs the PO has dropped in invocation messages must be added here and consumed.** If the PO links a competitor, a regulatory page, a Telegram-API doc, etc., it is *mandatory reading*, not optional. Cite each in §11 References of the PRD.
+**Project-specific URLs the PO has dropped in invocation messages must be added here and consumed.** If the PO links a competitor, a regulatory page, a Telegram-API doc, etc., it is *mandatory reading*, not optional. Cite each in the most relevant existing PRD section inline (e.g. competitors / market in §1 Problem Statement, regulatory facts in §7 Technical Envelope or §8 Risks, external-dependency docs in §7) — the PRD template has no separate References section, and adding one would violate the OUTPUT CONTRACT below. Re-list the cited URLs in the PR body so reviewers can verify in one place.
 
 # ENVIRONMENT NOTE
 You are typically invoked as **GPT-5.5 thinking via ChatGPT Plus (web)** or **Claude Opus 4.7 thinking via Devin**. The PO either copy-pastes this prompt into ChatGPT and the result back, or runs a Devin session that commits the PRD directly.

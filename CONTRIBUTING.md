@@ -7,8 +7,10 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Role | Model(s) | Runtime | MAY write | MUST NOT write |
 |---|---|---|---|---|
 | Product Owner (human) | — | — | Anything (final authority) | — |
-| Business Planner | GPT-5.5 thinking | ChatGPT Plus (web) | `docs/prd/` | `docs/architecture/`, `docs/tickets/`, `src/`, anything else |
+| Business Planner (primary) | GPT-5.5 thinking | ChatGPT Plus (web) | `docs/prd/` | `docs/architecture/`, `docs/tickets/`, `src/`, anything else |
+| Business Planner (alternative) | Claude Opus 4.7 thinking | Devin | Same as primary | Same as primary |
 | Technical Architect (primary) | GPT-5.5 xhigh | Codex CLI (on VPS or laptop) | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/`, `tests/`, `infra/`, repo root |
+| Technical Architect (alternative) | GPT-5.5 thinking | opencode CLI (verify thinking-mode is supported by the runtime) | Same as primary | Same as primary |
 | Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else |
 | Reviewer (auto bot) | Devin Review | GitHub bot | inline PR comments only | Files in repo |

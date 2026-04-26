@@ -26,9 +26,11 @@ Read in this order. Files marked **MANDATORY for Phase 0** auto-fail your ArchSp
 - `docs/tickets/README.md`, `docs/tickets/TEMPLATE.md` — Ticket output format.
 - `docs/architecture/`, `docs/architecture/adr/`, `docs/tickets/` — skim prior artifacts.
 
-**Knowledge files — MANDATORY for Phase 0:**
+**Knowledge files — MANDATORY for Phase 0 (skipping auto-fails at Reviewer §A.3):**
 - `docs/knowledge/openclaw.md` — runtime is locked; map every PRD Goal to a built-in or a gap.
 - `docs/knowledge/awesome-skills.md` — fork-candidate audit list. Audit ≥3 candidates per major capability; no exceptions.
+
+**Knowledge files — read in Phase 1 (before ADR work):**
 - `docs/knowledge/llm-routing.md` — LLM cost / latency / failover envelope; informs your routing ADR.
 
 **External (must be reachable; cite the URL inline in ADRs whenever you reference an empirical claim):**
