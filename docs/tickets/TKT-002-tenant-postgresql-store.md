@@ -1,7 +1,7 @@
 ---
 id: TKT-002
 title: "Tenant PostgreSQL Store"
-status: in_review
+status: blocked
 arch_ref: ARCH-001@0.2.0
 component: "C3 Tenant-Scoped Store"
 depends_on: ["TKT-001@0.1.0"]
@@ -94,6 +94,7 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-CONFLICT-B decision: keep ON CONFLICT (user_id, id) because schema.sql defines that unique constraint; both upserts are id-addressed, omitted id creates a new row, and summary schedules may coexist per user
 2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-SOFTDELETE decision: changed softDeleteConfirmedMealWithVersion so first delete sets deleted_at/version, re-delete of an already soft-deleted row is a no-op returning the existing marker, and stale versions still fail for non-deleted rows
 2026-04-26 22:26 gpt-5.5: iter 2 — corrective: iter 1 silently dropped F-DR-DBTS and three informational flags despite invocation 13 listing all seven fixes; this iter 2 closes the gap
+2026-04-26 22:28 gpt-5.5: blocked on Q-TKT-002-01
 
 ---
 
