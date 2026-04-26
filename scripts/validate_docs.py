@@ -32,7 +32,9 @@ DOCS_ROOT = REPO_ROOT / "docs"
 # frontmatter required). Files inside these are free-form meta docs.
 # `personality` holds PERSONA-XXX system-prompt skeletons read at runtime
 # by the recommendation skill (see ARCH-001@0.2.0 §6 External Interfaces).
-FREEFORM_DIRS = {"prompts", "knowledge", "personality"}
+# `meta` holds the orchestrator session-handoff prompt and other cross-role
+# meta-process documents (see docs/meta/devin-session-handoff.md).
+FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL: set[str] = set()
 
