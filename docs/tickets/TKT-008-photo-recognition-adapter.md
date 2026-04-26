@@ -2,7 +2,7 @@
 id: TKT-008
 title: "Photo Recognition Adapter"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C7 Photo Recognition Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-006@0.1.0"]
 blocks: ["TKT-009@0.1.0", "TKT-014@0.1.0"]
@@ -30,11 +30,11 @@ Implement the OmniRoute vision adapter for meal photo candidates.
 - No barcode or packaged-goods scanning.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.7 C7 Photo Recognition Provider
-- ARCH-001@0.1.0 §4.4 Photo meal logging
-- ARCH-001@0.1.0 §6 External Interfaces
-- ARCH-001@0.1.0 §9.4 LLM Prompt-Injection Mitigations
-- ARCH-001@0.1.0 §9.5 PII Handling and Deletion
+- ARCH-001@0.2.0 §3.7 C7 Photo Recognition Provider
+- ARCH-001@0.2.0 §4.4 Photo meal logging
+- ARCH-001@0.2.0 §6 External Interfaces
+- ARCH-001@0.2.0 §9.4 LLM Prompt-Injection Mitigations
+- ARCH-001@0.2.0 §9.5 PII Handling and Deletion
 - ADR-002@0.1.0
 - ADR-004@0.1.0
 - ADR-009@0.1.0

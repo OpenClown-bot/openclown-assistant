@@ -2,7 +2,7 @@
 id: ADR-003
 title: "Fireworks Whisper Voice Transcription"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-003: Fireworks Whisper Voice Transcription
 
 ## Context
-ARCH-001@0.1.0 C5 must transcribe Russian Telegram voice messages up to 15 seconds and feed C4/C6 within PRD-001@0.2.0 G3: <=8 seconds p95 and <=30 seconds p100 while showing typing status. PRD-001@0.2.0 G5 caps combined model and voice spend at $10/month. Raw audio must be deleted immediately after extraction per PRD-001@0.2.0 §7.
+ARCH-001@0.2.0 C5 must transcribe Russian Telegram voice messages up to 15 seconds and feed C4/C6 within PRD-001@0.2.0 G3: <=8 seconds p95 and <=30 seconds p100 while showing typing status. PRD-001@0.2.0 G5 caps combined model and voice spend at $10/month. Raw audio must be deleted immediately after extraction per PRD-001@0.2.0 §7.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: Fireworks Whisper V3 Turbo hosted transcription
@@ -50,10 +50,10 @@ Why the losers lost:
 ## Consequences
 - Positive: Voice cost is effectively negligible relative to the $10 ceiling, leaving budget for text/vision LLM calls.
 - Negative / trade-offs accepted: Hosted ASR is an external dependency and must be covered by failure UX: first failure asks for text, second consecutive voice failure opens manual KBJU entry.
-- Follow-up work: ARCH-001@0.1.0 Phase 6/7 must specify temporary audio file lifetime, provider timeout, `raw_audio_deleted` high-severity alert, and transcription success/failure metrics.
+- Follow-up work: ARCH-001@0.2.0 Phase 6/7 must specify temporary audio file lifetime, provider timeout, `raw_audio_deleted` high-severity alert, and transcription success/failure metrics.
 
 ## References
 - Fireworks model library for Whisper V3 Turbo and Streaming ASR v2: <https://fireworks.ai/models>
 - Deepgram pricing: <https://www.deepgram.com/pricing>
 - AssemblyAI pricing: <https://www.assemblyai.com/pricing>
-- Phase 0 voice-skill audit in ARCH-001@0.1.0 §0.2 Capability B
+- Phase 0 voice-skill audit in ARCH-001@0.2.0 §0.2 Capability B

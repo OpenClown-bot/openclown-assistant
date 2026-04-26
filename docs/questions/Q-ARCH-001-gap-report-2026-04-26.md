@@ -1,14 +1,14 @@
 ---
 id: Q-ARCH-001-GAP-2026-04-26
 status: open
-ticket_ref: ARCH-001@0.1.0
+ticket_ref: ARCH-001@0.2.0
 asker_model: "gpt-5.5-thinking"
 answerer_model: "product-owner"
 created: 2026-04-26
 answered: null
 ---
 
-# Gap Report for ARCH-001@0.1.0
+# Gap Report for ARCH-001@0.2.0
 
 ## Context
 
@@ -55,7 +55,7 @@ Q_TO_BUSINESS_6: Where will the PO-authored curated assistant personality live?
 
 ## What I assumed / would do if no answer
 
-No Phase 3 design assumptions will be made until PO answers or explicitly defers each question. If a question is deferred, it will stay listed as `Q_TO_BUSINESS` in ARCH-001@0.1.0 §12 with a concrete design default and risk.
+No Phase 3 design assumptions will be made until PO answers or explicitly defers each question. If a question is deferred, it will stay listed as `Q_TO_BUSINESS` in ARCH-001@0.2.0 §12 with a concrete design default and risk.
 
 ## Architect's answer
 

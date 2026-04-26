@@ -2,7 +2,7 @@
 id: TKT-007
 title: "Voice Transcription Adapter"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C5 Voice Transcription Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0"]
 blocks: ["TKT-009@0.1.0", "TKT-014@0.1.0"]
@@ -30,11 +30,11 @@ Implement the Fireworks Whisper transcription adapter for short Russian voice cl
 - No local Whisper or GPU inference path.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.5 C5 Voice Transcription Provider
-- ARCH-001@0.1.0 §4.3 Voice meal logging
-- ARCH-001@0.1.0 §6 External Interfaces
-- ARCH-001@0.1.0 §8 Observability
-- ARCH-001@0.1.0 §9.5 PII Handling and Deletion
+- ARCH-001@0.2.0 §3.5 C5 Voice Transcription Provider
+- ARCH-001@0.2.0 §4.3 Voice meal logging
+- ARCH-001@0.2.0 §6 External Interfaces
+- ARCH-001@0.2.0 §8 Observability
+- ARCH-001@0.2.0 §9.5 PII Handling and Deletion
 - ADR-002@0.1.0
 - ADR-003@0.1.0
 - ADR-009@0.1.0

@@ -2,7 +2,7 @@
 id: TKT-001
 title: "TypeScript OpenClaw Project Scaffold"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "Shared runtime scaffold"
 depends_on: []
 blocks: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-013@0.1.0"]
@@ -29,9 +29,9 @@ Create the Node 24 TypeScript project scaffold for OpenClaw skill modules.
 - No production Docker or Compose files; that belongs to TKT-013@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §2 Architecture Overview
-- ARCH-001@0.1.0 §3 Components C1 through C11
-- ARCH-001@0.1.0 §9 Security
+- ARCH-001@0.2.0 §2 Architecture Overview
+- ARCH-001@0.2.0 §3 Components C1 through C11
+- ARCH-001@0.2.0 §9 Security
 - docs/knowledge/openclaw.md
 - README.md
 - CONTRIBUTING.md

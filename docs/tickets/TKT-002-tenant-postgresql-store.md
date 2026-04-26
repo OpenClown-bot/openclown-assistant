@@ -2,7 +2,7 @@
 id: TKT-002
 title: "Tenant PostgreSQL Store"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C3 Tenant-Scoped Store"
 depends_on: ["TKT-001@0.1.0"]
 blocks: ["TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-014@0.1.0"]
@@ -18,8 +18,9 @@ updated: 2026-04-26
 Implement the PostgreSQL tenant store with RLS-backed repositories.
 
 ## 2. In Scope
-- Add the C3 PostgreSQL schema matching ARCH-001@0.1.0 §5, including `kbju_accuracy_labels`.
+- Add the C3 PostgreSQL schema matching ARCH-001@0.2.0 §5, including `kbju_accuracy_labels`.
 - Add RLS policy SQL for every user-owned table and ownership checks for child rows.
+- Provision a separate PostgreSQL role `kbju_audit` with `BYPASSRLS` per ARCH-001@0.2.0 §9.2 in the schema bootstrap so the C11 K4 audit job can run; the application role must NOT inherit this privilege.
 - Add a typed tenant repository layer that requires `user_id` for all user-owned reads and writes.
 - Add transaction helpers, optimistic version helpers, and migration startup validation.
 - Add tests proving unscoped repository methods do not exist and SQL/RLS invariants are present.
@@ -30,10 +31,10 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 - No Docker Compose deployment; that belongs to TKT-013@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.3 C3 Tenant-Scoped Store
-- ARCH-001@0.1.0 §4 Data Flow
-- ARCH-001@0.1.0 §5 Data Model / Schemas
-- ARCH-001@0.1.0 §9.2 Access Control and Tenant Isolation
+- ARCH-001@0.2.0 §3.3 C3 Tenant-Scoped Store
+- ARCH-001@0.2.0 §4 Data Flow
+- ARCH-001@0.2.0 §5 Data Model / Schemas
+- ARCH-001@0.2.0 §9.2 Access Control and Tenant Isolation
 - ADR-001@0.1.0
 - ADR-009@0.1.0
 - docs/knowledge/openclaw.md
@@ -48,17 +49,19 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 - [ ] `src/store/types.ts` exporting table and repository request types
 - [ ] `src/store/tenantStore.ts` exporting the C3 repository surface
 - [ ] `src/store/migrations.ts` exporting migration/version validation helpers
-- [ ] `tests/store/schema.test.ts` verifying schema invariants from ARCH-001@0.1.0 §5
+- [ ] `tests/store/schema.test.ts` verifying schema invariants from ARCH-001@0.2.0 §5
 - [ ] `tests/store/tenantStore.test.ts` verifying repository scoping and transaction behavior with mocks
 
 ## 6. Acceptance Criteria (machine-checkable)
 - [ ] `npm test -- tests/store/schema.test.ts tests/store/tenantStore.test.ts` passes.
 - [ ] `npm run lint` passes.
 - [ ] `npm run typecheck` passes.
-- [ ] Tests assert every user-owned table in ARCH-001@0.1.0 §5 has `user_id NOT NULL` except `users` and `tenant_audit_runs`.
+- [ ] Tests assert every user-owned table in ARCH-001@0.2.0 §5 has `user_id NOT NULL` except `users` and `tenant_audit_runs`.
 - [ ] Tests assert every user-owned table has an `ENABLE ROW LEVEL SECURITY` statement.
 - [ ] Tests assert no exported repository method can list or mutate user-owned rows without a `userId` parameter.
 - [ ] Tests assert raw voice/photo durable columns do not exist in `schema.sql`.
+- [ ] Tests assert `users` has no `deleted_at` column and `onboarding_status` enum has no `deleted` value (right-to-delete is hard-delete only per ARCH-001@0.2.0 §9.5).
+- [ ] Tests assert the `kbju_audit` role exists with `BYPASSRLS` and that the application role is not a member of it.
 
 ## 7. Constraints (hard rules for Executor)
 - Allowed new runtime dependencies: `pg`.

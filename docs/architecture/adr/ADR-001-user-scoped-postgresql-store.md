@@ -2,7 +2,7 @@
 id: ADR-001
 title: "User-Scoped PostgreSQL Store"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-001: User-Scoped PostgreSQL Store
 
 ## Context
-ARCH-001@0.1.0 C3 and PRD-001@0.2.0 US-9 require storage-layer tenant isolation from day 1, not a single-tenant pilot shortcut. PRD-001@0.2.0 US-6 and US-8 also require edit/delete history, audit records, right-to-delete, and future migration to more tenants without redesign. PO OBC-1 explicitly limits this ADR to implementation choices for user-scoped isolation.
+ARCH-001@0.2.0 C3 and PRD-001@0.2.0 US-9 require storage-layer tenant isolation from day 1, not a single-tenant pilot shortcut. PRD-001@0.2.0 US-6 and US-8 also require edit/delete history, audit records, right-to-delete, and future migration to more tenants without redesign. PO OBC-1 explicitly limits this ADR to implementation choices for user-scoped isolation.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: SQLite WAL with mandatory `user_id` predicates
@@ -48,9 +48,9 @@ Why the losers lost:
 - Option D: Managed Postgres is useful later, but it spends money and introduces external dependency before resource telemetry justifies it.
 
 ## Consequences
-- Positive: Every persistent entity in ARCH-001@0.1.0 C3/C11 gets a storage-layer `user_id` boundary and the end-of-pilot audit can search cross-user foreign-key anomalies.
+- Positive: Every persistent entity in ARCH-001@0.2.0 C3/C11 gets a storage-layer `user_id` boundary and the end-of-pilot audit can search cross-user foreign-key anomalies.
 - Negative / trade-offs accepted: Executors must implement migrations, RLS policy tests, and a non-owner app DB role; DB work is security-critical enough to assign to `codex-gpt-5.5` in tickets.
-- Follow-up work: ARCH-001@0.1.0 Phase 6 must define declarative schemas with `user_id`, composite foreign keys, delete transaction boundaries, and the K4 audit query shape.
+- Follow-up work: ARCH-001@0.2.0 Phase 6 must define declarative schemas with `user_id`, composite foreign keys, delete transaction boundaries, and the K4 audit query shape.
 
 ## References
 - PostgreSQL Row Security Policies: <https://www.postgresql.org/docs/current/ddl-rowsecurity.html>

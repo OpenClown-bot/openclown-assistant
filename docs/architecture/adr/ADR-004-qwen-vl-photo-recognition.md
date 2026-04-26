@@ -2,7 +2,7 @@
 id: ADR-004
 title: "Qwen VL Photo Recognition"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-004: Qwen VL Photo Recognition
 
 ## Context
-ARCH-001@0.1.0 C7 must convert Telegram meal photos into candidate food items, portions, and a confidence score for mandatory user review. PRD-001@0.2.0 US-4 requires a visible low-confidence label below an Architect-set numeric threshold and forbids auto-save for photo logs. PRD-001@0.2.0 §7 sets photo round-trip latency at <=12 seconds p95 and <=45 seconds p100.
+ARCH-001@0.2.0 C7 must convert Telegram meal photos into candidate food items, portions, and a confidence score for mandatory user review. PRD-001@0.2.0 US-4 requires a visible low-confidence label below an Architect-set numeric threshold and forbids auto-save for photo logs. PRD-001@0.2.0 §7 sets photo round-trip latency at <=12 seconds p95 and <=45 seconds p100.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: Fireworks Qwen3 VL 30B A3B Instruct through OmniRoute
@@ -28,7 +28,7 @@ ARCH-001@0.1.0 C7 must convert Telegram meal photos into candidate food items, p
 - Cost / latency / ops burden: Same 6,000 + 800 token call costs about $0.0089/photo; 120 photos/month is about $1.07.
 
 ### Option C: Direct Gemini image model inspired by Phase 0 `google-gemini-media`
-- Description: Use Gemini image understanding directly, borrowing request-shape ideas from the audited `google-gemini-media` skill reference in ARCH-001@0.1.0 §0.2 Capability C.
+- Description: Use Gemini image understanding directly, borrowing request-shape ideas from the audited `google-gemini-media` skill reference in ARCH-001@0.2.0 §0.2 Capability C.
 - Pros: Real multimodal provider option and a source-backed Phase 0 reference exists.
 - Cons: Direct provider calls would bypass the OmniRoute-first rule unless routed through OmniRoute. Google pricing/model documentation fetches were unreliable during research, so this option cannot be accepted with the same cost confidence.
 - Cost / latency / ops burden: Unknown exact current cost from fetched sources; medium ops burden due separate provider credentials and quota.
@@ -52,9 +52,9 @@ Why the losers lost:
 ## Consequences
 - Positive: Photo cost stays far below the monthly ceiling and remains visible to C10 as part of the same router spend path.
 - Negative / trade-offs accepted: Confidence is model-reported and not calibrated; user confirmation is the real safety gate.
-- Follow-up work: ARCH-001@0.1.0 Phase 6 must store `photo_confidence`, `low_confidence_label_shown`, and user correction deltas so K7 can compare pre-confirmation estimates against corrected records.
+- Follow-up work: ARCH-001@0.2.0 Phase 6 must store `photo_confidence`, `low_confidence_label_shown`, and user correction deltas so K7 can compare pre-confirmation estimates against corrected records.
 
 ## References
 - Fireworks model library and vision model prices: <https://fireworks.ai/models>
 - OWASP LLM01 prompt injection and multimodal prompt-injection risk: <https://genai.owasp.org/llmrisk/llm01-prompt-injection/>
-- Phase 0 photo-skill audit in ARCH-001@0.1.0 §0.2 Capability C
+- Phase 0 photo-skill audit in ARCH-001@0.2.0 §0.2 Capability C

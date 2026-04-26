@@ -2,7 +2,7 @@
 id: TKT-012
 title: "Right To Delete Audit"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C11 Right-to-Delete and Tenant Audit Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0"]
 blocks: ["TKT-014@0.1.0"]
@@ -20,9 +20,10 @@ Implement right-to-delete plus the tenant isolation audit runner.
 ## 2. In Scope
 - Add C11 `/forget_me` and Russian natural-language deletion intent handler interface for C1.
 - Require a single yes/no Russian confirmation before deletion.
-- Hard-delete all user-scoped rows listed in ARCH-001@0.1.0 §5 inside one transaction after locking the user.
+- Hard-delete all user-scoped rows listed in ARCH-001@0.2.0 §5 inside one transaction after locking the user (per-user PostgreSQL advisory lock on `users.id`); the `users` row itself is removed in the same transaction.
+- Handle the no-row-to-mark case: a repeat `/forget_me` from a Telegram user with no matching `users` row returns the Russian fresh-start message (ARCH-001@0.2.0 §3.11) without persisting anything.
 - Stop future summary schedules before deleting the user row.
-- Add end-of-pilot K4 audit runner that checks cross-user references without returning user payloads.
+- Add end-of-pilot K4 audit runner that opens its own connection using `AUDIT_DB_URL` (the `kbju_audit` `BYPASSRLS` role provisioned in TKT-002@0.1.0); the runner writes only aggregate counts/findings to `tenant_audit_runs.findings`.
 
 ## 3. NOT In Scope (Executor must NOT touch these — Reviewer fails on violation)
 - No ordinary meal soft-delete behavior; that belongs to TKT-010@0.1.0.
@@ -30,11 +31,11 @@ Implement right-to-delete plus the tenant isolation audit runner.
 - No admin web UI or dashboard.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.11 C11 Right-to-Delete and Tenant Audit Service
-- ARCH-001@0.1.0 §4.7 Right-to-delete and tenant audit
-- ARCH-001@0.1.0 §5 Data Model / Schemas
-- ARCH-001@0.1.0 §9.2 Access Control and Tenant Isolation
-- ARCH-001@0.1.0 §9.5 PII Handling and Deletion
+- ARCH-001@0.2.0 §3.11 C11 Right-to-Delete and Tenant Audit Service
+- ARCH-001@0.2.0 §4.7 Right-to-delete and tenant audit
+- ARCH-001@0.2.0 §5 Data Model / Schemas
+- ARCH-001@0.2.0 §9.2 Access Control and Tenant Isolation
+- ARCH-001@0.2.0 §9.5 PII Handling and Deletion
 - ADR-001@0.1.0
 - ADR-009@0.1.0
 - `src/shared/types.ts`
@@ -61,6 +62,8 @@ Implement right-to-delete plus the tenant isolation audit runner.
 - [ ] Tests prove repeated deletion after prior deletion returns a Russian fresh-start/already-deleted result without old personalization.
 - [ ] Tests prove concurrent delete and meal confirmation serialize on `user_id` lock.
 - [ ] Tests prove tenant audit returns counts/findings without user payloads.
+- [ ] Tests prove the audit runner refuses to start if `AUDIT_DB_URL` is unset, and that no application skill imports `AUDIT_DB_URL` (CI lint check).
+- [ ] Tests prove a repeat `/forget_me` after prior deletion does not insert any new `users` row and returns the Russian fresh-start copy.
 
 ## 7. Constraints (hard rules for Executor)
 - Do NOT add new runtime dependencies.
