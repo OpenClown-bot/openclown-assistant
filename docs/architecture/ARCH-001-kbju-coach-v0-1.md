@@ -2,7 +2,7 @@
 id: ARCH-001
 title: "KBJU Coach v0.1"
 version: 0.2.0
-status: in_review
+status: approved
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
 author_model: "gpt-5.5-thinking"
