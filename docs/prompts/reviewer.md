@@ -136,7 +136,7 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
     - `pass_with_changes` — ≥1 medium / low, zero high.
     - `fail` — ≥1 high.
 
-15. **PR.** One PR, one review file. Branch: `rv/RV-SPEC-NNN-<slug>`. PR body: verdict + top-3 findings summary.
+15. **PR.** One PR, one review file. Branch: `rv/RV-SPEC-NNN-<slug>`, **created from `main`** — never from the artifact's own branch. Branching from the artifact branch causes that branch's content to be inherited by the review PR; on squash-merge of the review PR, the artifact's commits silently leak into `main` ahead of the artifact's own PR being merged, producing duplicate-content conflicts and a polluted `main`. Run `git fetch origin && git checkout -b rv/RV-SPEC-NNN-<slug> origin/main` from a clean tree. PR body: verdict + top-3 findings summary.
 
 # §B. CODE MODE WORKFLOW
 
@@ -181,7 +181,7 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
 
 14. **Verdict & severity.** Same severity / verdict scheme as SPEC mode (§A.14).
 
-15. **PR.** One PR, one review file. Branch: `rv/RV-CODE-NNN-<slug>`. PR body: verdict + top-3 findings summary + explicit recommendation ("PO: approve & merge" / "PO: request changes from Executor" / "PO: block until Architect clarifies").
+15. **PR.** One PR, one review file. Branch: `rv/RV-CODE-NNN-<slug>`, **created from `main`** — never from the Executor's own PR branch. Branching from the Executor branch causes that branch's content to be inherited by the review PR; on squash-merge of the review PR, the Executor's commits silently leak into `main` ahead of the Executor's own PR being merged, producing duplicate-content conflicts and a polluted `main`. Run `git fetch origin && git checkout -b rv/RV-CODE-NNN-<slug> origin/main` from a clean tree. PR body: verdict + top-3 findings summary + explicit recommendation ("PO: approve & merge" / "PO: request changes from Executor" / "PO: block until Architect clarifies").
 
 # REVIEW OUTPUT CONTRACT
 Every review file MUST:
