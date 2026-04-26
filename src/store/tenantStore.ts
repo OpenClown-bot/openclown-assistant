@@ -605,10 +605,15 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
     userId: string,
     request: SoftDeleteConfirmedMealWithVersionRequest
   ): Promise<ConfirmedMealRow> {
+    // DESIGN: ARCH-001@0.2.0 §4.5/§9.5 makes ordinary meal delete a soft-delete.
+    // Re-deleting an already soft-deleted meal is a no-op that returns the
+    // existing deletion marker; stale versions still fail for non-deleted rows.
     const result = await this.db.query<ConfirmedMealRow>(
       `UPDATE confirmed_meals
-       SET deleted_at = $3, version = version + 1, updated_at = now()
-       WHERE user_id = $1 AND id = $2 AND version = $4
+       SET deleted_at = COALESCE(deleted_at, $3),
+           version = CASE WHEN deleted_at IS NULL THEN version + 1 ELSE version END,
+           updated_at = CASE WHEN deleted_at IS NULL THEN now() ELSE updated_at END
+       WHERE user_id = $1 AND id = $2 AND (version = $4 OR deleted_at IS NOT NULL)
        RETURNING *`,
       [userId, request.id, request.deletedAt, request.expectedVersion]
     );

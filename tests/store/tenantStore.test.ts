@@ -220,6 +220,29 @@ describe("tenant store typing and transactions", () => {
     expect(client.released).toBe(true);
     expect(nextVersion(3)).toBe(4);
   });
+
+  it("makes repeated confirmed-meal soft-delete a no-op once deleted", async () => {
+    const client = new FakeClient();
+    const store = new TenantPostgresStore(new FakePool(client));
+
+    const deleted = await store.softDeleteConfirmedMealWithVersion(VALID_USER_ID, {
+      id: "meal-1",
+      expectedVersion: 1,
+      deletedAt: "2026-04-26 22:30:00+00",
+    });
+
+    const softDeleteQuery = client.queries.find((query) => query.text.includes("UPDATE confirmed_meals"));
+    if (!softDeleteQuery) {
+      throw new Error("Missing confirmed_meals soft-delete query");
+    }
+    expect(softDeleteQuery.text).toContain("deleted_at = COALESCE(deleted_at, $3)");
+    expect(softDeleteQuery.text).toContain(
+      "version = CASE WHEN deleted_at IS NULL THEN version + 1 ELSE version END"
+    );
+    expect(softDeleteQuery.text).toContain("AND (version = $4 OR deleted_at IS NOT NULL)");
+    expect(deleted.deleted_at).toBe("2026-04-26 22:30:00+00");
+    expect(deleted.version).toBe(2);
+  });
 });
 
 interface RecordedQuery {
@@ -250,8 +273,19 @@ class FakeClient implements TenantPoolClient {
     text: string,
     values: unknown[] = []
   ): Promise<QueryResult<Row>> {
-    this.queries.push({ text: text.trim(), values });
-    const rowCount = text.trim() === "DELETE FROM users WHERE id = $1" ? 1 : 0;
+    const trimmedText = text.trim();
+    this.queries.push({ text: trimmedText, values });
+    if (trimmedText.includes("UPDATE confirmed_meals")) {
+      return resultWithRows<Row>([
+        {
+          id: "meal-1",
+          user_id: VALID_USER_ID,
+          deleted_at: values[2],
+          version: 2,
+        } as Row,
+      ]);
+    }
+    const rowCount = trimmedText === "DELETE FROM users WHERE id = $1" ? 1 : 0;
     return emptyResult<Row>(rowCount);
   }
 
@@ -267,5 +301,15 @@ function emptyResult<Row extends QueryResultRow>(rowCount: number): QueryResult<
     oid: 0,
     fields: [],
     rows: [],
+  };
+}
+
+function resultWithRows<Row extends QueryResultRow>(rows: Row[]): QueryResult<Row> {
+  return {
+    command: "",
+    rowCount: rows.length,
+    oid: 0,
+    fields: [],
+    rows,
   };
 }
