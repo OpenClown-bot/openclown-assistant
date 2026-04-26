@@ -83,8 +83,16 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
 
 export function redactSecrets(input: string, secretNames: readonly string[]): string {
   let result = input;
+  const allNames = REQUIRED_CONFIG_NAMES as readonly string[];
+  const otherNamePattern = allNames
+    .map((n) => escapeRegExp(n))
+    .join("|");
   for (const name of secretNames) {
-    const pattern = new RegExp(escapeRegExp(name) + `=\\S*`, "gi");
+    const escaped = escapeRegExp(name);
+    const pattern = new RegExp(
+      escaped + `=([^\\n]*?)(?=(?:\\s(?:${otherNamePattern})=)|\\n|$)`,
+      "g"
+    );
     result = result.replace(pattern, `${name}=[REDACTED]`);
   }
   return result;

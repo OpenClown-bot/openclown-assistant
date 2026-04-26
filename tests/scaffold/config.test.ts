@@ -134,9 +134,9 @@ describe("parseConfig", () => {
 
 describe("redactSecrets", () => {
   it("redacts known secret names from log-like strings", () => {
-    const logLine = "TELEGRAM_BOT_TOKEN=123456:ABC-DEF db connected";
+    const logLine = "TELEGRAM_BOT_TOKEN=123456:ABC-DEF DATABASE_URL=pg://host";
     const result = redactSecrets(logLine, ["TELEGRAM_BOT_TOKEN"]);
-    expect(result).toBe("TELEGRAM_BOT_TOKEN=[REDACTED] db connected");
+    expect(result).toBe("TELEGRAM_BOT_TOKEN=[REDACTED] DATABASE_URL=pg://host");
   });
 
   it("does not redact non-secret content", () => {
@@ -151,5 +151,20 @@ describe("redactSecrets", () => {
     expect(result).toContain("[REDACTED]");
     expect(result).not.toContain("abc123");
     expect(result).not.toContain("xyz789");
+  });
+
+  it("redacts values containing spaces", () => {
+    const logLine = "PERSONA_PATH=/path/with spaces/file.md and more";
+    const result = redactSecrets(logLine, ["PERSONA_PATH"]);
+    expect(result).not.toContain("/path/with");
+    expect(result).not.toContain("spaces");
+    expect(result).not.toContain("more");
+    expect(result).toContain("PERSONA_PATH=[REDACTED]");
+  });
+
+  it("does not redact differently-cased names (case-sensitive matching)", () => {
+    const logLine = "telegram_bot_token=hello";
+    const result = redactSecrets(logLine, ["TELEGRAM_BOT_TOKEN"]);
+    expect(result).toBe("telegram_bot_token=hello");
   });
 });
