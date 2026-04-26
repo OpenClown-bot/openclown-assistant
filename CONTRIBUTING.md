@@ -14,7 +14,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else |
 | Reviewer (auto bot) | Devin Review | GitHub bot | inline PR comments only | Files in repo |
-| Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress` and `in_progress → in_review`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
+| Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
 | Code Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute | Same as default | Same as default |
 | Code Executor (specialist) | Codex GPT-5.5 | Codex CLI | Same as default | Same as default |
 
@@ -30,7 +30,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 4. **Non-Goals / NOT In Scope are mandatory.** PRDs list ≥1 Non-Goal. Tickets list ≥1 NOT-In-Scope item. Reviewers reject any artifact without them.
 5. **Architect Phase 0: Recon is mandatory.** Before any design, the Architect MUST read `docs/knowledge/openclaw.md` and `docs/knowledge/awesome-skills.md`, audit fork-candidates, and write a Recon Report into ArchSpec §0. ArchSpec without a Recon Report fails Reviewer SPEC mode automatically.
 6. **Executor guardrails.**
-   - Executor may modify ONLY files explicitly listed in the Ticket's §5 Outputs, with one carve-out: the assigned Ticket file's `status` frontmatter field (transitions `ready → in_progress` and `in_progress → in_review` only) and append-only edits to that file's §10 Execution Log. All other fields on the Ticket file (Goal, ACs, Outputs, etc.) remain read-only to the Executor.
+   - Executor may modify ONLY files explicitly listed in the Ticket's §5 Outputs, with one carve-out: the assigned Ticket file's `status` frontmatter field (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress` — these four only) and append-only edits to that file's §10 Execution Log. All other fields on the Ticket file (Goal, ACs, Outputs, etc.) remain read-only to the Executor.
    - If a Ticket is ambiguous or contradicts the ArchSpec, Executor MUST stop and create `docs/questions/Q-TKT-XXX-NN.md` before writing code.
    - Executor may NOT add new runtime dependencies unless the Ticket §7 Constraints explicitly allows them.
 7. **Reviewer independence.** Reviewer must be a different model family from the Architect. A GPT-written ArchSpec must not be reviewed by GPT (use Kimi K2.6).

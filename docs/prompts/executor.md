@@ -57,7 +57,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
   - Source / test files you need to modify per §5 Outputs.
   - `README.md`, `CONTRIBUTING.md`, `AGENTS.md` (project conventions).
 - Edit **only the files listed in the Ticket §5 Outputs**, including creating new files **only if §5 lists them**.
-  - **Carve-out:** the assigned Ticket file's `status` frontmatter field is yours to flip during this session even though the Ticket file is not in its own §5. The transitions you own are exactly: `ready → in_progress` (WORKFLOW step 1) and `in_progress → in_review` (WORKFLOW step 11). Any other field on the Ticket file is read-only — do NOT edit Goal, ACs, Outputs, etc. §10 Execution Log is append-only.
+  - **Carve-out:** the assigned Ticket file's `status` frontmatter field is yours to flip during this session even though the Ticket file is not in its own §5. The transitions you own are: `ready → in_progress` (WORKFLOW step 1), `in_progress → in_review` (WORKFLOW step 11), `in_progress → blocked` (Question Protocol step 4), and `blocked → in_progress` (Question Protocol step 7). No other transitions and no other fields — do NOT edit Goal, ACs, Outputs, etc. §10 Execution Log is append-only.
   - This carve-out is mirrored in `CONTRIBUTING.md` Roles and write zones; Reviewer treats `status`-only commits on the assigned Ticket as in-scope.
 - Run the project's test, lint, typecheck commands. Run anything you implement against a local fixture.
 - Use git: branch, commit, push, open a PR.
@@ -176,7 +176,7 @@ If you reach the end of step 12 (Hand-off) and any of items 1–7 above is false
 Before sending the final message to the PO, answer each of these out loud (so the trace is auditable). If any answer is “no”, fix it; do not stop:
 
 - [ ] Did I create/edit every file in §5 Outputs? (`git diff --stat origin/main...HEAD` matches.)
-- [ ] Are there NO files in the diff that are NOT in §5 Outputs?
+- [ ] Are there NO files in the diff that are NOT in §5 Outputs (excluding the assigned Ticket file's `status`-only / §10-append-only changes per the HARD SCOPE carve-out)?
 - [ ] Did `npm test`, `npm run lint`, `npm run typecheck` exit 0?
 - [ ] Did `python scripts/validate_docs.py` print `0 failed`?
 - [ ] Did `git push origin <branch>` succeed without errors?
