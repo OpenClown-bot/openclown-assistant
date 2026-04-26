@@ -8,7 +8,15 @@ owner: "@OpenClown-bot"
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
-adrs: []
+adrs:
+  - ADR-001@0.1.0
+  - ADR-002@0.1.0
+  - ADR-003@0.1.0
+  - ADR-004@0.1.0
+  - ADR-005@0.1.0
+  - ADR-006@0.1.0
+  - ADR-007@0.1.0
+  - ADR-008@0.1.0
 tickets: []
 ---
 
@@ -274,12 +282,15 @@ EntityName:
 | Whisper | HTTPS | API key | 50 req/min (OpenAI) | local fallback in v0.2 |
 
 ## 7. Tech Stack Decisions (linked ADRs)
-- Language / runtime: <choice> — `ADR-XXX@X.Y.Z`
-- Storage: <choice> — `ADR-XXX@X.Y.Z`
-- Voice transcription: <choice> — `ADR-XXX@X.Y.Z`
-- Photo recognition (v0.1): <choice> — `ADR-XXX@X.Y.Z`
-- LLM routing: OmniRoute → Fireworks pool — `ADR-XXX@X.Y.Z`
-- Deployment: <choice> — `ADR-XXX@X.Y.Z`
+- Language / runtime: OpenClaw TypeScript skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
+- Storage and tenant isolation: PostgreSQL shared tables with `user_id`, composite keys, and row-level security — `ADR-001@0.1.0`.
+- LLM routing: OmniRoute-first Fireworks pool with direct provider keys only as runtime fallback — `ADR-002@0.1.0`.
+- Voice transcription: Fireworks Whisper V3 Turbo hosted transcription — `ADR-003@0.1.0`.
+- Photo recognition (v0.1): Fireworks Qwen3 VL 30B A3B Instruct, low-confidence threshold `confidence_0_1 < 0.70` — `ADR-004@0.1.0`.
+- Food / KBJU estimation: Open Food Facts + USDA FoodData Central lookup with LLM fallback; K7 proposal +/-25% calories and +/-30% macros per meal, +/-15% daily calories and +/-20% daily macros — `ADR-005@0.1.0`.
+- Summary recommendation guardrails: system prompt plus deterministic validator and deterministic fallback for forbidden topics — `ADR-006@0.1.0`.
+- Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
+- Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
 
 ## 8. Observability
 - Logs: format, where collected
