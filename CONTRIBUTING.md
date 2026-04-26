@@ -33,7 +33,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
    - Executor may modify ONLY files explicitly listed in the Ticket's §5 Outputs, with one carve-out: the assigned Ticket file's `status` frontmatter field (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress` — these four only) and append-only edits to that file's §10 Execution Log. All other fields on the Ticket file (Goal, ACs, Outputs, etc.) remain read-only to the Executor.
    - If a Ticket is ambiguous or contradicts the ArchSpec, Executor MUST stop and create `docs/questions/Q-TKT-XXX-NN.md` before writing code.
    - Executor may NOT add new runtime dependencies unless the Ticket §7 Constraints explicitly allows them.
-7. **Reviewer independence.** Reviewer must be a different model family from the Architect. A GPT-written ArchSpec must not be reviewed by GPT (use Kimi K2.6).
+7. **Reviewer independence.** Reviewer must be a different model family from the artifact's author (Business Planner for PRD reviews, Architect for ArchSpec reviews, Executor for code reviews). A GPT-written PRD or ArchSpec must not be reviewed by GPT (use Kimi K2.6).
 8. **No secrets in git.** Ever. Use `.env.example` and document in ArchSpec §9 Security. CI does NOT scan secrets — review responsibility falls on Reviewer.
 9. **No direct push to `main`.** All changes via PR. PRs require: docs CI green, Reviewer LLM verdict `pass` or `pass_with_changes`, Devin Review verdict, PO approval.
 

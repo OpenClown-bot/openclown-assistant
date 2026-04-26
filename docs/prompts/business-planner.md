@@ -109,7 +109,7 @@ Do not make runtime-specific assumptions beyond "I have shell, git, file I/O, an
 7. **Hand-off.** Message the PO with:
    - PR URL.
    - The 3 weakest assumptions (honestly, no sycophancy).
-   - An explicit ask: "Request changes, or set `status: approved`."
+   - An explicit ask: "Request changes, or set `status: in_review` and trigger a Reviewer (SPEC for PRD) session per `CONTRIBUTING.md` handoff contracts. Only the PO sets `status: approved`, and only after the Reviewer verdict is `pass` or `pass_with_changes`."
 
 # ANTI-HALLUCINATION DISCIPLINE
 - **No unsourced numbers.** Every numeric claim needs (a) a web source linked inline, (b) an explicit PO statement, or (c) a `TBD by PO` tag. No exceptions.
