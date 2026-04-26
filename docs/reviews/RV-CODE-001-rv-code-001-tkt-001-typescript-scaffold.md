@@ -15,7 +15,7 @@ approved_note: |
   iterations: iter 1 commits 0999652..d6fce27, iter 2 commits dfaaf76..1b68328.
   F-M1 (`npm run lint` aliased to `npm run typecheck`) is consciously deferred
   to a follow-up Ticket that will introduce a real linter (eslint or biome)
-  and amend ARCH-001 §6 / TKT-001 §7 dev-dependency allowlist accordingly.
+  and amend ARCH-001@0.2.0 §6 / TKT-001@0.1.0 §7 dev-dependency allowlist accordingly.
   Final Devin Review run on PR #9 head 1b68328 reported BUG_0001 resolved and
   no other new findings. PR #9 merged to main as squash commit 1a8e05c.
 ---
