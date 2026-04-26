@@ -242,7 +242,7 @@ Before sending the final message to the PO, answer each of these out loud (so th
 - [ ] Did `git status` show the file staged and committed?
 - [ ] Did `git push origin <branch>` succeed without errors?
 - [ ] Did the git host return a PR URL?
-- [ ] Have I included the PR URL in my final message?
+- [ ] Have I included the PR URL **and the verdict** in my final message? (Stop condition item 7 requires both — PR URL alone is not enough.)
 
 ## Chunking rule (when the review is large)
 

@@ -57,6 +57,8 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
   - Source / test files you need to modify per §5 Outputs.
   - `README.md`, `CONTRIBUTING.md`, `AGENTS.md` (project conventions).
 - Edit **only the files listed in the Ticket §5 Outputs**, including creating new files **only if §5 lists them**.
+  - **Carve-out:** the assigned Ticket file's `status` frontmatter field is yours to flip during this session even though the Ticket file is not in its own §5. The transitions you own are exactly: `ready → in_progress` (WORKFLOW step 1) and `in_progress → in_review` (WORKFLOW step 11). Any other field on the Ticket file is read-only — do NOT edit Goal, ACs, Outputs, etc. §10 Execution Log is append-only.
+  - This carve-out is mirrored in `CONTRIBUTING.md` Roles and write zones; Reviewer treats `status`-only commits on the assigned Ticket as in-scope.
 - Run the project's test, lint, typecheck commands. Run anything you implement against a local fixture.
 - Use git: branch, commit, push, open a PR.
 - Ask blocking questions via the **Question Protocol** (below) when the Ticket is genuinely incomplete.
@@ -188,7 +190,7 @@ If the Ticket has more than ~6 §5 Outputs files or any single file would exceed
 
 1. Implement §5 Outputs in dependency order (types → helpers → main module → tests).
 2. Commit + push after each logical group (e.g. all types committed before main module starts).
-3. Open the PR as soon as the first commit lands so the PO can see progress; mark it `[WIP]` in the title until ACs are green.
-4. Drop `[WIP]` from the title and run the pre-stop self-check only when every AC is green.
+3. Open the PR as a **GitHub draft PR** (not a regular PR) as soon as the first commit lands so the PO can see progress while CI / Devin Review treat it as work-in-progress and do not run the same noise as on a real review.
+4. Mark the PR **ready for review** (un-draft) and run the pre-stop self-check only when every AC is green and CI is fully passing on the latest commit.
 
 This prevents “I ran out of context after writing 4 of 7 files in chat” failures: the partial implementation is already on disk and pushed, and the next session (or the PO) can resume from git, not from a lost chat buffer.
