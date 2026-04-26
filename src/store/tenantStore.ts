@@ -116,6 +116,8 @@ export class TenantPostgresStore implements TenantStore {
     const repository = new TenantScopedRepositoryImpl(client);
     await client.query("BEGIN");
     try {
+      // Third arg 'true' = transaction-local; auto-reverts on
+      // COMMIT/ROLLBACK to prevent tenant-leak across pooled connections.
       await client.query("SELECT set_config('app.user_id', $1, true)", [userId]);
       const result = await action(repository);
       await client.query("COMMIT");
