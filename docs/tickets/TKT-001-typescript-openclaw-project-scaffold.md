@@ -1,7 +1,7 @@
 ---
 id: TKT-001
 title: "TypeScript OpenClaw Project Scaffold"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "Shared runtime scaffold"
 depends_on: []
@@ -75,6 +75,11 @@ Create the Node 24 TypeScript project scaffold for OpenClaw skill modules.
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- YYYY-MM-DD HH:MM model-id: started -->
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+2026-04-26 15:30 glm-5.1: iter 2 -- applied Number+isFinite fix (BUG_0001)
+2026-04-26 17:31 glm-5.1: started
+2026-04-26 17:33 glm-5.1: opened PR #9
+2026-04-26 19:04 glm-5.1: applied RV-CODE-001 fixes F-M2 + F-L2 + F-L3 + Devin Review F-DR3 to PR #9
+2026-04-26 19:04 glm-5.1: re-pushed exec/TKT-001-typescript-scaffold
 
 ---
 
