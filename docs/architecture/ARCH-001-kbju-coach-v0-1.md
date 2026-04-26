@@ -18,7 +18,21 @@ adrs:
   - ADR-007@0.1.0
   - ADR-008@0.1.0
   - ADR-009@0.1.0
-tickets: []
+tickets:
+  - TKT-001@0.1.0
+  - TKT-002@0.1.0
+  - TKT-003@0.1.0
+  - TKT-004@0.1.0
+  - TKT-005@0.1.0
+  - TKT-006@0.1.0
+  - TKT-007@0.1.0
+  - TKT-008@0.1.0
+  - TKT-009@0.1.0
+  - TKT-010@0.1.0
+  - TKT-011@0.1.0
+  - TKT-012@0.1.0
+  - TKT-013@0.1.0
+  - TKT-014@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -726,7 +740,24 @@ ssh <new-vps> 'cd /srv/openclown-assistant && docker compose up -d --remove-orph
 ## 11. Work Breakdown (tickets for Executor)
 | ID | Title | Depends on | Assigned executor |
 |---|---|---|---|
-| TKT-XXX | … | — | glm-5.1 |
+| TKT-001@0.1.0 | TypeScript OpenClaw Project Scaffold | — | glm-5.1 |
+| TKT-002@0.1.0 | Tenant PostgreSQL Store | TKT-001@0.1.0 | codex-gpt-5.5 |
+| TKT-003@0.1.0 | Observability Cost Guard | TKT-001@0.1.0, TKT-002@0.1.0 | glm-5.1 |
+| TKT-004@0.1.0 | Telegram Entrypoint Routing | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
+| TKT-005@0.1.0 | Onboarding Target Calculator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-004@0.1.0 | glm-5.1 |
+| TKT-006@0.1.0 | Food Lookup KBJU Estimator | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
+| TKT-007@0.1.0 | Voice Transcription Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0 | glm-5.1 |
+| TKT-008@0.1.0 | Photo Recognition Adapter | TKT-001@0.1.0, TKT-003@0.1.0, TKT-006@0.1.0 | glm-5.1 |
+| TKT-009@0.1.0 | Meal Draft Confirmation Flow | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-007@0.1.0, TKT-008@0.1.0 | glm-5.1 |
+| TKT-010@0.1.0 | History Mutation Flow | TKT-002@0.1.0, TKT-004@0.1.0, TKT-009@0.1.0 | glm-5.1 |
+| TKT-011@0.1.0 | Summary Recommendation Scheduler | TKT-002@0.1.0, TKT-003@0.1.0, TKT-005@0.1.0, TKT-006@0.1.0, TKT-010@0.1.0 | qwen-3.6-plus |
+| TKT-012@0.1.0 | Right To Delete Audit | TKT-002@0.1.0, TKT-003@0.1.0, TKT-004@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0 | codex-gpt-5.5 |
+| TKT-013@0.1.0 | Deployment Packaging | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
+| TKT-014@0.1.0 | Pilot KPI Smoke Suite | TKT-003@0.1.0, TKT-005@0.1.0, TKT-009@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0, TKT-012@0.1.0, TKT-013@0.1.0 | qwen-3.6-plus |
+
+Execution notes:
+- The DAG is acyclic: TKT-001@0.1.0 seeds the scaffold; TKT-002@0.1.0 and TKT-003@0.1.0 establish the storage/observability base; user-facing flows layer on top; TKT-014@0.1.0 closes end-to-end readiness.
+- Executor mix: 10 GLM tickets, 2 Qwen tickets, 2 Codex tickets. Codex is reserved for RLS/deletion-critical work only.
 
 ## 12. Risks & Open Questions
 - R1: KBJU estimates may miss ADR-005@0.1.0 proposed K7 bounds for mixed dishes and unweighed portions. Mitigation: confirmation/edit before persistence, K7 labelling sample, and accuracy target ratification at Phase 11.
