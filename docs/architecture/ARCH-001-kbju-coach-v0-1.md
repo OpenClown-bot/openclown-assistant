@@ -2,7 +2,7 @@
 id: ARCH-001
 title: "KBJU Coach v0.1"
 version: 0.1.0
-status: draft
+status: in_review
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
 author_model: "gpt-5.5-thinking"
@@ -772,12 +772,12 @@ Execution notes:
 ---
 
 ## Handoff Checklist
-- [ ] §0 Recon Report present, ≥3 candidates audited per major capability
-- [ ] Trace matrix covers every PRD Goal
-- [ ] Each component has clear Inputs / Outputs / failure modes
-- [ ] All referenced ADRs exist and are `proposed` or `accepted`
-- [ ] Resource budget fits PRD Technical Envelope (numeric check)
-- [ ] Work Breakdown lists ≥3 atomic tickets with explicit dependency graph
-- [ ] §8, §9, §10 are non-empty with concrete choices
-- [ ] All PRD/ADR references pin to a specific version (`@X.Y.Z`)
-- [ ] No production code in this file (schemas in §5 are declarative YAML only)
+- [x] §0 Recon Report present, ≥3 candidates audited per major capability
+- [x] Trace matrix covers every PRD Goal
+- [x] Each component has clear Inputs / Outputs / failure modes
+- [x] All referenced ADRs exist and are `proposed` or `accepted`
+- [x] Resource budget fits PRD Technical Envelope (numeric check)
+- [x] Work Breakdown lists ≥3 atomic tickets with explicit dependency graph
+- [x] §8, §9, §10 are non-empty with concrete choices
+- [x] All PRD/ADR references pin to a specific version (`@X.Y.Z`)
+- [x] No production code in this file (schemas in §5 are declarative YAML only)
