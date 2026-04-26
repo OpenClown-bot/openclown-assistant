@@ -17,6 +17,7 @@ adrs:
   - ADR-006@0.1.0
   - ADR-007@0.1.0
   - ADR-008@0.1.0
+  - ADR-009@0.1.0
 tickets: []
 ---
 
@@ -298,7 +299,7 @@ graph LR
 1. Manual entry creates a `meal_drafts` row with `source=manual` and user-provided calories/protein/fat/carbs, then confirms it after the final user confirmation.
 2. C8 paginates `confirmed_meals` newest-first with page size 5, always filtered by `user_id` through C3.
 3. Editing a confirmed meal creates an `audit_events` row with before/after KBJU totals and updates the meal version in one transaction.
-4. Deleting a meal either hard-deletes the meal rows or marks them deleted according to the Phase 7 retention finalization, but it always writes an audit event and excludes the meal from future summaries.
+4. Deleting a meal sets `confirmed_meals.deleted_at`, writes an audit event, and excludes the meal from future summaries; only right-to-delete hard-deletes the user-scoped rows.
 5. Already-delivered summaries are immutable; the next summary includes a correction delta when relevant.
 
 ### 4.6 Scheduled summaries
@@ -537,6 +538,21 @@ tenant_audit_runs:
   checked_tables: list_string
   cross_user_reference_count: integer
   findings: json_array_without_user_payloads
+
+kbju_accuracy_labels:
+  id: uuid
+  user_id: uuid_fk_users
+  meal_id: uuid_fk_confirmed_meals
+  labeled_by: enum[po, partner, reviewer]
+  sample_reason: enum[random_pilot_sample, low_confidence_review, user_corrected]
+  estimate_totals: kbju_totals_object
+  ground_truth_totals: kbju_totals_object
+  calorie_error_pct: decimal
+  protein_error_pct: decimal
+  fat_error_pct: decimal
+  carbs_error_pct: decimal
+  notes: string_optional
+  created_at: timestamptz
 ```
 
 Schema invariants:
@@ -577,22 +593,135 @@ Interface sources:
 - Summary recommendation guardrails: system prompt plus deterministic validator and deterministic fallback for forbidden topics — `ADR-006@0.1.0`.
 - Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
+- Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
 
 ## 8. Observability
-- Logs: format, where collected
-- Metrics: what + endpoint
-- Tracing: yes/no + tool
+
+### 8.1 Logs
+- Format: one JSON object per event through OpenClaw `ctx.log`, emitted to container stdout and captured by Docker's JSON logging driver with bounded rotation (`max-size=10m`, `max-file=5`).
+- Collection: local Docker logs for short-term diagnostics; durable KPI/cost facts are written to C3 tables (`metric_events`, `cost_events`, `monthly_spend_counters`, `kbju_accuracy_labels`) per ADR-009@0.1.0.
+- Required fields: `timestamp_utc`, `level`, `service`, `component`, `event_name`, `request_id`, `user_id`, `telegram_message_id_hash_optional`, `source`, `latency_ms_optional`, `provider_alias_optional`, `model_alias_optional`, `estimated_cost_usd_optional`, `outcome`, `error_code_optional`, `degrade_mode_enabled`, `schema_version`.
+- Forbidden fields: raw Telegram bot token, provider keys, raw prompt text, raw transcript text in logs, raw audio/photo bytes, full Telegram usernames, full callback payloads when they include meal text, and provider responses before schema validation.
+- Severity mapping: `info` for normal flow milestones, `warn` for user-visible fallback/degrade, `error` for provider/DB failures that affect one request, `critical` for raw media deletion failure, RLS denial, cross-user audit finding, or spend-guard failure.
+
+### 8.2 Metrics
+- Endpoint: Prometheus-format `/metrics` served only on `127.0.0.1:9464` or Docker-internal network; it is not exposed through the public Telegram/OpenClaw ingress.
+- Label policy: endpoint metrics may label by `component`, `source`, `period_type`, `outcome`, `provider_alias`, and `model_alias`; they must not label by Telegram ID, username, internal `user_id`, meal text, or free-form error text.
+- Durable metric events: C10 writes per-request events to C3 so end-of-pilot analysis can run after log rotation and can be removed by right-to-delete.
+- Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`.
+
+### 8.3 KPI Measurement
+- K1: query `confirmed_meals` grouped by `user_id` and `meal_local_date`, excluding `deleted_at IS NOT NULL`.
+- K2: compute first meal-content inbound timestamp to first draft reply timestamp from `metric_events` with `event_name in [meal_content_received, draft_reply_sent]`.
+- K3: compute p95/p100 from `kbju_voice_roundtrip_latency_ms` and backing `metric_events` for voice messages with `audio_duration_seconds <= 15`.
+- K4: run C11 tenant audit against user-owned tables and require `tenant_audit_runs.cross_user_reference_count = 0`.
+- K5: sum `cost_events.estimated_cost_usd` and reconcile with provider/router invoices; degrade mode starts before projected monthly total exceeds `$10`.
+- K6: count distinct active days with at least one confirmed meal per user over the pilot window.
+- K7: sample confirmed meals into `kbju_accuracy_labels` and compare estimate totals to manual ground truth using ADR-005@0.1.0 proposed bounds.
+
+### 8.4 Tracing
+- v0.1 uses request-level correlation IDs rather than a distributed tracing backend. Every C1 inbound update creates `request_id`, and C4/C5/C6/C7/C9/C10 propagate it through logs, metric rows, and provider calls.
+- No OpenTelemetry collector, Jaeger, Sentry tracing, or external APM service is deployed in v0.1. ADR-009@0.1.0 keeps OTLP as a future migration path if the pilot shows debugging gaps.
 
 ## 9. Security
-- Secrets management: <where>
-- Network boundaries: <what's exposed>
-- LLM prompt-injection mitigations: <concrete; "sanitise inputs" alone is rejected>
-- PII handling: <retention, deletion path>
+
+### 9.1 Secrets Management
+- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`.
+- Skill business logic reads model access through OmniRoute config, not raw provider keys, per ADR-002@0.1.0 and `docs/knowledge/llm-routing.md`.
+- `.env.example` may document variable names only; real values live on the VPS secret store or deployment environment and must not appear in logs, tickets, PR bodies, or git history.
+
+### 9.2 Access Control and Tenant Isolation
+- Outer access control is `TELEGRAM_PILOT_USER_IDS`; non-allowlisted Telegram users receive no onboarding, no persisted profile, and no domain data.
+- Inner isolation is C3 plus ADR-001@0.1.0: every user-owned table has `user_id`, composite ownership validation for child rows, PostgreSQL RLS enabled, and a non-owner app DB role that cannot bypass RLS.
+- Repository APIs must require `user_id` for all reads/mutations except migrations and the C11 end-of-pilot audit runner. Any unscoped repository method is a security defect.
+- Telegram automated messages are sent only to users who initiated the bot and confirmed onboarding/report schedules; C1 obeys Telegram retry metadata and the local outbound cap from §6.
+
+### 9.3 Network Boundaries
+- Public inbound: only the OpenClaw Telegram ingress/webhook endpoint is internet-reachable.
+- Internal only: PostgreSQL, OmniRoute local/private endpoint, C10 metrics endpoint, and any admin/debug endpoint are on the Docker network or loopback only.
+- Outbound egress: Telegram Bot API, OmniRoute, Fireworks fallback path, Open Food Facts, and USDA FoodData Central. No runtime path sends data to observability SaaS in v0.1.
+- Containers must not use host networking. Raw media temp storage is container-local or tmpfs and is not mounted into persistent volumes.
+
+### 9.4 LLM Prompt-Injection Mitigations
+- C6 meal text: user-provided meal text is serialized as data inside a fixed schema field (`meal_text_ru`) and the system prompt explicitly says user text cannot change instructions, call tools, change output schema, or override PRD-001@0.2.0 NG6/NG7. Output must validate against the structured KBJU schema; malformed or instruction-like output routes to manual entry without retry.
+- C7 photos: any text visible in the image is treated as untrusted image content, not an instruction. The vision prompt requests only food items, portions, and confidence; all photo outputs require user confirmation and cannot persist directly.
+- C9 summaries: the model receives numeric aggregates, deltas, and PO persona from `PERSONA_PATH`; it does not receive arbitrary user meal prose unless needed for a numeric correction note. ADR-006@0.1.0 system prompt plus deterministic validator blocks medical/clinical, vitamins, supplements, drugs/medications, hydration, glycemic index, meal timing, micronutrients, diagnosis, treatment, and exercise/fitness recommendations.
+- All LLM outputs use schema validation before Telegram delivery. Suspicious model output is a validation failure, not a retry trigger, to avoid prompt-injection amplification.
+
+### 9.5 PII Handling and Deletion
+- Durable PII/personal data: Telegram numeric user ID, Telegram chat ID, biometric profile, targets, transcripts, meal items/totals, summaries, audit events, and user-scoped metrics/cost events.
+- Raw voice clips and raw photo bytes are deleted immediately after extraction succeeds or terminally fails and are never represented in durable schemas.
+- Ordinary meal delete is soft-delete (`confirmed_meals.deleted_at`) so US-6 audit history and future summary correction deltas remain possible; C9 excludes soft-deleted meals from future totals.
+- Right-to-delete is hard deletion for all user-scoped rows, including the `users` row, transcripts, meal records, summaries, audit events, metric/cost events, lookup cache rows, and K7 labels; the transaction locks the user before deleting schedules so a future `/start` can create a fresh onboarding state with no personalization.
+- Backups must be treated as personal data. Backup retention for pilot is at most 30 days, stored outside git with operator-only file permissions, and any restore after a right-to-delete request must replay deletion before the bot resumes.
 
 ## 10. Deployment
-- Runtime: openclaw skill image, Docker Compose on VPS
-- Resource budget: <CPU/RAM — must fit PRD Technical Envelope>
-- Rollback procedure: <actual command sequence, not "revert to previous version">
+
+### 10.1 Runtime Topology
+- Runtime: OpenClaw skill images on Node 24, Docker Compose on the PO VPS, per ADR-008@0.1.0.
+- Services: OpenClaw runtime/Telegram gateway, `kbju-telegram-entrypoint`, `kbju-onboarding`, `kbju-meal-logging`, `kbju-history-privacy`, `kbju-summary`, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
+- Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, and optional `omniroute_config` if local router config is mounted read-only. No host bind mounts for production data.
+- Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
+
+### 10.2 Resource Budget
+- VPS floor from PO Q2: 6 shared x86_64 vCPU, 7.6 GiB RAM, about 5.7 GiB available at idle, 75 GB ext4 with about 61 GB free, Ubuntu 24.04.4, Docker 29.4.0, no GPU.
+- PRD-001@0.2.0 §7 budget: KBJU stack <=25% VPS CPU p95 and <=2 GiB resident RAM steady state.
+- Expected steady RAM: OpenClaw runtime/gateway 256 MiB; five Node skill processes 512 MiB total; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.75 GiB.
+- CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, vision, and LLM inference off the CPU/GPU-limited host.
+- Disk target: PostgreSQL plus logs/backups <=10 GB during 30-day pilot; Docker log rotation from §8 caps live diagnostic logs at about 50 MB per service.
+
+### 10.3 Deploy Sequence
+```bash
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+docker compose pull
+docker compose up -d --remove-orphans
+docker compose ps
+docker compose logs --since=5m kbju-telegram-entrypoint
+python3 scripts/validate_docs.py
+```
+
+### 10.4 Backup Sequence
+```bash
+mkdir -p backups
+docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > "backups/kbju-$(date -u +%Y%m%dT%H%M%SZ).dump"
+chmod 0600 backups/*.dump
+```
+
+### 10.5 Rollback Sequence
+Rollback is image/git-tag based for code and restore-from-backup only for data. Do not use `git reset --hard`, do not delete volumes, and do not roll the database backward unless the forward migration damaged data.
+
+```bash
+git fetch origin
+git checkout <last_good_commit>
+docker compose pull
+docker compose up -d --remove-orphans
+docker compose ps
+docker compose logs --since=10m kbju-telegram-entrypoint kbju-meal-logging kbju-summary
+```
+
+If database restore is required, stop user-facing skills first, restore from a known-good dump during a maintenance window, replay any right-to-delete requests recorded after the dump timestamp, then resume skills:
+
+```bash
+docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+docker compose exec -T postgres dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"
+docker compose exec -T postgres createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
+docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "backups/<known_good>.dump"
+docker compose up -d kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+```
+
+### 10.6 VPS Migration Runbook
+```bash
+docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+mkdir -p backups
+docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > "backups/kbju-migration-$(date -u +%Y%m%dT%H%M%SZ).dump"
+scp backups/kbju-migration-*.dump <new-vps>:/srv/openclown-assistant/backups/
+scp .env.production <new-vps>:/srv/openclown-assistant/.env.production
+ssh <new-vps> 'cd /srv/openclown-assistant && git fetch origin && git checkout main && docker compose pull && docker compose up -d postgres'
+ssh <new-vps> 'cd /srv/openclown-assistant && docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /srv/openclown-assistant/backups/<dump>.dump'
+ssh <new-vps> 'cd /srv/openclown-assistant && docker compose up -d --remove-orphans && docker compose ps'
+```
 
 ## 11. Work Breakdown (tickets for Executor)
 | ID | Title | Depends on | Assigned executor |
@@ -600,8 +729,14 @@ Interface sources:
 | TKT-XXX | … | — | glm-5.1 |
 
 ## 12. Risks & Open Questions
-- R1: ...
-- Q_TO_BUSINESS_1: ... ← escalation upstream
+- R1: KBJU estimates may miss ADR-005@0.1.0 proposed K7 bounds for mixed dishes and unweighed portions. Mitigation: confirmation/edit before persistence, K7 labelling sample, and accuracy target ratification at Phase 11.
+- R2: Voice p95 can miss the 8 second target if remote transcription or router latency spikes. Mitigation: 15 second voice cap, one in-flight transcription/user, typing indicator, one transient retry only if still inside hard cap, and text/manual fallback.
+- R3: Cross-user data leakage is the highest-severity failure. Mitigation: ADR-001@0.1.0 RLS, C3-only repositories, composite ownership checks, no user labels on public metrics, and C11 K4 audit.
+- R4: $10/month LLM+voice budget can be exceeded by repeated photo/voice experiments. Mitigation: C10 worst-case preflight cost accounting, monthly trend counter, degrade mode, and PO alert.
+- R5: Right-to-delete can conflict with backups and audit records. Mitigation: hard-delete user-scoped rows in live DB, cap pilot backup retention at 30 days, and require deletion replay before any restored backup goes live.
+- R6: PO-authored persona file may be missing or include wording that conflicts with PRD-001@0.2.0 NG6/NG7. Mitigation: C9 startup fails closed on missing `PERSONA_PATH`; ADR-006@0.1.0 validator blocks forbidden topics.
+- Q_TO_BUSINESS_1: At Phase 11 PR handoff, PO ratifies or revises the ADR-005@0.1.0 proposed K7 target: +/-25% calories and +/-30% macros per meal after correction opportunity; +/-15% daily calories and +/-20% daily macros on days with >=3 confirmed meals.
+- Q_TO_BUSINESS_2: Before deploying real pilot data, PO selects the durable-storage jurisdiction from ADR-007@0.1.0. Architecture recommendation is EU durable storage with transient remote inference unless PO chooses otherwise.
 
 ---
 
