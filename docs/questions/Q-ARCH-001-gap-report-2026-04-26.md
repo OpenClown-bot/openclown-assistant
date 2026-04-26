@@ -60,3 +60,42 @@ No Phase 3 design assumptions will be made until PO answers or explicitly defers
 ## Architect's answer
 
 Pending PO response.
+
+## OBC injected — 2026-04-26
+
+OBC-1 (multi-tenancy): day-1 user_id-scoped storage isolation is HARD. Do NOT propose any single-tenant or "scope-down" ADR. Your ADR work on multi-tenancy is on the *implementation choice* of isolation (column-scoped queries vs row-level security vs schema-per-tenant) with concrete trade-offs.
+
+OBC-2 (F-M2 enforcement): the PRD US-5 AC2 prohibition list (no medical / clinical / supplement / drug recommendations) must be system-prompt-enforced inside the recommendation generator. Propose the enforcement mechanism in an ADR (system-prompt vs guardrail layer vs LLM-call validator vs combination).
+
+OBC-3 (LLM transport): the PO uses ≈30 Fireworks accounts × $50 quota fronted by OmniRoute as the LLM transport. All skill LLM calls go through OmniRoute first; direct provider keys are fallback only. Your routing ADR must respect this topology — no design where skill code holds raw provider keys.
+
+OBC-4 (Reviewer §A.3): a second Reviewer LLM session (Kimi K2.6, SPEC mode) will audit your ArchSpec after the PR is open. Mandatory check: §A.3 Recon Report present and non-shallow with ≥3 fork-candidates per major capability with concrete fork/reference/reject verdicts.
+
+OBC-5 (executor self-containment): the PO does not write production code. Tickets must be self-contained enough that an Executor LLM (GLM 5.1 / Qwen 3.6 Plus / GPT-5.5) can execute without PO clarification. If a ticket §3 AC says "implementer figures out X" — split or specify.
+
+## PO answers — 2026-04-26
+
+Q1 (timezone): A — explicit timezone prompt during /start onboarding. Store in users.timezone column. No Mini App for v0.1.
+
+Q2 (VPS baseline):
+- CPU: 6 vCPU (shared VPS, x86_64)
+- RAM: 7.6 GiB total; ~5.7 GiB available at idle; 2 GiB swap
+- Disk: 75 GB ext4 root, 12 GB used / 61 GB free
+- OS: Ubuntu 24.04.4 LTS (noble)
+- Docker: 29.4.0
+- GPU: none
+
+IMPORTANT — pilot VPS is TEMPORARY. PO may migrate to a stronger box if v0.1 telemetry shows resource pressure. Therefore:
+- Treat current spec as the FLOOR for resource budget (Phase 7), not the ceiling.
+- Design must be portable: no host-kernel assumptions, no host-file paths outside Docker volumes, no systemd-service dependencies, no host-network-namespace tricks.
+- Resource-heavy components (local Whisper inference, vector DB, large embedding models) should be swap-overflow-aware on 7.6 GiB RAM. If your design needs >5 GB sustained RAM for any single service, default to remote/managed equivalents (e.g. Whisper via Fireworks/OpenAI API, not local) and document the trade-off in an ADR.
+- No GPU on host — any model that needs GPU MUST be remote.
+- Plan a documented "VPS migration" runbook in §10 (operational risks): what data needs to move, what services need to restart, how secrets transfer.
+
+Q3 (K7 accuracy target): A — leave open until your Phase 5–6 feasibility analysis. CORRECTION: this is NOT a PO pre-design choice. Per OBC and PRD §9 OQ-1, your job is to compute the achievable accuracy bound from your chosen voice / vision / food-lookup / LLM stack and propose a recommended numeric target (e.g. "±X% per-meal, ±Y% daily-aggregate on a fixed Russian-food test set") at Phase 11 PR. PO ratifies the number you propose.
+
+Q4 (data hosting jurisdiction): no PO-imposed forbidden or preferred jurisdictions upfront. Produce an ADR with a ranked shortlist (RU domestic, EU, US, hybrid) including concrete cost / latency-from-RU-users / legal-exposure trade-offs (numbers, citations). PO selects from your ranked options.
+
+Q5 (pilot users source of truth): A — static allowlist of numeric Telegram user IDs as env-var TELEGRAM_PILOT_USER_IDS, not in git. Two known users; static config is simpler, more secure, no migration overhead. Note: allowlist is the *access-control* layer, NOT the multi-tenant isolation layer — your multi-tenant ADR (per OBC-1) must still mandate user_id-scoped storage from day 1 (both layers required).
+
+Q6 (assistant personality location): B — tracked docs artifact at docs/personality/PERSONA-001-kbju-coach.md, loaded at runtime via config (PERSONA_PATH env var). Versioned, reviewable by Reviewer LLM for F-M2 compliance, multi-tenant ready (per-tenant persona files in future). Cite this artifact from ArchSpec §6. PO edits via PR (clerical-edit exception per CONTRIBUTING.md).
