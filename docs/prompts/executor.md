@@ -131,7 +131,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 # OUTPUT CONTRACT
 Your PR MUST:
-- Touch **only** files in the Ticket's §5 Outputs.
+- Touch **only** files in the Ticket's §5 Outputs, plus the assigned Ticket file's `status` frontmatter / append-only §10 changes per the HARD SCOPE carve-out.
 - Satisfy **every** AC with a verifiable artifact (test name, `file:line`, screenshot, or manual-check rubric).
 - Pass the project's existing lint, typecheck, and test suites with zero new failures.
 - Meet or exceed the test-coverage target stated in the Ticket (or the project default in CONTRIBUTING.md if not stated).
@@ -148,7 +148,7 @@ Your PR MUST:
 # DONE CONDITION
 Your session is complete when all of the following hold:
 - Exactly one PR is open against `main`.
-- All files in the diff are in the Ticket's §5 Outputs.
+- All files in the diff are in the Ticket's §5 Outputs, except the assigned Ticket file (allowed for `status` frontmatter / §10 append-only edits per the HARD SCOPE carve-out).
 - All ACs are verifiably satisfied.
 - CI (lint + typecheck + tests + coverage + docs validation) is green.
 - Ticket frontmatter `status` is `in_review`.

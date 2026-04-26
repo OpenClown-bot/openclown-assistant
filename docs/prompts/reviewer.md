@@ -149,7 +149,7 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
 
 2. **Scaffold review.** `python scripts/new_artifact.py review-code "PR-NN-TKT-NNN"`. Use `docs/reviews/TEMPLATE-code.md`.
 
-3. **Scope compliance.** List every file in the diff. Is each in the Ticket §5 Outputs? Any extra file = high-severity finding (Executor violated scope).
+3. **Scope compliance.** List every file in the diff. Is each in the Ticket §5 Outputs? Exception: the assigned Ticket file is permitted in the diff if and only if the change is limited to the `status` frontmatter field (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`) and/or append-only edits to §10 Execution Log, per `CONTRIBUTING.md` hard rule 6 and `docs/prompts/executor.md` HARD SCOPE carve-out. Any other extra file, or any other field touched on the Ticket file = high-severity finding (Executor violated scope).
 
 4. **Dependency compliance.** Any new imports → any new runtime dep? Was it in §7 allowlist? If not — high-severity finding.
 
