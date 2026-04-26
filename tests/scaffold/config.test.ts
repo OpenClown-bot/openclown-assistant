@@ -130,6 +130,42 @@ describe("parseConfig", () => {
     const config = parseConfig(env);
     expect(config.monthlySpendCeilingUsd).toBe(10);
   });
+
+  it("rejects Infinity for MONTHLY_SPEND_CEILING_USD", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "Infinity";
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      const ce = err as ConfigError;
+      expect(ce.message).not.toContain("Infinity");
+      expect(ce.message).toContain("MONTHLY_SPEND_CEILING_USD");
+    }
+  });
+
+  it("rejects partial-numeric MONTHLY_SPEND_CEILING_USD like 10abc", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "10abc";
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+    }
+  });
+
+  it("rejects overflow MONTHLY_SPEND_CEILING_USD like 1e999", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "1e999";
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+    }
+  });
 });
 
 describe("redactSecrets", () => {

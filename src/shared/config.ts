@@ -68,8 +68,9 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
     personaPath: env["PERSONA_PATH"]!.trim(),
     poAlertChatId: env["PO_ALERT_CHAT_ID"]!.trim(),
     monthlySpendCeilingUsd: (() => {
-      const parsed = parseFloat(env["MONTHLY_SPEND_CEILING_USD"]!.trim());
-      if (Number.isNaN(parsed) || parsed <= 0) {
+      const raw = env["MONTHLY_SPEND_CEILING_USD"]!.trim();
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
         throw new ConfigError(
           ["MONTHLY_SPEND_CEILING_USD"],
           `Invalid numeric value for MONTHLY_SPEND_CEILING_USD`
