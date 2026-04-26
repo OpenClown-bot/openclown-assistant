@@ -2,7 +2,7 @@
 id: ADR-002
 title: "OmniRoute-First LLM Routing"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-002: OmniRoute-First LLM Routing
 
 ## Context
-ARCH-001@0.1.0 C6, C7, C9, and C10 need cost-capped model calls for food parsing, photo recognition, and summary recommendation generation. PRD-001@0.2.0 G5 caps combined LLM and voice spend at $10/month. PO OBC-3 requires every skill LLM call to go through OmniRoute first, with direct provider keys only as runtime fallback. The repository routing policy in docs/knowledge/llm-routing.md also forbids raw provider keys and hard-coded model URLs in skill code.
+ARCH-001@0.2.0 C6, C7, C9, and C10 need cost-capped model calls for food parsing, photo recognition, and summary recommendation generation. PRD-001@0.2.0 G5 caps combined LLM and voice spend at $10/month. PO OBC-3 requires every skill LLM call to go through OmniRoute first, with direct provider keys only as runtime fallback. The repository routing policy in docs/knowledge/llm-routing.md also forbids raw provider keys and hard-coded model URLs in skill code.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: OmniRoute-first Fireworks pool with role-specific models
@@ -56,7 +56,7 @@ Why the losers lost:
 ## Consequences
 - Positive: One routing boundary simplifies cost accounting, token budgets, provider failover, and review for raw-key leaks.
 - Negative / trade-offs accepted: Router misconfiguration is a single point of model failure; C10 must expose router health and fallback reason in logs.
-- Follow-up work: ARCH-001@0.1.0 Phase 7 must define `llm_call_started`, `llm_call_finished`, budget-blocked, and degrade-mode events with model alias, not raw prompt text.
+- Follow-up work: ARCH-001@0.2.0 Phase 7 must define `llm_call_started`, `llm_call_finished`, budget-blocked, and degrade-mode events with model alias, not raw prompt text.
 
 ## References
 - docs/knowledge/llm-routing.md

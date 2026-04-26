@@ -1,13 +1,29 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.1.0
+version: 0.2.0
 status: in_review
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
 author_model: "gpt-5.5-thinking"
+reviewer_models:
+  - "kimi-k2.6"
+review_refs:
+  - RV-SPEC-002@0.1.0
 created: 2026-04-26
 updated: 2026-04-26
+changelog:
+  - version: 0.2.0
+    date: 2026-04-26
+    changes:
+      - "F-H1 (RV-SPEC-002): §10.5 rollback hardened with pre-flight, health-check curl, Telegram PO ping, on-failure escalation"
+      - "F-M1 (RV-SPEC-002): §0.4 added — architectural fork-candidate verdicts ≥3 per major capability"
+      - "F-M2 (RV-SPEC-002): §9.2 ‘kbju_audit’ BYPASSRLS role for K4 cross-user audit; AUDIT_DB_URL added to §9.1 secrets"
+      - "F-M3 (RV-SPEC-002): docs/personality/PERSONA-001-kbju-coach.md created (TKT-011 input)"
+      - "F-L1 (RV-SPEC-002): §10.6 VPS migration runbook hardened with webhook re-registration and getWebhookInfo verification"
+      - "F-L2 (RV-SPEC-002): C1 typing-indicator renewal interval set to 4 seconds"
+      - "Q1 (RV-SPEC-002): §4.8 graceful-degradation behavior beyond pilot capacity documented"
+      - "PO-noted gap: schema users.deleted_at removed and onboarding_status ‘deleted’ enum value dropped — right-to-delete is hard-delete only, no soft-delete state on users"
 adrs:
   - ADR-001@0.1.0
   - ADR-002@0.1.0
@@ -114,6 +130,45 @@ Phase 0 produces zero direct forks for v0.1. All audited candidates are either w
 
 Capabilities with no suitable fork-candidate: Russian onboarding and target calculation; tenant-isolated meal/audit/transcript storage; Russian confirm/edit/delete UX; photo-to-macro estimation with a numeric low-confidence threshold; monthly cost guard and auto-degrade; right-to-delete; end-of-pilot cross-user audit.
 
+### 0.4 Architectural fork-candidate verdicts (≥3 per major capability)
+
+> Per RV-SPEC-002@0.1.0 F-M1: §0.1 maps OpenClaw built-in vs gap, §0.2 audits skill-catalogue forks. This §0.4 enumerates ≥3 *architectural* alternatives per major capability with explicit reject/reference verdicts before they are formalized in ADRs, so the Recon Report is self-contained.
+
+| Capability | Architectural fork-candidate | Verdict | Rationale (one sentence) | Chosen path / ADR |
+|---|---|---|---|---|
+| Telegram entrypoint | OpenClaw built-in Telegram gateway | **chosen** | PRD-001@0.2.0 §7 locks OpenClaw runtime; native gateway covers webhooks, media routing, and sandbox boundaries with no extra dependency. | C1 + ADR-008@0.1.0 |
+| Telegram entrypoint | `telegraf` Node.js framework | reject | Adds a second message router, duplicates OpenClaw's gateway, and breaks PRD-001@0.2.0 §7 stack lock. | — |
+| Telegram entrypoint | `grammy` Node.js framework | reject | Same duplication concern as `telegraf`; offers no advantage over OpenClaw native delivery for v0.1 scope. | — |
+| Telegram entrypoint | Custom long-poll Bot API client | reject | OpenClaw provides webhook ingress; long-poll would consume vCPU continuously and lose ordering guarantees. | — |
+| Voice transcription | Hosted Fireworks Whisper V3 Turbo | **chosen** | Russian-capable, predictable per-second pricing, lowest latency in the OmniRoute pool, satisfies G3 8 s p95 budget. | ADR-003@0.1.0 |
+| Voice transcription | Hosted OpenAI Whisper API | reference | Functionally equivalent quality but second paid provider lock-in; held as runtime fallback only. | ADR-003@0.1.0 fallback row |
+| Voice transcription | Local `faster-whisper` (CTranslate2) | reject | Steady RAM 0.8–1.5 GiB exceeds the 2 GiB envelope share for transcription, and pilot VPS has no GPU. | — |
+| Voice transcription | AssemblyAI / Deepgram / ElevenLabs | reject | Each adds an extra paid account and per-minute pricing exceeds the $10/month cap; no clear quality win for ≤15 s clips. | — |
+| Photo recognition | Fireworks Qwen3 VL 30B A3B Instruct | **chosen** | Free-tier vision model with structured-JSON output and Russian instruction following; threshold-friendly confidence outputs. | ADR-004@0.1.0 |
+| Photo recognition | OpenAI GPT-4o vision | reject | Per-image price would exhaust the $10/month cap within 2 weeks at G2 logging volume. | — |
+| Photo recognition | Anthropic Claude vision | reject | Similar cost/latency profile to GPT-4o; no Fireworks-pool route. | — |
+| Photo recognition | Google Gemini Files API | reject | Requires a separate paid account, and `google-gemini-media` skill audit (§0.2 Capability C) shows generic prompt scaffolding without meal-specific schema. | — |
+| Storage / multi-tenancy | PostgreSQL shared tables + `user_id` + RLS | **chosen** | Single durable store, RLS enforces tenant isolation at SQL level, and Docker Compose deploy fits the VPS envelope. | ADR-001@0.1.0 |
+| Storage / multi-tenancy | SQLite shared file with `user_id` columns | reject | No native row-level security and no production-grade concurrent writer story; future migration to multi-user is painful. | — |
+| Storage / multi-tenancy | One SQLite file per user | reject | Defeats the K4 cross-user audit query, complicates backups, and breaks shared schema migrations. | — |
+| Storage / multi-tenancy | One PostgreSQL DB per user | reject | Operationally heavy on a 7.6 GiB VPS, and same K4 audit query problem as per-user SQLite. | — |
+| LLM routing | OmniRoute first, direct provider fallback | **chosen** | Single key boundary, free Fireworks pool first, deterministic provider failover; skills never read raw provider keys. | ADR-002@0.1.0 |
+| LLM routing | Direct Fireworks/OpenAI keys per skill | reject | Spreads provider keys across skills, defeats `docs/knowledge/llm-routing.md`'s key-boundary guarantee. | — |
+| LLM routing | LiteLLM / OpenRouter | reject | OmniRoute already covers the Fireworks-first failover with a thinner adapter; adding another router is unnecessary surface. | — |
+| Summary recommendation guardrails | System prompt + deterministic post-validator | **chosen** | Layered defense; deterministic fallback message ships when validator rejects forbidden topics. | ADR-006@0.1.0 |
+| Summary recommendation guardrails | System prompt only | reject | Single point of failure against prompt drift / injection; no deterministic fallback. | — |
+| Summary recommendation guardrails | Classifier model on output | reject | Adds another paid call per summary and exceeds the $10 cap; deterministic post-validator is cheaper and more auditable. | — |
+| Data jurisdiction | EU durable storage with transient remote inference | **recommended (PO-pending)** | Most permissive cross-border inference path while keeping durable PII in EU; OBC-3 compliant. | ADR-007@0.1.0 Q_TO_BUSINESS_2 |
+| Data jurisdiction | RU durable storage | reject | Triggers RU-specific data-localization obligations (152-FZ); pilot is non-resident-of-RU friendly. | — |
+| Data jurisdiction | US durable storage | reject | Limits future EU users without DPA work; not chosen unless PO opts in. | — |
+| Deployment | Docker Compose on VPS | **chosen** | Smallest viable runtime for 2-user pilot; matches PO VPS baseline (6 vCPU / 7.6 GiB). | ADR-008@0.1.0 |
+| Deployment | Kubernetes (k3s / managed) | reject | Infra overhead exceeds the pilot envelope; no autoscaling need for 2 users. | — |
+| Deployment | systemd-managed processes on host | reject | Sacrifices the named-volume reproducibility and breaks the "snapshot + scp + up" migration path. | — |
+| Deployment | Nomad | reject | Same overhead concern as k8s; no operational team. | — |
+| Observability | Structured JSON logs + PG metric tables + loopback `/metrics` | **chosen** | Zero new SaaS, audit log + KPIs queryable in-DB, right-to-delete reaches metric/cost rows. | ADR-009@0.1.0 |
+| Observability | OpenTelemetry + Jaeger | reject | Operational overhead exceeds 2-user value; reserved as future migration path. | — |
+| Observability | Sentry / Datadog / SaaS APM | reject | Sends user metadata to third party, contradicts §9.3 egress policy and OBC-3 jurisdiction. | — |
+
 ## 1. Context
 Implements: PRD-001@0.2.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope, and PO OBC/answers recorded in `docs/questions/Q-ARCH-001-gap-report-2026-04-26.md`.
 Does NOT implement: PRD-001@0.2.0 §3 Non-Goals.
@@ -194,7 +249,7 @@ graph LR
 ### 3.1 C1 Access-Controlled Telegram Entrypoint
 - Responsibility: Enforce pilot-user access, normalize Telegram updates/callbacks, keep the typing indicator active during processing, and route each Russian UX flow to the correct skill.
 - Inputs: OpenClaw Telegram text/voice/photo/callback/cron-originated delivery event; `TELEGRAM_PILOT_USER_IDS`; per-user flow state from C3; outgoing message API from OpenClaw.
-- Outputs: Routed command/event to C2, C4, C8, C9, or C11; Russian replies; inline confirm/edit/delete callbacks; typing indicator renewal events while C4/C5/C6/C7 run.
+- Outputs: Routed command/event to C2, C4, C8, C9, or C11; Russian replies; inline confirm/edit/delete callbacks; typing indicator renewal events while C4/C5/C6/C7 run. Telegram `sendChatAction` typing indicators auto-expire approximately 5 seconds after the last call (per <https://core.telegram.org/bots/api#sendchataction>); C1 renews the indicator every **4 seconds** (`typing_renewal_interval_seconds = 4`) while a downstream provider call is in-flight, so the user sees a continuous indicator without flicker. Renewal stops as soon as the draft reply is sent or the provider call terminates with an error.
 - LLM usage: none.
 - State: No durable state directly; reads/writes conversation state through C3 with `user_id` scope.
 - Failure modes: Telegram send failure retries once for transient transport errors, then C10 logs `telegram_send_failed`; malformed update returns a Russian generic recovery prompt and logs without persistence; non-allowlisted user receives no domain data and no onboarding state; concurrent callbacks for the same draft use C3 optimistic version checks so only the first confirmed mutation wins; rate-limit responses defer typing renewal and emit a C10 alert if repeated.
@@ -276,8 +331,9 @@ graph LR
 - Inputs: `/forget_me` or natural-language deletion intent from C1; single yes/no confirmation; `user_id`; audit-run request after pilot.
 - Outputs: Deletion transaction result; stopped summary schedule state; fresh-onboarding eligibility; audit report showing zero cross-user references or concrete findings.
 - LLM usage: none.
-- State: Operates on all C3 persistent entities; keeps no independent durable data after deletion.
-- Failure modes: cancellation leaves all data unchanged; partial deletion failure rolls back transaction and alerts C10; repeated delete after prior deletion returns a Russian already-deleted/fresh-start message without old personalization; audit query never returns full other-user data in user-facing messages; concurrent delete and meal confirmation serializes on `user_id` lock.
+- State: Operates on all C3 persistent entities; keeps no independent durable data after deletion. **Right-to-delete is hard-delete only**: no `deleted` state is preserved on `users` (see PO-noted gap in v0.2.0 changelog); after the deletion transaction commits there is no row to mark.
+- Tenant audit role: K4 cross-user reference audit cannot run as the application DB role because §9.2 enables PostgreSQL row-level security on every user-owned table. The audit runner uses the dedicated `kbju_audit` role with `BYPASSRLS` (see §9.1 / §9.2), gated by the separate `AUDIT_DB_URL` runtime secret. The audit query aggregates cross-user reference counts and writes them to `tenant_audit_runs.findings` without returning user payloads.
+- Failure modes: cancellation leaves all data unchanged; partial deletion failure rolls back transaction and alerts C10; a repeat `/forget_me` from a Telegram user who has no `users` row (already deleted, allowlist still active) returns a Russian fresh-start message and does not persist anything new; audit query never returns full other-user data in user-facing messages; concurrent delete and meal confirmation serializes on a per-user advisory lock for the `users.id` of the requester until the transaction completes.
 
 ## 4. Data Flow
 
@@ -335,6 +391,15 @@ graph LR
 3. If monthly trend risks exceeding $10, C10 enables degrade mode: cheaper text model, skip optional lookup leg when it would add latency/cost, no photo retry beyond one transient transport retry, and deterministic summaries when needed.
 4. C10 sends the PO alert once per degrade episode and suppresses duplicates with a monthly idempotency key.
 
+#### 4.8.1 Behavior beyond pilot capacity (RV-SPEC-002@0.1.0 Q1 — graceful degradation)
+If pilot scope informally expands beyond 2 users before any subscription/billing model exists (PRD-001@0.2.0 §3 Non-Goals lock paid features for v0.1), the cost guard remains a single shared `MONTHLY_SPEND_CEILING_USD = 10` accumulator, not a per-user budget. The user-visible behavior is:
+
+1. C10 evaluates the projected monthly total on every provider call; the projection is uniform across all active users (no per-user prioritization, no preferred-user reservation).
+2. When the projected total reaches the ceiling, **all users** are placed in degrade mode simultaneously (cheaper text model, lookup-only KBJU path when possible, deterministic numeric summaries).
+3. If even degraded calls would still exceed the ceiling, **new** model-backed requests fail open to manual KBJU entry for *every* user (no fail-closed for new users). The bot continues to operate at reduced quality — it never refuses a logged-in pilot user simply because someone else exhausted the budget.
+4. The PO alert (§4.8 step 4) explicitly states observed user count and projected overrun, so the PO either (a) raises the cap with an ADR amendment, (b) pauses new-user onboarding via `TELEGRAM_PILOT_USER_IDS`, or (c) ships the subscription/billing capability as a follow-on PRD.
+5. Until any of (a)–(c) ships, the budget counter resets at the start of each calendar month (UTC) and degrade mode auto-clears, so service quality returns gradually rather than abruptly.
+
 ## 5. Data Model / Schemas (declarative — no runnable code)
 ```yaml
 users:
@@ -343,10 +408,12 @@ users:
   telegram_chat_id: string
   language_code: string_optional
   timezone: iana_timezone_string
-  onboarding_status: enum[pending, awaiting_target_confirmation, active, deleted]
+  onboarding_status: enum[pending, awaiting_target_confirmation, active]
   created_at: timestamptz
   updated_at: timestamptz
-  deleted_at: timestamptz_optional
+  # No deleted_at column. Right-to-delete is hard-delete only (§3.11, §9.5).
+  # If a future Telegram user with a previously-deleted user_id sends /forget_me again,
+  # there is no row to mark; §3.11 returns a Russian fresh-start message instead.
 
 user_profiles:
   id: uuid
@@ -573,6 +640,8 @@ Schema invariants:
 - Every user-owned table has `user_id NOT NULL` and is accessed only through C3 repository methods that require `user_id`.
 - Child tables that reference user-owned parents include composite ownership validation: `(user_id, parent_id)` must match a parent row owned by the same user.
 - PostgreSQL RLS from ADR-001@0.1.0 is enabled on all user-owned tables; the app role is not table owner and cannot bypass RLS.
+- Soft-delete is allowed only on `confirmed_meals.deleted_at` (US-6 ordinary edit/delete history). Right-to-delete is hard-delete: §3.11 / §9.5 remove every user-scoped row including the `users` row itself.
+- The K4 cross-user audit query is the **only** persistent mechanism that may read across `user_id`; it runs as the `kbju_audit` PostgreSQL role with `BYPASSRLS` (§9.2) under the separate `AUDIT_DB_URL` secret, never inside an application skill.
 - Raw voice clips and raw photo bytes are not represented in durable schemas.
 - Logs and metric metadata must never store raw prompt text, raw audio, raw photos, provider keys, or Telegram bot tokens.
 
@@ -640,7 +709,7 @@ Interface sources:
 ## 9. Security
 
 ### 9.1 Secrets Management
-- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`.
+- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills).
 - Skill business logic reads model access through OmniRoute config, not raw provider keys, per ADR-002@0.1.0 and `docs/knowledge/llm-routing.md`.
 - `.env.example` may document variable names only; real values live on the VPS secret store or deployment environment and must not appear in logs, tickets, PR bodies, or git history.
 
@@ -649,6 +718,11 @@ Interface sources:
 - Inner isolation is C3 plus ADR-001@0.1.0: every user-owned table has `user_id`, composite ownership validation for child rows, PostgreSQL RLS enabled, and a non-owner app DB role that cannot bypass RLS.
 - Repository APIs must require `user_id` for all reads/mutations except migrations and the C11 end-of-pilot audit runner. Any unscoped repository method is a security defect.
 - Telegram automated messages are sent only to users who initiated the bot and confirmed onboarding/report schedules; C1 obeys Telegram retry metadata and the local outbound cap from §6.
+- **Privileged audit role (RV-SPEC-002@0.1.0 F-M2)**: PostgreSQL RLS by design blocks the application role from reading rows owned by other users, so the K4 cross-user reference audit cannot run as that role. A dedicated PostgreSQL role `kbju_audit` is provisioned with `BYPASSRLS` (or, equivalently, `pg_read_all_data` membership scoped to the audit query set), and is gated by a **separate** runtime secret `AUDIT_DB_URL` injected only into the C11 audit script container/job. Constraints on `kbju_audit`:
+  - Read-only on user-owned tables; write access limited to `tenant_audit_runs` (audit metadata, no user payloads).
+  - Forbidden in any application skill image (`kbju-telegram-entrypoint`, `kbju-onboarding`, `kbju-meal-logging`, `kbju-history-privacy`, `kbju-summary`); CI/deploy linter rejects images that import `AUDIT_DB_URL`.
+  - Audit script is a one-shot job (Docker `--rm` or equivalent), not a long-running service; the `AUDIT_DB_URL` secret is unmounted after the job exits.
+  - Audit results record only aggregate cross-user reference counts and any concrete inter-tenant findings without reproducing user payloads (§5 `tenant_audit_runs.findings: json_array_without_user_payloads`).
 
 ### 9.3 Network Boundaries
 - Public inbound: only the OpenClaw Telegram ingress/webhook endpoint is internet-reachable.
@@ -665,8 +739,8 @@ Interface sources:
 ### 9.5 PII Handling and Deletion
 - Durable PII/personal data: Telegram numeric user ID, Telegram chat ID, biometric profile, targets, transcripts, meal items/totals, summaries, audit events, and user-scoped metrics/cost events.
 - Raw voice clips and raw photo bytes are deleted immediately after extraction succeeds or terminally fails and are never represented in durable schemas.
-- Ordinary meal delete is soft-delete (`confirmed_meals.deleted_at`) so US-6 audit history and future summary correction deltas remain possible; C9 excludes soft-deleted meals from future totals.
-- Right-to-delete is hard deletion for all user-scoped rows, including the `users` row, transcripts, meal records, summaries, audit events, metric/cost events, lookup cache rows, and K7 labels; the transaction locks the user before deleting schedules so a future `/start` can create a fresh onboarding state with no personalization.
+- Ordinary meal delete is soft-delete (`confirmed_meals.deleted_at`) so US-6 audit history and future summary correction deltas remain possible; C9 excludes soft-deleted meals from future totals. **`confirmed_meals.deleted_at` is the only soft-delete column in the schema.** No other table (including `users`) carries a `deleted_at` field; the v0.1.0 draft of the schema mistakenly included `users.deleted_at` and `onboarding_status = deleted`, both removed in v0.2.0 because right-to-delete is hard-delete (PO-noted gap).
+- Right-to-delete is hard deletion for all user-scoped rows, including the `users` row, transcripts, meal records, summaries, audit events, metric/cost events, lookup cache rows, and K7 labels; the transaction takes a per-user PostgreSQL advisory lock on `users.id`, deletes summary schedules first to stop cron, then deletes child rows in dependency order, and finally deletes the `users` row itself. After commit there is no row to mark; a subsequent `/start` from the same Telegram user creates a brand-new `users` row with fresh onboarding state.
 - Backups must be treated as personal data. Backup retention for pilot is at most 30 days, stored outside git with operator-only file permissions, and any restore after a right-to-delete request must replay deletion before the bot resumes.
 
 ## 10. Deployment
@@ -703,18 +777,68 @@ docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" >
 chmod 0600 backups/*.dump
 ```
 
-### 10.5 Rollback Sequence
+### 10.5 Rollback Sequence (RV-SPEC-002@0.1.0 F-H1 hardened)
 Rollback is image/git-tag based for code and restore-from-backup only for data. Do not use `git reset --hard`, do not delete volumes, and do not roll the database backward unless the forward migration damaged data.
 
+#### 10.5.1 Pre-flight checks (run BEFORE any rollback action)
+```bash
+# 1. Identify the last known-good commit and confirm it is reachable.
+git fetch origin
+LAST_GOOD_COMMIT="<sha-of-last-good-deploy>"
+git log --oneline "$LAST_GOOD_COMMIT" -1   # must succeed
+
+# 2. Determine whether forward DB migrations have run since LAST_GOOD_COMMIT.
+#    If TKT-002@0.1.0 added a `migrations/applied` table or equivalent, list rows newer than the deploy timestamp.
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT version, applied_at FROM migrations_applied WHERE applied_at > (SELECT created_at FROM deployments WHERE git_sha = '$LAST_GOOD_COMMIT') ORDER BY applied_at;"
+
+# 3. Snapshot the current DB before any rollback in case rollback itself fails.
+mkdir -p backups
+docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  > "backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).dump"
+chmod 0600 backups/*.dump
+
+# 4. Verify VPS has at least 1 GiB free disk and PostgreSQL is reachable.
+df -h /
+docker compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+
+If step 2 returns rows, the rollback **crosses a schema change**. Either (a) the forward migrations are backward-compatible (additive only) and rolling back the code alone is safe, or (b) you must restore the database from a pre-migration dump (§10.5.3) during a maintenance window. Never run an ad-hoc `DROP COLUMN` to undo a migration; recover via dump replay only.
+
+#### 10.5.2 Code rollback (no DB change required)
 ```bash
 git fetch origin
-git checkout <last_good_commit>
+git checkout "$LAST_GOOD_COMMIT"
 docker compose pull
 docker compose up -d --remove-orphans
 docker compose ps
-docker compose logs --since=10m kbju-telegram-entrypoint kbju-meal-logging kbju-summary
 ```
 
+Health check (required before declaring rollback successful):
+```bash
+# Wait for the loopback metrics endpoint to become healthy (§8.2).
+for i in $(seq 1 30); do
+  if curl -fsS --max-time 2 http://127.0.0.1:9464/metrics > /dev/null; then
+    echo "metrics endpoint healthy after ${i}s"; break
+  fi
+  sleep 1
+done
+
+# Wait for each user-facing skill to log its Ready line.
+for svc in kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary; do
+  docker compose logs --since=5m "$svc" | grep -q '"event_name":"skill_ready"' \
+    || { echo "$svc not ready"; exit 1; }
+done
+
+# Send a Telegram ping to PO_ALERT_CHAT_ID confirming the rolled-back commit is live.
+curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  -d chat_id="$PO_ALERT_CHAT_ID" \
+  -d text="⏮️ Rolled back to $LAST_GOOD_COMMIT — health checks passing"
+```
+
+On-failure escalation: if any health check or `skill_ready` log line is missing after 60 seconds, *do not roll forward again automatically*. Instead, restore from `backups/pre-rollback-*.dump` (§10.5.3), send a `⚠️ Rollback failed — see VPS` Telegram alert, and page the PO. Never run a second `docker compose up` against an unknown state without operator review.
+
+#### 10.5.3 Database restore (required only if step 1.2 showed forward migrations damaged data)
 If database restore is required, stop user-facing skills first, restore from a known-good dump during a maintenance window, replay any right-to-delete requests recorded after the dump timestamp, then resume skills:
 
 ```bash
@@ -725,17 +849,89 @@ docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 docker compose up -d kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
 ```
 
-### 10.6 VPS Migration Runbook
+After `pg_restore` completes, replay the audit log for any `event_type = right_to_delete_completed` events whose `created_at` is between the dump timestamp and the restore time — §9.5 requires deletion replay before the bot resumes serving users.
+
+### 10.6 VPS Migration Runbook (RV-SPEC-002@0.1.0 F-L1 hardened)
+
+The migration moves *all* persistent state (PostgreSQL volume + `.env.production`) from the old VPS to a new VPS, then re-points the public Telegram webhook so messages flow to the new host. Snapshot tooling is `pg_dump -Fc` (PostgreSQL custom format, restored with `pg_restore`). A reference helper lives at `scripts/migrate-vps.sh` and wraps the same commands non-interactively.
+
+#### 10.6.1 Pre-flight
 ```bash
-docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
-mkdir -p backups
-docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > "backups/kbju-migration-$(date -u +%Y%m%dT%H%M%SZ).dump"
-scp backups/kbju-migration-*.dump <new-vps>:/srv/openclown-assistant/backups/
-scp .env.production <new-vps>:/srv/openclown-assistant/.env.production
-ssh <new-vps> 'cd /srv/openclown-assistant && git fetch origin && git checkout main && docker compose pull && docker compose up -d postgres'
-ssh <new-vps> 'cd /srv/openclown-assistant && docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" /srv/openclown-assistant/backups/<dump>.dump'
-ssh <new-vps> 'cd /srv/openclown-assistant && docker compose up -d --remove-orphans && docker compose ps'
+# Old host: confirm services are healthy before the freeze window.
+docker compose ps
+curl -fsS --max-time 2 http://127.0.0.1:9464/metrics > /dev/null && echo "metrics OK"
+df -h /
 ```
+
+#### 10.6.2 Stop, snapshot, transfer
+```bash
+# 1. Quiesce user-facing skills on the OLD VPS (PostgreSQL stays up so we can dump).
+docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+
+# 2. Snapshot Postgres in custom format and protect the dump file mode.
+mkdir -p backups
+DUMP="backups/kbju-migration-$(date -u +%Y%m%dT%H%M%SZ).dump"
+docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > "$DUMP"
+chmod 0600 "$DUMP"
+
+# 3. Copy the dump and the production env file to the NEW VPS.
+scp "$DUMP" <new-vps>:/srv/openclown-assistant/backups/
+scp .env.production <new-vps>:/srv/openclown-assistant/.env.production
+```
+
+#### 10.6.3 Bring the new VPS up
+```bash
+ssh <new-vps> '
+  cd /srv/openclown-assistant && \
+  git fetch origin && git checkout main && \
+  docker compose pull && \
+  docker compose up -d postgres
+'
+
+ssh <new-vps> '
+  cd /srv/openclown-assistant && \
+  docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    /srv/openclown-assistant/backups/<dump>.dump
+'
+
+ssh <new-vps> '
+  cd /srv/openclown-assistant && \
+  docker compose up -d --remove-orphans && \
+  docker compose ps
+'
+```
+
+#### 10.6.4 Re-register the Telegram webhook (required — the new VPS has a different IP)
+```bash
+# 1. Get the new VPS public IP / DNS name (e.g. https://kbju.example.com or https://<new-ip>:443).
+NEW_WEBHOOK_URL="https://kbju.example.com/telegram"
+
+# 2. Tell Telegram to send updates to the new endpoint.
+curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d url="$NEW_WEBHOOK_URL" \
+  -d drop_pending_updates=false   # keep any updates queued during migration
+
+# 3. Verify Telegram now points at the new host AND has no errors.
+curl -fsS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
+# Expected: "url":"$NEW_WEBHOOK_URL", "pending_update_count":<small>, "last_error_date":null
+
+# 4. Send an end-to-end ping from PO Telegram — the bot must reply through C1 on the new VPS.
+#    Then confirm the new host's logs recorded the inbound update.
+ssh <new-vps> 'docker compose logs --since=2m kbju-telegram-entrypoint | grep telegram_update_received'
+```
+
+#### 10.6.5 Migration validation checklist
+- [ ] `getWebhookInfo` returns `last_error_date: null` and the new URL.
+- [ ] PO ping in Telegram returns a Russian reply within 5 seconds.
+- [ ] New VPS `kbju-telegram-entrypoint` log shows `telegram_update_received` for the ping.
+- [ ] `tenant_audit_runs` is empty or in a known consistent state on the new DB (§3.11 audit role still works).
+- [ ] Old VPS has been put into read-only mode (services stopped, port 443 closed) to prevent split-brain.
+
+Reference helper:
+```
+scripts/migrate-vps.sh <new-vps> <new-webhook-url>
+```
+(adds non-interactive ssh-agent forwarding, transfers the latest dump, runs steps 10.6.2–10.6.4, and prints the final `getWebhookInfo` output).
 
 ## 11. Work Breakdown (tickets for Executor)
 | ID | Title | Depends on | Assigned executor |
@@ -772,7 +968,7 @@ Execution notes:
 ---
 
 ## Handoff Checklist
-- [x] §0 Recon Report present, ≥3 candidates audited per major capability
+- [x] §0 Recon Report present, ≥3 candidates audited per major capability (§0.2 skill catalogue, §0.4 architectural fork-candidates per RV-SPEC-002@0.1.0 F-M1)
 - [x] Trace matrix covers every PRD Goal
 - [x] Each component has clear Inputs / Outputs / failure modes
 - [x] All referenced ADRs exist and are `proposed` or `accepted`
@@ -781,3 +977,8 @@ Execution notes:
 - [x] §8, §9, §10 are non-empty with concrete choices
 - [x] All PRD/ADR references pin to a specific version (`@X.Y.Z`)
 - [x] No production code in this file (schemas in §5 are declarative YAML only)
+- [x] Rollback runbook (§10.5) has pre-flight, health-check, Telegram PO ping, on-failure escalation
+- [x] VPS migration runbook (§10.6) re-registers the Telegram webhook and verifies via `getWebhookInfo`
+- [x] PERSONA-001-kbju-coach.md exists at `docs/personality/PERSONA-001-kbju-coach.md` (TKT-011@0.1.0 input)
+- [x] Privileged audit role `kbju_audit` (BYPASSRLS) defined in §9.2 with `AUDIT_DB_URL` secret in §9.1
+- [x] No contradiction between §3.11 / §9.5 / §5 schema on right-to-delete (hard-delete only; no `users.deleted_at`)

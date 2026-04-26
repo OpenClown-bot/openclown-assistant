@@ -2,7 +2,7 @@
 id: ADR-008
 title: "Portable Docker VPS Deployment"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -57,10 +57,10 @@ Why the losers lost:
 ## Consequences
 - Positive: The system can be moved to a stronger VPS by copying Docker volume backups plus env/secrets, then starting the same Compose stack.
 - Negative / trade-offs accepted: Single-host outage remains possible; v0.1 accepts this because PRD-001@0.2.0 does not require HA.
-- Follow-up work: ARCH-001@0.1.0 §10 must include concrete commands for backup, restore, rollback, and VPS migration.
+- Follow-up work: ARCH-001@0.2.0 §10 must include concrete commands for backup, restore, rollback, and VPS migration.
 
 ## References
 - Docker volumes: <https://docs.docker.com/engine/storage/volumes/>
 - Telegram Bot API HTTPS/webhook basics and supported webhook ports: <https://core.telegram.org/bots/api#setwebhook>
 - Telegram `sendChatAction` for typing indicator: <https://core.telegram.org/bots/api#sendchataction>
-- PO Q2 VPS and portability constraints in the Phase 2 gap report for ARCH-001@0.1.0
+- PO Q2 VPS and portability constraints in the Phase 2 gap report for ARCH-001@0.2.0

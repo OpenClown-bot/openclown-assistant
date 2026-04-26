@@ -2,7 +2,7 @@
 id: ADR-006
 title: "Summary Recommendation Guardrails"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-006: Summary Recommendation Guardrails
 
 ## Context
-ARCH-001@0.1.0 C9 generates Russian daily/weekly/monthly summaries. PRD-001@0.2.0 US-5 allows short personalized recommendations only about calories and macronutrient balance relative to targets. PRD-001@0.2.0 NG6/NG7 prohibit vitamins, supplements, hydration, glycemic index, meal timing, micronutrients, and clinical/medical advice. PO OBC-2 requires the prohibition list to be system-prompt-enforced inside the recommendation generator.
+ARCH-001@0.2.0 C9 generates Russian daily/weekly/monthly summaries. PRD-001@0.2.0 US-5 allows short personalized recommendations only about calories and macronutrient balance relative to targets. PRD-001@0.2.0 NG6/NG7 prohibit vitamins, supplements, hydration, glycemic index, meal timing, micronutrients, and clinical/medical advice. PO OBC-2 requires the prohibition list to be system-prompt-enforced inside the recommendation generator.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: System prompt only
@@ -58,4 +58,4 @@ Why the losers lost:
 - OWASP LLM01 Prompt Injection: <https://genai.owasp.org/llmrisk/llm01-prompt-injection/>
 - OWASP Top 10 for LLMs and Gen AI Apps 2025: <https://genai.owasp.org/llm-top-10/>
 - PRD-001@0.2.0 US-5 and NG6/NG7
-- PO OBC-2 in the Phase 2 gap report for ARCH-001@0.1.0
+- PO OBC-2 in the Phase 2 gap report for ARCH-001@0.2.0

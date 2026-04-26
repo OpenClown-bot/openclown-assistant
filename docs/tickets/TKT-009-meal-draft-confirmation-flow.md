@@ -2,7 +2,7 @@
 id: TKT-009
 title: "Meal Draft Confirmation Flow"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C4 Meal Logging Orchestrator"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0"]
 blocks: ["TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
@@ -30,13 +30,13 @@ Implement the meal draft confirmation orchestration for text, voice, photo, manu
 - No right-to-delete implementation; that belongs to TKT-012@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.4 C4 Meal Logging Orchestrator
-- ARCH-001@0.1.0 §4.2 Text meal logging
-- ARCH-001@0.1.0 §4.3 Voice meal logging
-- ARCH-001@0.1.0 §4.4 Photo meal logging
-- ARCH-001@0.1.0 §4.5 Manual entry, edit, and delete history
-- ARCH-001@0.1.0 §5 `meal_drafts`, `meal_draft_items`, `confirmed_meals`, `meal_items`, `audit_events`
-- ARCH-001@0.1.0 §8 Observability
+- ARCH-001@0.2.0 §3.4 C4 Meal Logging Orchestrator
+- ARCH-001@0.2.0 §4.2 Text meal logging
+- ARCH-001@0.2.0 §4.3 Voice meal logging
+- ARCH-001@0.2.0 §4.4 Photo meal logging
+- ARCH-001@0.2.0 §4.5 Manual entry, edit, and delete history
+- ARCH-001@0.2.0 §5 `meal_drafts`, `meal_draft_items`, `confirmed_meals`, `meal_items`, `audit_events`
+- ARCH-001@0.2.0 §8 Observability
 - `src/shared/types.ts`
 - `src/store/tenantStore.ts`
 - `src/telegram/types.ts`

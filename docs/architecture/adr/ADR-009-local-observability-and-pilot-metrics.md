@@ -2,7 +2,7 @@
 id: ADR-009
 title: "Local Observability and Pilot Metrics"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -12,7 +12,7 @@ superseded_by: null
 # ADR-009: Local Observability and Pilot Metrics
 
 ## Context
-PRD-001@0.2.0 §7 requires per-user latency, per-call cost, transcription success/failure rate, KBJU computation success/failure rate, and confirmation rates for US-2/US-3/US-4 to be measurable at end-of-pilot. PRD-001@0.2.0 §2 G5 caps LLM plus voice spend at $10/month and requires auto-degrade plus PO alert. ARCH-001@0.1.0 C10 therefore needs enough observability to calculate K1-K7 and debug failures without adding a new personal-data processor or exceeding the 2 GiB steady RAM ceiling.
+PRD-001@0.2.0 §7 requires per-user latency, per-call cost, transcription success/failure rate, KBJU computation success/failure rate, and confirmation rates for US-2/US-3/US-4 to be measurable at end-of-pilot. PRD-001@0.2.0 §2 G5 caps LLM plus voice spend at $10/month and requires auto-degrade plus PO alert. ARCH-001@0.2.0 C10 therefore needs enough observability to calculate K1-K7 and debug failures without adding a new personal-data processor or exceeding the 2 GiB steady RAM ceiling.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: Local structured JSON logs plus PostgreSQL pilot metric tables and loopback metrics endpoint

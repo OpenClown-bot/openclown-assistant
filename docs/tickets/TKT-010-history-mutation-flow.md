@@ -2,7 +2,7 @@
 id: TKT-010
 title: "History Mutation Flow"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C8 History Mutation Service"
 depends_on: ["TKT-002@0.1.0", "TKT-004@0.1.0", "TKT-009@0.1.0"]
 blocks: ["TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-014@0.1.0"]
@@ -30,10 +30,10 @@ Implement paginated meal history mutation with audit records.
 - No right-to-delete hard deletion; that belongs to TKT-012@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.8 C8 History Mutation Service
-- ARCH-001@0.1.0 §4.5 Manual entry, edit, and delete history
-- ARCH-001@0.1.0 §5 `confirmed_meals`, `meal_items`, `audit_events`, `summary_records`
-- ARCH-001@0.1.0 §9.2 Access Control and Tenant Isolation
+- ARCH-001@0.2.0 §3.8 C8 History Mutation Service
+- ARCH-001@0.2.0 §4.5 Manual entry, edit, and delete history
+- ARCH-001@0.2.0 §5 `confirmed_meals`, `meal_items`, `audit_events`, `summary_records`
+- ARCH-001@0.2.0 §9.2 Access Control and Tenant Isolation
 - `src/shared/types.ts`
 - `src/store/tenantStore.ts`
 - `src/telegram/types.ts`

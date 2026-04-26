@@ -2,7 +2,7 @@
 id: TKT-006
 title: "Food Lookup KBJU Estimator"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C6 KBJU Estimator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
 blocks: ["TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
@@ -31,11 +31,11 @@ Implement the hybrid food lookup estimator behind the OmniRoute text path.
 - No summary recommendation validator; that belongs to TKT-011@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.6 C6 KBJU Estimator
-- ARCH-001@0.1.0 §4.2 Text meal logging
-- ARCH-001@0.1.0 §4.8 Cost, latency, and degradation
-- ARCH-001@0.1.0 §6 External Interfaces
-- ARCH-001@0.1.0 §9.4 LLM Prompt-Injection Mitigations
+- ARCH-001@0.2.0 §3.6 C6 KBJU Estimator
+- ARCH-001@0.2.0 §4.2 Text meal logging
+- ARCH-001@0.2.0 §4.8 Cost, latency, and degradation
+- ARCH-001@0.2.0 §6 External Interfaces
+- ARCH-001@0.2.0 §9.4 LLM Prompt-Injection Mitigations
 - ADR-002@0.1.0
 - ADR-005@0.1.0
 - ADR-009@0.1.0
@@ -70,7 +70,7 @@ Implement the hybrid food lookup estimator behind the OmniRoute text path.
 - Do NOT hard-code provider API keys or model aliases inside business logic; read config from shared config.
 - Direct provider fallback can exist only as a transport option behind the same client interface.
 - No retry on suspicious or malformed model content.
-- All external text fed to an LLM must be serialized as data fields with fixed system/developer instructions from ARCH-001@0.1.0 §9.4.
+- All external text fed to an LLM must be serialized as data fields with fixed system/developer instructions from ARCH-001@0.2.0 §9.4.
 - GLM assignment is acceptable because ADR-002@0.1.0 and ADR-005@0.1.0 constrain the implementation tightly.
 
 ## 8. Definition of Done

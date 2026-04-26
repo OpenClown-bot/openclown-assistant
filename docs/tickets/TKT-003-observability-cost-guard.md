@@ -2,7 +2,7 @@
 id: TKT-003
 title: "Observability Cost Guard"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C10 Cost, Degrade, and Observability Service"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0"]
 blocks: ["TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
@@ -21,7 +21,7 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 - Add redacted JSON event creation for all components to use.
 - Add cost preflight checks using worst-case configured prices from ADR-002@0.1.0, ADR-003@0.1.0, ADR-004@0.1.0, and ADR-005@0.1.0.
 - Add monthly spend counters, degrade-mode decisions, and once-per-month PO alert suppression.
-- Add a local-only Prometheus-format metrics renderer with the metric names from ARCH-001@0.1.0 §8.2.
+- Add a local-only Prometheus-format metrics renderer with the metric names from ARCH-001@0.2.0 §8.2.
 - Add tests for redaction, spend threshold behavior, concurrency-safe increments via the C3 mock, and metrics label policy.
 
 ## 3. NOT In Scope (Executor must NOT touch these — Reviewer fails on violation)
@@ -30,10 +30,10 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 - No Docker log rotation config; that belongs to TKT-013@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.10 C10 Cost, Degrade, and Observability Service
-- ARCH-001@0.1.0 §4.8 Cost, latency, and degradation
-- ARCH-001@0.1.0 §8 Observability
-- ARCH-001@0.1.0 §9.5 PII Handling and Deletion
+- ARCH-001@0.2.0 §3.10 C10 Cost, Degrade, and Observability Service
+- ARCH-001@0.2.0 §4.8 Cost, latency, and degradation
+- ARCH-001@0.2.0 §8 Observability
+- ARCH-001@0.2.0 §9.5 PII Handling and Deletion
 - ADR-002@0.1.0
 - ADR-003@0.1.0
 - ADR-004@0.1.0

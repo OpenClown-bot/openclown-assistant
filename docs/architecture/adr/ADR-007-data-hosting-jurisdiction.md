@@ -2,7 +2,7 @@
 id: ADR-007
 title: "Data Hosting Jurisdiction Shortlist"
 status: proposed
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-26
@@ -56,7 +56,7 @@ Why the losers lost:
 ## Consequences
 - Positive: The architecture can proceed with EU durable storage while explicitly documenting transient inference transfers and allowing PO to select RU if desired.
 - Negative / trade-offs accepted: Final jurisdiction remains a PO ratification item before `accepted` status; telemetry must validate user-perceived latency during pilot.
-- Follow-up work: ARCH-001@0.1.0 §12 must keep OQ-3 open until PO records the selected jurisdiction, and §10 must include a VPS migration runbook that moves Docker volumes and secrets.
+- Follow-up work: ARCH-001@0.2.0 §12 must keep OQ-3 open until PO records the selected jurisdiction, and §10 must include a VPS migration runbook that moves Docker volumes and secrets.
 
 ## References
 - Selectel cloud servers: <https://selectel.ru/services/cloud/servers/>

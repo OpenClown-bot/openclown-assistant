@@ -2,7 +2,7 @@
 id: TKT-004
 title: "Telegram Entrypoint Routing"
 status: ready
-arch_ref: ARCH-001@0.1.0
+arch_ref: ARCH-001@0.2.0
 component: "C1 Access-Controlled Telegram Entrypoint"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
 blocks: ["TKT-005@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-012@0.1.0"]
@@ -30,13 +30,13 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 - No meal draft persistence orchestration; that belongs to TKT-009@0.1.0.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.1.0 §3.1 C1 Access-Controlled Telegram Entrypoint
-- ARCH-001@0.1.0 §4.1 Onboarding and target creation
-- ARCH-001@0.1.0 §4.2 Text meal logging
-- ARCH-001@0.1.0 §4.3 Voice meal logging
-- ARCH-001@0.1.0 §4.4 Photo meal logging
-- ARCH-001@0.1.0 §6 External Interfaces
-- ARCH-001@0.1.0 §9.2 Access Control and Tenant Isolation
+- ARCH-001@0.2.0 §3.1 C1 Access-Controlled Telegram Entrypoint
+- ARCH-001@0.2.0 §4.1 Onboarding and target creation
+- ARCH-001@0.2.0 §4.2 Text meal logging
+- ARCH-001@0.2.0 §4.3 Voice meal logging
+- ARCH-001@0.2.0 §4.4 Photo meal logging
+- ARCH-001@0.2.0 §6 External Interfaces
+- ARCH-001@0.2.0 §9.2 Access Control and Tenant Isolation
 - docs/knowledge/openclaw.md
 - `src/shared/types.ts`
 - `src/shared/config.ts`
