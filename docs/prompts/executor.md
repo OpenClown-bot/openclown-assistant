@@ -92,7 +92,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 
 4. **Plan in your head or scratch notes (do NOT commit).** List: files to edit, in what order, which AC each edit satisfies.
 
-5. **Branch.** `git checkout -b tkt/TKT-NNN-<slug>`.
+5. **Branch.** Already on `tkt/TKT-NNN-<slug>` from step 1; if for any reason you are not, `git checkout tkt/TKT-NNN-<slug>` (no `-b` — the branch already exists). Do not create a second branch.
 
 6. **Implement narrowly.** Smallest possible diff that satisfies the ACs. Touch only §5 Outputs files. Follow existing code style (TypeScript strict, ESLint config in repo).
 
