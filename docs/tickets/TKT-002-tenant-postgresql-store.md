@@ -1,7 +1,7 @@
 ---
 id: TKT-002
 title: "Tenant PostgreSQL Store"
-status: blocked
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C3 Tenant-Scoped Store"
 depends_on: ["TKT-001@0.1.0"]
@@ -95,6 +95,7 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 2026-04-26 22:26 gpt-5.5: iter 2 — F-DR-SOFTDELETE decision: changed softDeleteConfirmedMealWithVersion so first delete sets deleted_at/version, re-delete of an already soft-deleted row is a no-op returning the existing marker, and stale versions still fail for non-deleted rows
 2026-04-26 22:26 gpt-5.5: iter 2 — corrective: iter 1 silently dropped F-DR-DBTS and three informational flags despite invocation 13 listing all seven fixes; this iter 2 closes the gap
 2026-04-26 22:28 gpt-5.5: blocked on Q-TKT-002-01
+2026-04-26 22:38 gpt-5.5: Q-TKT-002-01 answered (option A); merged origin/main into branch; status blocked -> in_review
 
 ---
 
