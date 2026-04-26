@@ -152,3 +152,43 @@ Your session is complete when all of the following hold:
 - Ticket frontmatter `status` is `in_review`.
 - You have posted a one-line message to the PO: "PR URL, requesting Reviewer."
 - You do NOT merge. Merging is gated on Reviewer (`pass` / `pass_with_changes`) + PO approval.
+
+# STOP CONDITIONS (anti-stall — read this every session)
+
+Reasoning models (GLM 5.1, Kimi K2.6, similar) have a known failure mode: they finish *thinking* and stop **before** executing the deliverable steps (file edit, commit, push, PR open). This produces chat-only output that the PO cannot review or merge. **Do not stop until every item below is true. “I have described the implementation in chat” does NOT count as a deliverable.**
+
+## You MUST NOT stop until ALL of these are true
+
+1. Every file listed in the Ticket §5 Outputs exists on disk with the intended contents (verify with `ls` and quick `head` checks).
+2. `npm test`, `npm run lint`, `npm run typecheck` all return zero exit code locally.
+3. `python scripts/validate_docs.py` returns `0 failed` (touched if you edited the Ticket frontmatter).
+4. A git branch `tkt/TKT-NNN-<slug>` has been created and pushed to `origin`.
+5. A PR has been opened against `main` and a URL has been returned by the git host.
+6. The Ticket frontmatter `status` has been bumped from `in_progress` to `in_review` in a separate commit on the same branch.
+7. You have posted a final one-line message to the PO with the PR URL.
+
+If you reach the end of step 12 (Hand-off) and any of items 1–7 above is false, **continue executing** — do not stop, do not summarize, do not ask the PO whether to proceed. The PO has already approved this workflow by sending you the System Prompt + Ticket; the deliverables are not optional.
+
+## Pre-stop self-check (run BEFORE your final “done” message)
+
+Before sending the final message to the PO, answer each of these out loud (so the trace is auditable). If any answer is “no”, fix it; do not stop:
+
+- [ ] Did I create/edit every file in §5 Outputs? (`git diff --stat origin/main...HEAD` matches.)
+- [ ] Are there NO files in the diff that are NOT in §5 Outputs?
+- [ ] Did `npm test`, `npm run lint`, `npm run typecheck` exit 0?
+- [ ] Did `python scripts/validate_docs.py` print `0 failed`?
+- [ ] Did `git push origin <branch>` succeed without errors?
+- [ ] Did the git host return a PR URL?
+- [ ] Did I bump the Ticket `status` to `in_review` in a *separate* commit?
+- [ ] Have I included the PR URL in my final message?
+
+## Chunking rule (when the diff is large)
+
+If the Ticket has more than ~6 §5 Outputs files or any single file would exceed ~300 lines:
+
+1. Implement §5 Outputs in dependency order (types → helpers → main module → tests).
+2. Commit + push after each logical group (e.g. all types committed before main module starts).
+3. Open the PR as soon as the first commit lands so the PO can see progress; mark it `[WIP]` in the title until ACs are green.
+4. Drop `[WIP]` from the title and run the pre-stop self-check only when every AC is green.
+
+This prevents “I ran out of context after writing 4 of 7 files in chat” failures: the partial implementation is already on disk and pushed, and the next session (or the PO) can resume from git, not from a lost chat buffer.

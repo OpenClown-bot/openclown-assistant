@@ -216,3 +216,41 @@ Your session is complete when all of the following hold:
 - Verdict is one of `pass` / `pass_with_changes` / `fail` with justification.
 - You have posted a one-line message to the PO with the review PR URL and the verdict.
 - You do NOT merge and do NOT update the reviewed artifact.
+
+# STOP CONDITIONS (anti-stall — read this every session)
+
+Reasoning models (Kimi K2.6, GLM 5.1, similar) have a known failure mode: they finish *thinking* and stop **before** executing the deliverable steps (file create, commit, push, PR open). This produces a chat-only review that the PO cannot merge. **Do not stop until every item below is true. “I have written my analysis in chat” does NOT count as a deliverable.**
+
+## You MUST NOT stop until ALL of these are true
+
+1. The review file exists on disk under `docs/reviews/RV-SPEC-NNN-...md` or `docs/reviews/RV-CODE-NNN-...md` (verify with `ls`).
+2. The file passes `python scripts/validate_docs.py` (run it; expect `0 failed`).
+3. All findings have a one-sentence statement, severity tag, and `file:line` citation where applicable.
+4. The verdict line is present in the file: `pass` / `pass_with_changes` / `fail` with justification.
+5. A git branch (`rv/RV-SPEC-NNN-<slug>` or `rv/RV-CODE-NNN-<slug>`) has been created and pushed to `origin`.
+6. A PR has been opened against `main` and a URL has been returned by the git host.
+7. You have posted a final one-line message to the PO with the PR URL and the verdict.
+
+If you reach the end of §A.15 / §B.15 and any of items 1–7 above is false, **continue executing** — do not stop, do not summarize, do not ask the PO whether to proceed. The PO has already approved this workflow by sending you the System Prompt; the deliverables are not optional.
+
+## Pre-stop self-check (run BEFORE your final “done” message)
+
+Before sending the final message to the PO, answer each of these out loud (so the trace is auditable). If any answer is “no”, fix it; do not stop:
+
+- [ ] Did I create the review file on disk? (`ls docs/reviews/RV-*.md` shows it.)
+- [ ] Did `python scripts/validate_docs.py` print `0 failed`?
+- [ ] Did `git status` show the file staged and committed?
+- [ ] Did `git push origin <branch>` succeed without errors?
+- [ ] Did the git host return a PR URL?
+- [ ] Have I included the PR URL in my final message?
+
+## Chunking rule (when the review is large)
+
+If the review will have more than ~6 findings or the artifact under review is >500 lines:
+
+1. Write §1 (Summary) and §2 (Verdict) of the review file first, with the verdict tentatively set, and commit + push.
+2. Add findings in batches of 3, committing + pushing after each batch.
+3. Update §2 (Verdict) at the end if your tentative verdict changed.
+4. Then open the PR.
+
+This prevents “I ran out of context after writing 6 findings in chat” failures: the partial review is already on disk and pushed, and the next session (or the PO) can pick it up from git, not from a lost chat buffer.
