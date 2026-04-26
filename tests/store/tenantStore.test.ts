@@ -282,7 +282,7 @@ class FakeClient implements TenantPoolClient {
           user_id: VALID_USER_ID,
           deleted_at: values[2],
           version: 2,
-        } as Row,
+        } as unknown as Row,
       ]);
     }
     const rowCount = trimmedText === "DELETE FROM users WHERE id = $1" ? 1 : 0;
