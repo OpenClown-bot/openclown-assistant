@@ -8,7 +8,7 @@ reviewer_model: "kimi-k2.6"
 created: 2026-04-26
 approved_at: 2026-04-26
 approved_after_iters: 2
-approved_by: "orchestrator (PO-delegated, see CONTRIBUTING.md §6 hard rule on clerical patches)"
+approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
 approved_note: |
   All medium and high findings from RV-CODE-001 (F-M2, F-L2, F-L3) and Devin
   Review (F-DR1, F-DR3, F-DR4, BUG_0001) addressed in PR #9 across two fix
