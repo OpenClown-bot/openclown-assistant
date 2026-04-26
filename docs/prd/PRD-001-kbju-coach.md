@@ -1,12 +1,12 @@
 ---
 id: PRD-001
 title: "KBJU Coach v0.1"
-version: 0.1.0
-status: draft
+version: 0.2.0
+status: in_review
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.7-thinking"
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-04-26
 supersedes: null
 superseded_by: null
 related: []
@@ -47,8 +47,8 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 
 **Acceptance:**
 - [ ] Given a Telegram user has never interacted with the bot, when they send `/start`, then the bot greets them in Russian, briefly explains what it does, and includes a one-sentence non-medical disclaimer.
-- [ ] The bot collects, in a guided step-by-step intake: sex, age, height (cm), weight (kg), self-reported activity level (sedentary / light / moderate / active / very active), weight goal (lose / maintain / gain), and desired pace per week in kg (the pace step is optional; if skipped, the bot uses a sane default and tells the user what was assumed).
-- [ ] All fields are validated against sane ranges; invalid input prompts a re-ask in Russian with a clear example, not a generic error.
+- [ ] The bot collects, in a guided step-by-step intake: sex, age, height (cm), weight (kg), self-reported activity level (sedentary / light / moderate / active / very active), weight goal (lose / maintain / gain), and desired pace per week in kg (the pace step is optional; if skipped, the bot applies the default pace of 0.5 kg/week — moderate, not aggressive — and tells the user what was assumed).
+- [ ] All fields are validated against the following ranges; invalid input prompts a re-ask in Russian with a clear example, not a generic error: age 10–120 years; height 100–250 cm; weight 20–300 kg; pace 0.1–2.0 kg/week (applies to both lose and gain goals; ignored when goal = maintain).
 - [ ] At completion of the biometric intake, the bot proposes a default delivery time for daily reports framed as a confirmation question in Russian (e.g. «Удобно ли получать ежедневный отчёт в 22:00?», offered alongside the locale-appropriate timezone the bot inferred from the Telegram client). The user confirms or selects an alternative time / timezone in the same message thread.
 - [ ] The bot computes and displays the user's personalized daily targets (calories, protein, fat, carbs) in Russian and asks for explicit confirmation before transitioning to logging mode. The user can request a re-explanation or restart onboarding.
 - [ ] All onboarding answers are stored under the user's tenant scope only (US-9).
@@ -85,7 +85,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 
 **Acceptance:**
 - [ ] Given the user has logged at least one confirmed meal in the period, the bot delivers a Russian-language summary message at the user-confirmed delivery time. Default times are 22:00 daily, Sunday 21:00 weekly, and the 1st of the next month at 21:00 monthly, all in the user's confirmed timezone.
-- [ ] Each summary includes: raw totals (calories, protein, fat, carbs); delta vs. the user's daily / weekly / monthly target; comparison to the previous period of the same length; a short personalized recommendation derived from the data.
+- [ ] Each summary includes: raw totals (calories, protein, fat, carbs); delta vs. the user's daily / weekly / monthly target; comparison to the previous period of the same length; a short personalized recommendation derived from the data. Recommendations MUST be limited to calorie and macronutrient balance relative to the user's target (e.g. "you ran a 400 kcal deficit on average — consistent with your 0.5 kg/week pace", "your protein was 30 g below target on 4 of 7 days"). Recommendations MUST NOT mention vitamins, supplements, hydration, glycemic index, meal timing, micronutrients, or any clinical / medical advice — those topics are deferred per §3 NG6 / NG7.
 - [ ] If the user logged zero confirmed meals in the period, the summary is replaced by a single short Russian nudge.
 - [ ] Summary content is generated per-user from that user's data only (US-9).
 
@@ -93,7 +93,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 **As a user**, I want to view, correct, or delete any of my past meal entries — at any depth in my history — **so that** I can fix misrecognized meals at any time without time-window constraints.
 
 **Acceptance:**
-- [ ] Given the user requests history (via command or natural-language ask), when the bot returns a paginated list, then the user can select any past confirmed meal record to edit (items / portions / KBJU) or delete.
+- [ ] Given the user requests history (via command or natural-language ask), when the bot returns a paginated list (page size: 5 meals per page, newest first), then the user can select any past confirmed meal record to edit (items / portions / KBJU) or delete.
 - [ ] After an edit or delete, future summaries reflect the corrected data; already-delivered summaries are NOT retroactively rewritten — instead, the next periodic summary surfaces the delta between the previously reported figure and the corrected one.
 - [ ] Each edit and delete is recorded in a per-user audit log retained alongside the meal record.
 
@@ -129,7 +129,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 | K1 | Daily confirmed meals logged per active pilot user | 0 (new product, no prior data) | ≥3/day on ≥5 of any rolling 7-day window, sustained for the 30-day pilot | Server-side count of confirmed meal records per user per calendar day |
 | K2 | Time-to-first-value (first user meal-content message → first KBJU draft reply) | n/a | ≤120 seconds end-to-end, every user in the pilot | Server-side timestamps of inbound message and outbound KBJU reply for each user's first meal-content event |
 | K3 | Voice round-trip latency p95, voice messages ≤15 s long | n/a | ≤8 s soft (p95), ≤30 s hard (p100) over rolling 7-day windows for 30-day pilot | Server-side timestamps from voice receipt to KBJU draft reply; computed nightly |
-| K4 | Cross-user data leaks during 30-day pilot | n/a | 0 | End-of-pilot manual audit of stored events for cross-user references |
+| K4 | Cross-user data leaks during 30-day pilot | n/a | 0 | End-of-pilot manual audit of the primary user-data store (the records enumerated in US-9 AC1: biometric profiles, meal records, summaries, audit log entries, transcripts, manual-entry meals) for cross-user references. Application logs, observability traces, and router billing records are NOT in K4 scope and are governed separately by §7 data-retention rules and §8 legal-exposure risk |
 | K5 | Monthly LLM + voice-transcription spend (2-user pilot) | n/a | ≤$10/month total; auto-degrade triggers on overage | Provider invoices / router billing reports, reviewed monthly |
 | K6 | Weekly retention of pilot users | n/a | Both pilot users active ≥7/7 days/week for 4 of 4 pilot weeks. "Active" = ≥1 confirmed meal logged that day | Server-side count of distinct days with ≥1 confirmed meal per user |
 | K7 | KBJU estimation accuracy (per-meal and per-day targets) | n/a | TBD by §9 Open Q after Architect feasibility analysis | Manual labelling sample of pilot logs vs. ground-truth references; method finalized after target is set |
