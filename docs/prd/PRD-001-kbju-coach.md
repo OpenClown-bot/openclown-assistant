@@ -2,7 +2,7 @@
 id: PRD-001
 title: "KBJU Coach v0.1"
 version: 0.2.0
-status: in_review
+status: approved
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.7-thinking"
 created: 2026-04-25
