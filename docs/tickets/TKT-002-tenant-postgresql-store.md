@@ -86,6 +86,9 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
 2026-04-26 20:46 codex-gpt-5.5: started
 2026-04-26 20:46 codex-gpt-5.5: opened PR #12
+2026-04-26 22:00 gpt-5.5: corrected execution log — original entries said "codex-gpt-5.5" but actual runtime was opencode + GPT-5.5 (xhigh) on the OpenClaw VPS; git author shown as "GLM-5.1 Executor" is a VPS-pinned config, not the actual model
+2026-04-26 22:00 gpt-5.5: applied RV-CODE-002 fixes F-H1 + F-M1 + F-M2 + F-L1 + F-L2 to PR #12
+2026-04-26 22:00 gpt-5.5: re-pushed exec/TKT-002-tenant-postgresql-store
 
 ---
 
