@@ -33,9 +33,11 @@ export type RequiredConfigName = (typeof REQUIRED_CONFIG_NAMES)[number];
 export class ConfigError extends Error {
   public readonly missingNames: readonly string[];
 
-  constructor(missingNames: readonly string[]) {
+  constructor(missingNames: readonly string[]);
+  constructor(missingNames: readonly string[], message: string);
+  constructor(missingNames: readonly string[], message?: string) {
     const fieldList = missingNames.join(", ");
-    super(`Missing required config: ${fieldList}`);
+    super(message ?? `Missing required config: ${fieldList}`);
     this.name = "ConfigError";
     this.missingNames = missingNames;
   }
@@ -65,7 +67,16 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
     usdaFdcApiKey: env["USDA_FDC_API_KEY"]!.trim(),
     personaPath: env["PERSONA_PATH"]!.trim(),
     poAlertChatId: env["PO_ALERT_CHAT_ID"]!.trim(),
-    monthlySpendCeilingUsd: parseFloat(env["MONTHLY_SPEND_CEILING_USD"]!.trim()),
+    monthlySpendCeilingUsd: (() => {
+      const parsed = parseFloat(env["MONTHLY_SPEND_CEILING_USD"]!.trim());
+      if (Number.isNaN(parsed) || parsed <= 0) {
+        throw new ConfigError(
+          ["MONTHLY_SPEND_CEILING_USD"],
+          `Invalid numeric value for MONTHLY_SPEND_CEILING_USD`
+        );
+      }
+      return parsed;
+    })(),
     auditDbUrl: env["AUDIT_DB_URL"]!.trim(),
   };
 }

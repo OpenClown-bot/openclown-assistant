@@ -98,6 +98,38 @@ describe("parseConfig", () => {
     expect(REQUIRED_CONFIG_NAMES).toContain("MONTHLY_SPEND_CEILING_USD");
     expect(REQUIRED_CONFIG_NAMES).toContain("AUDIT_DB_URL");
   });
+
+  it("rejects non-numeric MONTHLY_SPEND_CEILING_USD", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "ten";
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+      const ce = err as ConfigError;
+      expect(ce.message).not.toContain("ten");
+      expect(ce.message).toContain("MONTHLY_SPEND_CEILING_USD");
+    }
+  });
+
+  it("rejects negative MONTHLY_SPEND_CEILING_USD", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "-5";
+    try {
+      parseConfig(env);
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConfigError);
+    }
+  });
+
+  it("accepts valid numeric MONTHLY_SPEND_CEILING_USD", () => {
+    const env = makeFullEnv();
+    env["MONTHLY_SPEND_CEILING_USD"] = "10";
+    const config = parseConfig(env);
+    expect(config.monthlySpendCeilingUsd).toBe(10);
+  });
 });
 
 describe("redactSecrets", () => {
