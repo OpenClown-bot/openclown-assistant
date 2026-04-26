@@ -4,7 +4,7 @@ title: "KBJU Coach v0.1"
 version: 0.1.0
 status: draft
 owner: "@yourmomsenpai"
-author_model: "gpt-5.5-thinking"
+author_model: "claude-opus-4.7-thinking"
 created: 2026-04-25
 updated: 2026-04-25
 supersedes: null
@@ -177,7 +177,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 
 ## 9. Open Questions (resolve BEFORE handoff to Architect)
 - **OQ-1 — KBJU estimation accuracy target.** Numeric per-meal and daily-aggregate accuracy targets for K7 are not yet set. The PO declined to commit a number without grounding; the Business Planner declined to fabricate one. Resolution: the Architect produces a feasibility bound based on the chosen voice / vision / lookup / LLM stack, then the PO ratifies a target before the ArchSpec is frozen. Until then, K7 is recorded as TBD and the rest of the PRD does not depend on a specific numeric accuracy target.
-- **OQ-2 — Partner user's personal logging-volume target (G1, K1).** The G1 target of ≥3 meals/day per user inherits the PO's preference; the partner's own preference has not yet been confirmed by her directly. Resolution: PO confirms with the partner before pilot start; if she prefers a lower target, K1 splits into per-user values rather than one shared value.
+- **OQ-2 — Partner user's personal logging-volume target (G1, K1).** The G1 target of ≥3 meals/day per user inherits the PO's preference; the partner's own preference has not yet been confirmed by her directly. Resolution (PO-escalated, 2026-04-26): PO will confirm with the partner before pilot start. Until confirmed, G1 / K1 use the PO's value (≥3/day) as a working default for both pilot users; if the partner asks for a different number on her side, K1 splits into per-user values without re-opening this PRD. This OQ remains `open` until PO records the partner's response in a follow-up commit (or marks it `answered` on confirmation).
 - **OQ-3 — Data hosting jurisdiction.** Choice between candidate jurisdictions for stored user records (affects §8 legal-exposure risk, §7 latency). Resolution: Architect produces a shortlist with cost / latency / legal trade-offs in the ArchSpec; PO selects.
 
 ## 10. Out of Scope (explicitly deferred)
@@ -197,7 +197,7 @@ The Product Owner and one partner user want a low-friction way to track daily fo
 ---
 
 ## Handoff Checklist (author ticks all before setting status to `approved`)
-- [x] All sections filled; no TODO / TBD outside §9 Open Questions
+- [ ] All sections filled; no TODO / TBD outside §9 Open Questions — K7 target column in §6 reads `TBD by §9 Open Q after Architect feasibility analysis`; this is intentional and tracked in OQ-1, but the assertion as written cannot be ticked. Reviewer LLM is asked to validate that this is the only outstanding TBD.
 - [x] Non-Goals explicitly listed (≥1)
 - [x] Each User Story has testable Acceptance Criteria
 - [x] KPIs are measurable (numeric target and window)
