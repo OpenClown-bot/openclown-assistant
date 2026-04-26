@@ -1,3 +1,4 @@
+import { types as pgTypes } from "pg";
 import type { Pool, QueryResult, QueryResultRow } from "pg";
 import type {
   AuditEventRow,
@@ -74,6 +75,19 @@ export class OptimisticVersionError extends TenantStoreError {
   }
 }
 
+let pgNumericTypeParserRegistered = false;
+
+export function registerPgNumericTypeParser(): void {
+  if (pgNumericTypeParserRegistered) {
+    return;
+  }
+
+  pgTypes.setTypeParser(pgTypes.builtins.NUMERIC, (value: string | null) =>
+    value === null ? null : parseFloat(value)
+  );
+  pgNumericTypeParserRegistered = true;
+}
+
 export function nextVersion(currentVersion: number): number {
   if (!Number.isInteger(currentVersion) || currentVersion < 1) {
     throw new TenantStoreError(`Invalid optimistic version: ${currentVersion}`);
@@ -82,6 +96,7 @@ export function nextVersion(currentVersion: number): number {
 }
 
 export function createTenantStore(pool: Pool): TenantPostgresStore {
+  registerPgNumericTypeParser();
   return new TenantPostgresStore(pool);
 }
 

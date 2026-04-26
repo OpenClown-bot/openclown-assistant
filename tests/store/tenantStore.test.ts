@@ -1,3 +1,4 @@
+import { types as pgTypes } from "pg";
 import type { QueryResult, QueryResultRow } from "pg";
 import { describe, expect, it } from "vitest";
 import type { TenantStore } from "../../src/store/types.js";
@@ -5,9 +6,13 @@ import {
   OptimisticVersionError,
   TenantPostgresStore,
   nextVersion,
+  registerPgNumericTypeParser,
   type TenantConnectionPool,
   type TenantPoolClient,
 } from "../../src/store/tenantStore.js";
+
+const NUMERIC_OID = pgTypes.builtins.NUMERIC;
+const defaultNumericTextParser = pgTypes.getTypeParser(NUMERIC_OID, "text");
 
 type NonUserScopedMethods<T> = {
   [K in keyof T]: T[K] extends (...args: infer Args) => unknown
@@ -50,6 +55,16 @@ const expectedTenantStoreMethods = [
 ] as const satisfies readonly (keyof TenantStore)[];
 
 describe("tenant store typing and transactions", () => {
+  it("registers pg NUMERIC parsing as a JavaScript number", () => {
+    expect(defaultNumericTextParser("1500.00")).toBe("1500.00");
+
+    registerPgNumericTypeParser();
+    const numericParser = pgTypes.getTypeParser(NUMERIC_OID, "text");
+
+    expect(numericParser("1500.00")).toBe(1500);
+    expect(typeof numericParser("1500.00")).toBe("number");
+  });
+
   it("has no unscoped exported repository methods", () => {
     expect(tenantStoreMethodsRequireUserId).toBe(true);
 
