@@ -1,18 +1,19 @@
 import { types as pgTypes } from "pg";
 import type { QueryResult, QueryResultRow } from "pg";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TenantStore } from "../../src/store/types.js";
 import {
   OptimisticVersionError,
   TenantStoreError,
   TenantPostgresStore,
   nextVersion,
-  registerPgNumericTypeParser,
+  registerPgTypeParsers,
   type TenantConnectionPool,
   type TenantPoolClient,
 } from "../../src/store/tenantStore.js";
 
 const NUMERIC_OID = pgTypes.builtins.NUMERIC;
+const TIMESTAMPTZ_OID = pgTypes.builtins.TIMESTAMPTZ;
 const defaultNumericTextParser = pgTypes.getTypeParser(NUMERIC_OID, "text");
 const VALID_USER_ID = "123e4567-e89b-42d3-a456-426614174000";
 
@@ -57,14 +58,48 @@ const expectedTenantStoreMethods = [
 ] as const satisfies readonly (keyof TenantStore)[];
 
 describe("tenant store typing and transactions", () => {
-  it("registers pg NUMERIC parsing as a JavaScript number", () => {
+  it("registers pg NUMERIC and TIMESTAMPTZ parsers idempotently", () => {
     expect(defaultNumericTextParser("1500.00")).toBe("1500.00");
 
-    registerPgNumericTypeParser();
+    const setTypeParserSpy = vi.spyOn(pgTypes, "setTypeParser");
+    registerPgTypeParsers();
+    registerPgTypeParsers();
     const numericParser = pgTypes.getTypeParser(NUMERIC_OID, "text");
+    const timestamptzParser = pgTypes.getTypeParser(TIMESTAMPTZ_OID, "text");
 
+    expect(setTypeParserSpy).toHaveBeenCalledTimes(2);
+    expect(setTypeParserSpy).toHaveBeenNthCalledWith(1, NUMERIC_OID, expect.any(Function));
+    expect(setTypeParserSpy).toHaveBeenNthCalledWith(2, TIMESTAMPTZ_OID, expect.any(Function));
     expect(numericParser("1500.00")).toBe(1500);
     expect(typeof numericParser("1500.00")).toBe("number");
+    expect(timestamptzParser("2026-04-26 20:46:00+00")).toBe("2026-04-26 20:46:00+00");
+    setTypeParserSpy.mockRestore();
+  });
+
+  it("keeps TIMESTAMPTZ fields as strings in pg-shaped results", () => {
+    registerPgTypeParsers();
+    const timestamptzParser = pgTypes.getTypeParser(TIMESTAMPTZ_OID, "text");
+    const rawTimestamp = "2026-04-26 20:46:00+00";
+    const result = {
+      command: "SELECT",
+      rowCount: 1,
+      oid: 0,
+      fields: [
+        {
+          name: "created_at",
+          tableID: 0,
+          columnID: 0,
+          dataTypeID: TIMESTAMPTZ_OID,
+          dataTypeSize: 8,
+          dataTypeModifier: -1,
+          format: "text",
+        },
+      ],
+      rows: [{ created_at: timestamptzParser(rawTimestamp) }],
+    } as QueryResult<{ created_at: string | Date | null }>;
+
+    expect(result.rows[0]?.created_at).toBe(rawTimestamp);
+    expect(result.rows[0]?.created_at).not.toBeInstanceOf(Date);
   });
 
   it("has no unscoped exported repository methods", () => {

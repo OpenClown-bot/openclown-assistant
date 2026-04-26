@@ -75,18 +75,21 @@ export class OptimisticVersionError extends TenantStoreError {
   }
 }
 
-let pgNumericTypeParserRegistered = false;
+let pgTypeParsersRegistered = false;
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function registerPgNumericTypeParser(): void {
-  if (pgNumericTypeParserRegistered) {
+export function registerPgTypeParsers(): void {
+  if (pgTypeParsersRegistered) {
     return;
   }
 
   pgTypes.setTypeParser(pgTypes.builtins.NUMERIC, (value: string | null) =>
     value === null ? null : parseFloat(value)
   );
-  pgNumericTypeParserRegistered = true;
+  // TIMESTAMPTZ (OID 1184). pg's default parser converts to JS Date, but
+  // DbTimestamp is `string`; pass through pg's raw ISO-8601 string.
+  pgTypes.setTypeParser(pgTypes.builtins.TIMESTAMPTZ, (value: string | null) => value);
+  pgTypeParsersRegistered = true;
 }
 
 export function nextVersion(currentVersion: number): number {
@@ -97,7 +100,7 @@ export function nextVersion(currentVersion: number): number {
 }
 
 export function createTenantStore(pool: Pool): TenantPostgresStore {
-  registerPgNumericTypeParser();
+  registerPgTypeParsers();
   return new TenantPostgresStore(pool);
 }
 
