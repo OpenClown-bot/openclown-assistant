@@ -1,7 +1,7 @@
 ---
 id: TKT-003
 title: "Observability Cost Guard"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C10 Cost, Degrade, and Observability Service"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0"]
@@ -78,7 +78,7 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- 2026-04-27 14:00 glm-5.1: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+2026-04-27 11:15 glm-5.1: opened PR #17
 
 ---
 
