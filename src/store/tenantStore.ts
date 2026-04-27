@@ -803,11 +803,11 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
       `INSERT INTO monthly_spend_counters (
          user_id, month_utc, estimated_spend_usd, actual_spend_usd,
          degrade_mode_enabled, po_alert_sent_at
-       ) VALUES ($1, $2, $3, 0, $4, $5)
+       ) VALUES ($1, $2, $3, 0, COALESCE($4::boolean, false), $5::timestamptz)
        ON CONFLICT (user_id, month_utc) DO UPDATE SET
          estimated_spend_usd = monthly_spend_counters.estimated_spend_usd + EXCLUDED.estimated_spend_usd,
-         degrade_mode_enabled = COALESCE(EXCLUDED.degrade_mode_enabled, monthly_spend_counters.degrade_mode_enabled),
-         po_alert_sent_at = COALESCE(EXCLUDED.po_alert_sent_at, monthly_spend_counters.po_alert_sent_at),
+         degrade_mode_enabled = COALESCE($4::boolean, monthly_spend_counters.degrade_mode_enabled),
+         po_alert_sent_at = COALESCE($5::timestamptz, monthly_spend_counters.po_alert_sent_at),
          updated_at = now()
        RETURNING *`,
       [

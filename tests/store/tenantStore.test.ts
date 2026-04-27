@@ -155,6 +155,28 @@ describe("tenant store typing and transactions", () => {
     expect(client.queries.at(-1)).toMatchObject({ text: "COMMIT", values: [] });
   });
 
+  it("incrementMonthlySpend COALESCEs degrade_mode_enabled on INSERT seed path (NOT NULL fix)", async () => {
+    const client = new FakeClient();
+    const store = new TenantPostgresStore(new FakePool(client));
+
+    try {
+      await store.withTransaction(VALID_USER_ID, async (repository) => {
+        await repository.incrementMonthlySpend(VALID_USER_ID, "2026-04", { deltaUsd: 0 });
+      });
+    } catch {
+      // FakeClient returns no rows for this INSERT…RETURNING; that's OK — we only check the SQL text
+    }
+
+    const insertQuery = client.queries.find((q) =>
+      q.text.includes("INSERT INTO monthly_spend_counters")
+    );
+    expect(insertQuery).toBeDefined();
+    expect(insertQuery!.values[3]).toBeNull();
+    expect(insertQuery!.text).toContain("COALESCE($4::boolean, false)");
+    expect(insertQuery!.text).toContain("COALESCE($4::boolean, monthly_spend_counters.degrade_mode_enabled)");
+    expect(insertQuery!.text).toContain("COALESCE($5::timestamptz, monthly_spend_counters.po_alert_sent_at)");
+  });
+
   it("rejects invalid userId values before database interaction", async () => {
     const emptyUserIdClient = new FakeClient();
     const emptyUserIdStore = new TenantPostgresStore(new FakePool(emptyUserIdClient));
