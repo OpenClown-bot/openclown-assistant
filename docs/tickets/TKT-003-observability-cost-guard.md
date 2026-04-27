@@ -1,7 +1,7 @@
 ---
 id: TKT-003
 title: "Observability Cost Guard"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "C10 Cost, Degrade, and Observability Service"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0"]
@@ -9,7 +9,12 @@ blocks: ["TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0", "TKT-009@0.1.0", "TK
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-27
+closed_at: 2026-04-27
+closed_by: "orchestrator (PO-delegated)"
+closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/17"
+closure_commit: "f0c5583"
+review_ref: "RV-CODE-003"
 ---
 
 # TKT-003: Observability Cost Guard
@@ -85,6 +90,7 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 2026-04-27 18:00 glm-5.1: iter-2.5 NOT NULL fix (incrementMonthlySpend COALESCE + bind-param UPDATE) + regression test; PR body rollback/deferred-follow-up updates
 2026-04-27 19:00 glm-5.1: iter-2.6 complete (Devin-Review iter-2.5 fixes — listen error handler + time-dependent test)
 2026-04-27 20:00 glm-5.1: iter-2.7 complete (Devin-Review iter-2.6 fix — label order normalization in metrics registry key())
+2026-04-27 20:36 orchestrator: PR #17 merged via squash-commit f0c5583; PR #18 (RV-CODE-003 review file) merged via squash-commit 58bf45f; status in_review -> done; RV-CODE-003 status changes_requested -> approved (clerical close-out)
 
 ---
 

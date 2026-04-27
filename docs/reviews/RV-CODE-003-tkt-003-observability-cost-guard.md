@@ -3,24 +3,56 @@ id: RV-CODE-003
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/17"
 ticket_ref: TKT-003@0.1.0
-status: changes_requested
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-27
+approved_at: 2026-04-27
+approved_after_iters: 5
+approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
+approved_note: |
+  All RV-CODE-003 findings (5 high F-H1..F-H5, 4 medium F-M1..F-M4, 2 low
+  F-L1 + F-L2) and Devin Review iter-discovered findings (F-DR-D-I1
+  events.ts redact, F-DR-D-I4 metrics-registry label order normalization)
+  addressed in PR #17 across five fix iterations:
+  iter 1 commits 535d961..b87a161 (initial implementation, original
+  fail-verdict snapshot), iter 2 commits 2b4a3df..d6f6924 (RV-CODE-003
+  GROUPS A-M plus F-DR-D-I1 redact in events.ts; D-I0 confirmed
+  not-a-bug per Devin Review's own analysis), iter 2.5 commits
+  2ce4db0..7745f00 (NOT NULL violation fix in incrementMonthlySpend SQL
+  via COALESCE on bind-param, plus regression test on captured query
+  text), iter 2.6 commit 7ef1220 (listen-error handler in metrics
+  server start() + time-dependent SpendTracker test fixed via
+  getCurrentMonthUtc()), iter 2.7 commit 4406ae2 (metrics registry
+  key() label-order normalization via alphabetical sort, plus regression
+  test asserting collapsed counter and alphabetical render output).
+  D-I2 (validateLabels substring permissiveness) and D-I3 (parseKey
+  double-escape) are consciously deferred to follow-up Tickets per the
+  PR #17 body; the deferred items are tracked there. Verdict updated
+  from `fail` to `pass_with_changes` to reflect post-fix state per
+  docs/reviews/README.md lifecycle rule (approved maps to pass /
+  pass_with_changes; the original `fail` snapshot represented iter-1
+  state before the high-severity SpendTracker fixes). Final Devin
+  Review run on PR #17 head 4406ae2 reported the label-order finding
+  resolved and 0 new findings. PR #17 merged to main as squash commit
+  f0c5583; PR #18 (RV-CODE-003 review file) merged as squash commit
+  58bf45f. Pipeline also resolved one Question Protocol stop
+  (Q-TKT-003-01, scope expansion ratification for tenant store method
+  additions outside §5 Outputs).
 ---
 
 # Code Review — PR #17 (TKT-003@0.1.0)
 
 ## Summary
-PR #17 adds C10 observability scaffolding with correct file scope, zero new runtime dependencies, and valid Prometheus metric name registry. However, the SpendTracker class has three critical data-integrity bugs (fresh-instance state loss, month-rollover spend leak, lost-update race) and is completely uncovered by tests. Additionally, the histogram renderer emits invalid Prometheus exposition format. These defects block merge.
+PR #17 adds C10 observability scaffolding with correct file scope, zero new runtime dependencies, and valid Prometheus metric name registry. The original iter-1 review identified five high-severity findings (F-H1 fresh-instance destructive upsert, F-H2 lost-update race in recordCostAndCheckBudget, F-H3 month-rollover cache leak, F-H4 invalid Prometheus histogram exposition, F-H5 SpendTracker class entirely untested), four medium findings (F-M1 PII redaction blocklist instead of allowlist, F-M2 spend-ceiling comparator using `>` instead of `>=` against ARCH, F-M3 no `observe()` / histogram rendering test, F-M4 generic string PII patterns failing on meal text), and two low findings (F-L1 dead `countKey` variable, F-L2 incomplete PR body rollback note). All RV-CODE-003 findings were fixed across iter-2, iter-2.5, iter-2.6, and iter-2.7 commits on PR #17 before merge; two iter-discovered Devin Review findings (D-I2 `validateLabels` substring permissiveness, D-I3 `parseKey` double-escape) are consciously deferred to follow-up Tickets and tracked in the PR #17 body. See the `approved_note` frontmatter for the per-iteration commit map. The remaining sections of this document (Verdict justification, Findings, Red-team probes, AC mapping) record the iter-1 snapshot at original review time and should be read together with the closure frontmatter for the post-fix state.
 
 ## Verdict
 - [ ] pass
-- [ ] pass_with_changes
-- [x] fail
+- [x] pass_with_changes
+- [ ] fail
 
-One-sentence justification: Three high-severity SpendTracker data-integrity bugs, completely untested stateful class, and invalid histogram exposition format mean the PR does not satisfy TKT-003@0.1.0 acceptance criteria for safe cost guarding or correct metrics rendering.
+One-sentence justification: All AC are satisfied and all RV-CODE-003 findings (high/medium/low) were fixed in iterations 2, 2.5, 2.6, and 2.7 on PR #17 before merge; two Devin-Review iter-discovered findings (D-I2, D-I3) are consciously deferred to follow-up Tickets per the PR #17 body. Verdict updated from the original `fail` (iter-1 snapshot, before the SpendTracker high-severity fixes) to `pass_with_changes` per docs/reviews/README.md lifecycle rule on closure; see frontmatter `approved_note` for the per-iteration commit map and the deferred-finding tracking.
 
-Recommendation to PO: **PO: request changes from Executor.**
+Recommendation to PO: approve & merge PR #17 (done as squash f0c5583); track D-I2 and D-I3 in follow-up Tickets.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT-003@0.1.0 §5 Outputs
@@ -96,4 +128,4 @@ Recommendation to PO: **PO: request changes from Executor.**
 - Medium (fix before next stage): F-M1, F-M2, F-M3, F-M4
 - Low (cosmetic): F-L1, F-L2
 
-**Verdict:** `fail` — five high findings across data integrity, concurrency safety, metrics format, and test coverage.
+**Verdict:** `pass_with_changes` (post-fix closure state) — the original iter-1 verdict was `fail` based on five high findings across data integrity, concurrency safety, metrics format, and test coverage; all of those plus all medium and low findings were fixed across iter-2, iter-2.5, iter-2.6, and iter-2.7 commits on PR #17 before merge. Two Devin-Review iter-discovered findings (D-I2, D-I3) are consciously deferred to follow-up Tickets and tracked in the PR #17 body. See `approved_note` frontmatter for the per-iteration commit map.
