@@ -231,7 +231,11 @@ export function createMetricsServer(
           reject(new Error("Server not initialized"));
           return;
         }
-        server.listen(port, host, () => resolve());
+        server.once("error", reject);
+        server.listen(port, host, () => {
+          server?.removeListener("error", reject);
+          resolve();
+        });
       });
     },
 

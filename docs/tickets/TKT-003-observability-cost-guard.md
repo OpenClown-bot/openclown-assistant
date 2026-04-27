@@ -83,6 +83,7 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 2026-04-27 16:00 glm-5.1: Q-TKT-003-01 answered (option A); tests/store/tenantStore.test.ts added to iter-2 expanded scope (expectedTenantStoreMethods array only)
 2026-04-27 17:00 glm-5.1: iter-2 fix-list complete (RV-CODE-003 + Devin Review F-DR-D-I1; D-I2 / D-I3 deferred)
 2026-04-27 18:00 glm-5.1: iter-2.5 NOT NULL fix (incrementMonthlySpend COALESCE + bind-param UPDATE) + regression test; PR body rollback/deferred-follow-up updates
+2026-04-27 19:00 glm-5.1: iter-2.6 complete (Devin-Review iter-2.5 fixes — listen error handler + time-dependent test)
 
 ---
 

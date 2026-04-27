@@ -174,10 +174,11 @@ describe("costGuard worst-case price coverage per ADR", () => {
 
 describe("SpendTracker (F-H5 coverage)", () => {
   it("fresh-instance read preserves existing DB spend (F-H1)", async () => {
+    const currentMonth = getCurrentMonthUtc();
     const rows = new Map<string, MonthlySpendCounterRow>();
-    rows.set("user-001:2026-04", makeRow({
+    rows.set(`user-001:${currentMonth}`, makeRow({
       user_id: "user-001",
-      month_utc: "2026-04",
+      month_utc: currentMonth,
       estimated_spend_usd: 7.5,
     }));
     const store = createMockStore(rows);
@@ -185,7 +186,7 @@ describe("SpendTracker (F-H5 coverage)", () => {
 
     const state = await tracker.getState();
     expect(state.estimatedSpendUsd).toBe(7.5);
-    expect(state.monthUtc).toBe(getCurrentMonthUtc());
+    expect(state.monthUtc).toBe(currentMonth);
   });
 
   it("concurrent recordCostAndCheckBudget calls do not lose updates (F-H2)", async () => {
