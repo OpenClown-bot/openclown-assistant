@@ -52,7 +52,9 @@ const expectedTenantStoreMethods = [
   "createAuditEvent",
   "createMetricEvent",
   "createCostEvent",
+  "getMonthlySpendCounter",
   "upsertMonthlySpendCounter",
+  "incrementMonthlySpend",
   "upsertFoodLookupCache",
   "createKbjuAccuracyLabel",
 ] as const satisfies readonly (keyof TenantStore)[];

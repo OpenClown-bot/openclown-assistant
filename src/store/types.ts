@@ -475,6 +475,12 @@ export interface UpsertMonthlySpendCounterRequest {
   poAlertSentAt?: DbTimestamp;
 }
 
+export interface IncrementMonthlySpendRequest {
+  deltaUsd: number;
+  degradeModeEnabled?: boolean;
+  poAlertSentAt?: DbTimestamp;
+}
+
 export interface UpsertFoodLookupCacheRequest {
   canonicalQueryHash: string;
   canonicalFoodName: string;
@@ -522,6 +528,8 @@ export interface TenantScopedRepository {
   createMetricEvent(userId: string, request: CreateMetricEventRequest): Promise<MetricEventRow>;
   createCostEvent(userId: string, request: CreateCostEventRequest): Promise<CostEventRow>;
   upsertMonthlySpendCounter(userId: string, request: UpsertMonthlySpendCounterRequest): Promise<MonthlySpendCounterRow>;
+  getMonthlySpendCounter(userId: string, monthUtc: string): Promise<MonthlySpendCounterRow | null>;
+  incrementMonthlySpend(userId: string, monthUtc: string, request: IncrementMonthlySpendRequest): Promise<MonthlySpendCounterRow>;
   upsertFoodLookupCache(userId: string, request: UpsertFoodLookupCacheRequest): Promise<FoodLookupCacheRow>;
   createKbjuAccuracyLabel(userId: string, request: CreateKbjuAccuracyLabelRequest): Promise<KbjuAccuracyLabelRow>;
 }
