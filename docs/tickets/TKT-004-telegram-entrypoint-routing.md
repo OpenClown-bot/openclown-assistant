@@ -80,6 +80,7 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- 2026-04-27 18:14 glm-5.1: started -->
 <!-- 2026-04-27 18:14 glm-5.1: all 6 §5 Outputs implemented, 125 tests green, typecheck/lint/validate_docs pass -->
+<!-- 2026-04-27 19:02 glm-5.1: iter-2 fix-list complete (RV-CODE-004 F-M1+F-M4 / F-M2 / F-M3 / F-L1; Devin Review D-I1 / D-I2 / D-I3 / D-I4; F-L2 / D-I5 deferred to follow-up) -->
 
 ---
 
