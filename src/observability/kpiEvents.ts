@@ -64,6 +64,7 @@ export const ALLOWED_METRIC_LABELS: readonly string[] = [
   "outcome",
   "provider_alias",
   "model_alias",
+  "le",
 ] as const;
 
 export type AllowedMetricLabel = (typeof ALLOWED_METRIC_LABELS)[number];

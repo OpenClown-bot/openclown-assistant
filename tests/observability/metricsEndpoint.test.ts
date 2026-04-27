@@ -156,6 +156,50 @@ describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
     expect(output).toContain("# TYPE kbju_degrade_mode gauge");
     expect(output).toContain("kbju_degrade_mode");
   });
+
+  it("observe() produces histogram with _sum and _count lines (F-M3)", () => {
+    const registry = createMetricsRegistry();
+    registry.observe(PROMETHEUS_METRIC_NAMES.kbju_meal_draft_latency_ms, {
+      component: "C4",
+    }, 50);
+    registry.observe(PROMETHEUS_METRIC_NAMES.kbju_meal_draft_latency_ms, {
+      component: "C4",
+    }, 150);
+    const output = renderMetricsToText(registry);
+    expect(output).toContain("# TYPE kbju_meal_draft_latency_ms histogram");
+    expect(output).toContain("kbju_meal_draft_latency_ms_sum");
+    expect(output).toContain("kbju_meal_draft_latency_ms_count");
+    expect(output).toContain("kbju_meal_draft_latency_ms_bucket");
+  });
+
+  it("histogram _sum and _count values reflect multiple observations (F-M3)", () => {
+    const registry = createMetricsRegistry();
+    registry.observe(PROMETHEUS_METRIC_NAMES.kbju_text_roundtrip_latency_ms, {
+      component: "C4",
+    }, 100);
+    registry.observe(PROMETHEUS_METRIC_NAMES.kbju_text_roundtrip_latency_ms, {
+      component: "C4",
+    }, 200);
+    const output = renderMetricsToText(registry);
+    const sumMatch = output.match(/kbju_text_roundtrip_latency_ms_sum\{[^}]*\}\s+([\d.e+-]+)/);
+    const countMatch = output.match(/kbju_text_roundtrip_latency_ms_count\{[^}]*\}\s+([\d.e+-]+)/);
+    expect(sumMatch).not.toBeNull();
+    expect(countMatch).not.toBeNull();
+    expect(parseFloat(sumMatch![1])).toBeCloseTo(300, 1);
+    expect(parseFloat(countMatch![1])).toBe(2);
+  });
+
+  it("rendered histogram is valid Prometheus text format — no duplicate same-name+label lines (F-M3)", () => {
+    const registry = createMetricsRegistry();
+    registry.observe(PROMETHEUS_METRIC_NAMES.kbju_voice_roundtrip_latency_ms, {
+      component: "C4",
+    }, 42);
+    const output = renderMetricsToText(registry);
+    const dataLines = output.split("\n").filter((l: string) => !l.startsWith("#") && l.trim().length > 0);
+    const names = dataLines.map((l: string) => l.replace(/\s+[\d.e+-+-]+$/, "").trim());
+    const uniqueNames = new Set(names);
+    expect(uniqueNames.size).toBe(names.length);
+  });
 });
 
 describe("metricsEndpoint server factory", () => {
