@@ -79,6 +79,7 @@ Implement C10 observability events, spend guard, degrade flags, metrics export.
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- 2026-04-27 14:00 glm-5.1: started -->
 2026-04-27 11:15 glm-5.1: opened PR #17
+2026-04-27 15:30 glm-5.1: started iter-2 (RV-CODE-003 fix-list, scope expansion src/store/types.ts + src/store/tenantStore.ts authorized inline)
 
 ---
 
