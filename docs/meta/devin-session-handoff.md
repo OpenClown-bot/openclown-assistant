@@ -75,7 +75,7 @@ You MUST NOT:
 - Commit files that may contain secrets (`.env`, `credentials.json`, etc.). Even when explicitly asked, warn first.
 - Reuse a session across artifacts. If the PO asks "can the same Architect session also do the next ArchSpec?", say no, explain why (write-zone bleed, context contamination, no fresh §0 Recon).
 - Start the Executor phase before the relevant ArchSpec is `approved` and merged to `main`.
-- Issue any text destined to be pasted verbatim into a repo file (Q-file answers, Ticket fragments, etc.) without first running `python3 scripts/validate_docs.py` against a local mock of the resulting file. Verbatim text becomes a committed artifact through the executor; it must satisfy the project's docs-as-code rules just like any artifact you would write yourself. See §11 for the procedure.
+- Issue any text destined to be pasted verbatim into a repo file (Q-file answers, Ticket fragments, etc.) without first running `python3 scripts/validate_docs.py` against a local mock of the resulting file. Verbatim text becomes a committed artifact through the executor; it must satisfy the project's docs-as-code rules just like any artifact you would write yourself. See §10 for the procedure.
 
 ## 6. State-snapshot protocol (what the PO pastes alongside this prompt)
 
@@ -169,9 +169,9 @@ The repo is the bridge. As long as every change went through a PR + merge, the s
 
 The orchestrator MUST `list_secrets` at session start and reconcile against this table before assuming any tool is available.
 
-## 11. Writing executor / reviewer invocations safely (the "verbatim text" rule)
+## 10. Writing executor / reviewer invocations safely (the "verbatim text" rule)
 
-When you (orchestrator) answer a Question filed by the Executor (`docs/questions/Q-TKT-NNN-NN.md`) or a Reviewer, the Executor will paste your answer **verbatim** into the artifact file under the `## Architect's answer` (or equivalent) heading and commit it. Your answer therefore IS a docs-as-code artifact: every rule that applies to a Ticket, ADR, or PRD also applies to your answer text.
+When you (orchestrator) answer a Question filed by the Executor (`docs/questions/Q-TKT-NNN-NN.md`) or a Reviewer, the Executor will paste your answer **verbatim** into the artifact file under the `## Architect's answer` (or equivalent) heading and commit it. Your answer therefore IS a docs-as-code artifact: every rule that applies to a Ticket, ADR, or PRD also applies to your answer text. (This section was §11 in an earlier draft; the gap was closed by renumbering when no §10 was ever assigned.)
 
 **Hard requirements for orchestrator-issued verbatim text:**
 
@@ -181,7 +181,7 @@ When you (orchestrator) answer a Question filed by the Executor (`docs/questions
 4. **Validator pre-check before sending.** Procedure for any non-trivial verbatim text:
    ```
    # On your local clone, on a throwaway branch:
-   git checkout -b /tmp-answer-validate
+   git checkout -b wip/answer-validate
    # Paste your answer into a temporary copy of the target file
    # under the "Architect's answer" section, exactly as the Executor will:
    $EDITOR docs/questions/Q-TKT-NNN-NN.md
@@ -189,15 +189,15 @@ When you (orchestrator) answer a Question filed by the Executor (`docs/questions
    # If it fails: rewrite the answer and re-validate.
    # If it passes: discard the branch, paste the validated answer
    # into the executor invocation file you're about to hand to the PO.
-   git checkout main && git branch -D /tmp-answer-validate
+   git checkout main && git branch -D wip/answer-validate
    ```
    This is your shield against the most common orchestrator failure mode: an answer that is logically correct but mechanically invalid, sending the Executor into a fresh Question Protocol stop with no way out except another orchestrator round-trip.
 5. **Keep answers self-contained.** Don't write "see the answer in chat above" or "as I told you earlier." The Executor session is independent — it has no chat history with you. Every Q-file answer is a standalone document.
 6. **No state-mutating commands inside answers.** If the resolution requires `git merge`, `git push`, `npm install`, etc., put those steps into the **executor invocation file** (the document you hand the PO to paste into opencode), NOT into the Q-file body. The Q-file `## Architect's answer` section captures *intent*, not commands. Mixing them confuses Reviewers reading the Q file later.
 
-**Why this matters now.** The first end-to-end test of the orchestrator handoff (April 2026) saw the prior orchestrator paste a verbatim answer into Q-TKT-002-01.md that contained `TKT-002 §5 outputs` (unpinned). The validator rejected the file, the Executor filed Q-TKT-002-02 escalating the validator failure, and PR #12 lost ~half a day of pipeline time before the next orchestrator session could resolve. The fix is mechanical (pin the ref); the prevention is procedural (the §11 pre-check). Every orchestrator session must internalise §11 *before* writing a single executor or reviewer invocation file.
+**Why this matters now.** The first end-to-end test of the orchestrator handoff (April 2026) saw the prior orchestrator paste a verbatim answer into Q-TKT-002-01.md that contained `TKT-002 §5 outputs` (unpinned). The validator rejected the file, the Executor filed Q-TKT-002-02 escalating the validator failure, and PR #12 lost ~half a day of pipeline time before the next orchestrator session could resolve. The fix is mechanical (pin the ref); the prevention is procedural (the §10 pre-check). Every orchestrator session must internalise §10 *before* writing a single executor or reviewer invocation file.
 
-## 12. When in doubt, stop and ask
+## 11. When in doubt, stop and ask
 
 If during any handoff you (Devin) encounter:
 
