@@ -1,7 +1,7 @@
 ---
 id: TKT-002
 title: "Tenant PostgreSQL Store"
-status: blocked
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C3 Tenant-Scoped Store"
 depends_on: ["TKT-001@0.1.0"]
@@ -97,6 +97,7 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 2026-04-26 22:28 gpt-5.5: blocked on Q-TKT-002-01
 2026-04-26 22:38 gpt-5.5: Q-TKT-002-01 answered (option A); merged origin/main into branch; status blocked -> in_review
 2026-04-26 22:41 gpt-5.5: blocked on Q-TKT-002-02
+2026-04-27 10:14 gpt-5.5: Q-TKT-002-02 + Q-TKT-002-03 answered (option A both); pinned unpinned ticket-reference token in Q-TKT-002-01 line 41; status blocked -> in_review
 
 ---
 
