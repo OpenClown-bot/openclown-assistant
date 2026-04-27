@@ -6,14 +6,15 @@ import {
   type PrometheusMetricName,
 } from "./kpiEvents.js";
 
-export type MetricType = "counter" | "gauge" | "histogram";
+export type MetricType = "counter" | "gauge" | "histogram" | "histogram_sum" | "histogram_count" | "histogram_bucket";
 
 export interface MetricSample {
-  name: PrometheusMetricName;
+  name: string;
   type: MetricType;
   help: string;
   value: number;
   labels: Record<string, string>;
+  histogramBaseName?: string;
 }
 
 export interface MetricsRegistry {
@@ -98,15 +99,39 @@ export function createMetricsRegistry(): MetricsRegistry {
         const { name, labels } = parseKey(k);
         const sum = observations.reduce((a, b) => a + b, 0);
         const count = observations.length;
-        samples.push({ name, type: "histogram", help: "", value: sum, labels });
-        const countKey = key(name + "_count", labels);
+        const safeLabels = validateLabels(labels);
+
         samples.push({
-          name: name as PrometheusMetricName,
-          type: "counter",
+          name: `${name}_sum`,
+          type: "histogram_sum",
+          help: "",
+          value: sum,
+          labels: safeLabels,
+          histogramBaseName: name as string,
+        });
+
+        samples.push({
+          name: `${name}_count`,
+          type: "histogram_count",
           help: "",
           value: count,
-          labels,
+          labels: safeLabels,
+          histogramBaseName: name as string,
         });
+
+        const bounds = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, +Infinity];
+        for (const le of bounds) {
+          const bucketCount = observations.filter((v) => v <= le).length;
+          const leStr = Number.isFinite(le) ? String(le) : "+Inf";
+          samples.push({
+            name: `${name}_bucket`,
+            type: "histogram_bucket",
+            help: "",
+            value: bucketCount,
+            labels: { ...safeLabels, le: leStr },
+            histogramBaseName: name as string,
+          });
+        }
       }
 
       return samples;
@@ -114,19 +139,29 @@ export function createMetricsRegistry(): MetricsRegistry {
 
     render() {
       const lines: string[] = [];
-      const seen = new Set<string>();
+      const seenType = new Set<string>();
 
       const samples = this.getSamples();
 
       for (const sample of samples) {
-        const name = sample.name as string;
-        if (!seen.has(name)) {
-          seen.add(name);
-          lines.push(`# HELP ${name} ${name}`);
-          lines.push(`# TYPE ${name} ${sample.type}`);
+        if (sample.type === "histogram_sum" || sample.type === "histogram_count" || sample.type === "histogram_bucket") {
+          const baseName = sample.histogramBaseName!;
+          if (!seenType.has(baseName)) {
+            seenType.add(baseName);
+            lines.push(`# HELP ${baseName} ${baseName}`);
+            lines.push(`# TYPE ${baseName} histogram`);
+          }
+        } else {
+          const name = sample.name as string;
+          if (!seenType.has(name)) {
+            seenType.add(name);
+            lines.push(`# HELP ${name} ${name}`);
+            lines.push(`# TYPE ${name} ${sample.type}`);
+          }
         }
+
         const labelStr = formatLabels(validateLabels(sample.labels));
-        lines.push(`${name}${labelStr} ${sample.value}`);
+        lines.push(`${sample.name}${labelStr} ${sample.value}`);
       }
 
       return lines.join("\n") + "\n";
