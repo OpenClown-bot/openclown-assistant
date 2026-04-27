@@ -6,6 +6,27 @@ ticket_ref: TKT-002@0.1.0
 status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-26
+approved_at: 2026-04-27
+approved_after_iters: 3
+approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
+approved_note: |
+  All high and medium findings from RV-CODE-002 (F-H1, F-M1, F-M2) and Devin
+  Review (F-DR-DBTS, F-DR-CONFLICT-A, F-DR-CONFLICT-B, F-DR-SOFTDELETE) plus
+  low findings (F-L1, F-L2) addressed in PR #12 across three fix iterations:
+  iter 1 commits 7393c08..c59ae4f (initial implementation), iter 2 commits
+  29a09f8..532b709 (RV-CODE-002 F-H1/F-M1/F-M2/F-L1/F-L2), iter 2.5 commits
+  c5e0255..db2eb89 (Devin Review F-DR-DBTS/F-DR-CONFLICT/F-DR-SOFTDELETE).
+  F-M3 (runtime RLS deny-by-default test gap) is consciously deferred to a
+  follow-up Ticket TKT-INT-001 (working name) for an integration-test harness
+  with Docker-based PostgreSQL; PR #12 body documents this gap explicitly.
+  Verdict updated from `fail` to `pass_with_changes` to reflect post-fix state
+  per docs/reviews/README.md lifecycle rule (approved maps to pass /
+  pass_with_changes; the original `fail` snapshot represented iter-1 state
+  before F-H1 was fixed). Final Devin Review run on PR #12 head a74b475
+  reported all 4 inline findings resolved and 0 new findings. PR #12 merged
+  to main as squash commit 66c151a. Pipeline also resolved three Question
+  Protocol stops (Q-TKT-002-01, -02, -03), each codified into the
+  orchestrator handoff doc as §10 verbatim-text rules (PRs #14 and #15).
 ---
 
 # Code Review — PR #12 (TKT-002@0.1.0)
@@ -15,11 +36,11 @@ PR #12 delivers the TKT-002@0.1.0 tenant PostgreSQL schema, RLS policies, typed 
 
 ## Verdict
 - [ ] pass
-- [ ] pass_with_changes
-- [x] fail
+- [x] pass_with_changes
+- [ ] fail
 
-One-sentence justification: A single high-severity finding (F-H1) — the NUMERIC/`number` runtime type mismatch — will cause silent string-concatenation bugs in downstream nutrition-arithmetic tickets; it must be fixed before merge.
-Recommendation to PO: request changes from Executor on PR #12 to fix F-H1; F-M1, F-M2, F-M3, F-L1, and F-L2 can be patched in the same fix iteration or ticketed.
+One-sentence justification: All AC are satisfied and all high/medium/low findings except F-M3 (runtime RLS deny-by-default test gap, consciously deferred to TKT-INT-001 for an integration-test harness) were fixed in iterations 2 and 2.5 on PR #12 before merge. Verdict updated from the original `fail` (iter-1 snapshot, when F-H1 was unfixed) to `pass_with_changes` per docs/reviews/README.md lifecycle rule on closure; see frontmatter `approved_note` for the per-iteration commit map and the deferred-finding tracking.
+Recommendation to PO: approve & merge PR #12 (done as squash 66c151a); track F-M3 in TKT-INT-001 follow-up Ticket.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT-002@0.1.0 §5 Outputs — plus the assigned Ticket file with permitted `status` frontmatter and append-only §10 Execution Log edits. No extra files.
