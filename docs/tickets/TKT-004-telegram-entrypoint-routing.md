@@ -1,7 +1,7 @@
 ---
 id: TKT-004
 title: "Telegram Entrypoint Routing"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.2.0
 component: "C1 Access-Controlled Telegram Entrypoint"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
