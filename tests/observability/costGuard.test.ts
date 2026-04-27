@@ -1,12 +1,66 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   MONTHLY_SPEND_CEILING_USD,
   worstCaseCostForCall,
   shouldDegrade,
   shouldSuppressPoAlert,
   WORST_CASE_PRICES,
+  SpendTracker,
 } from "../../src/observability/costGuard.js";
 import type { CallType } from "../../src/shared/types.js";
+import type { TenantStore, MonthlySpendCounterRow } from "../../src/store/types.js";
+
+function makeRow(overrides: Partial<MonthlySpendCounterRow>): MonthlySpendCounterRow {
+  return {
+    id: overrides.id ?? "row-uuid-001",
+    user_id: overrides.user_id ?? "user-001",
+    month_utc: overrides.month_utc ?? "2026-04",
+    estimated_spend_usd: overrides.estimated_spend_usd ?? 0,
+    actual_spend_usd: overrides.actual_spend_usd ?? null,
+    degrade_mode_enabled: overrides.degrade_mode_enabled ?? false,
+    po_alert_sent_at: overrides.po_alert_sent_at ?? null,
+    updated_at: overrides.updated_at ?? "2026-04-27T12:00:00Z",
+  };
+}
+
+function createMockStore(rows: Map<string, MonthlySpendCounterRow>): TenantStore {
+  const store: Record<string, unknown> = {
+    async getMonthlySpendCounter(userId: string, monthUtc: string) {
+      const key = `${userId}:${monthUtc}`;
+      return rows.get(key) ?? null;
+    },
+    async incrementMonthlySpend(userId: string, monthUtc: string, request: { deltaUsd: number; degradeModeEnabled?: boolean; poAlertSentAt?: string }) {
+      const key = `${userId}:${monthUtc}`;
+      const existing = rows.get(key);
+      const newRow = makeRow({
+        id: existing?.id ?? "row-uuid-001",
+        user_id: userId,
+        month_utc: monthUtc,
+        estimated_spend_usd: (existing?.estimated_spend_usd ?? 0) + request.deltaUsd,
+        degrade_mode_enabled: request.degradeModeEnabled ?? existing?.degrade_mode_enabled ?? false,
+        po_alert_sent_at: request.poAlertSentAt ?? existing?.po_alert_sent_at ?? null,
+      });
+      rows.set(key, newRow);
+      return newRow;
+    },
+  };
+  for (const method of [
+    "withTransaction", "createUser", "getUser", "updateUserOnboardingStatus",
+    "deleteUser", "createUserProfile", "getLatestUserProfile", "createUserTarget",
+    "upsertSummarySchedule", "listSummarySchedules", "upsertOnboardingState",
+    "updateOnboardingStateWithVersion", "createTranscript", "createMealDraft",
+    "updateMealDraftWithVersion", "createMealDraftItem", "createConfirmedMeal",
+    "listConfirmedMeals", "softDeleteConfirmedMealWithVersion", "createMealItem",
+    "createSummaryRecord", "createAuditEvent", "createMetricEvent",
+    "createCostEvent", "upsertMonthlySpendCounter", "upsertFoodLookupCache",
+    "createKbjuAccuracyLabel",
+  ]) {
+    if (!(method in store)) {
+      (store as Record<string, unknown>)[method] = vi.fn();
+    }
+  }
+  return store as unknown as TenantStore;
+}
 
 describe("costGuard worst-case prices", () => {
   it("returns a non-zero cost for text_llm per ADR-002@0.1.0", () => {
@@ -117,3 +171,114 @@ describe("costGuard worst-case price coverage per ADR", () => {
     }
   });
 });
+
+describe("SpendTracker (F-H5 coverage)", () => {
+  it("fresh-instance read preserves existing DB spend (F-H1)", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    rows.set("user-001:2026-04", makeRow({
+      user_id: "user-001",
+      month_utc: "2026-04",
+      estimated_spend_usd: 7.5,
+    }));
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    const state = await tracker.getState();
+    expect(state.estimatedSpendUsd).toBe(7.5);
+    expect(state.monthUtc).toBe(getCurrentMonthUtc());
+  });
+
+  it("concurrent recordCostAndCheckBudget calls do not lose updates (F-H2)", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    await tracker.recordCostAndCheckBudget(3, false);
+    await tracker.recordCostAndCheckBudget(4, false);
+
+    const state = await tracker.getState();
+    expect(state.estimatedSpendUsd).toBe(7);
+  });
+
+  it("month rollover resets state to fresh DB read (F-H3)", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const aprilRow = makeRow({
+      user_id: "user-001",
+      month_utc: "2026-04",
+      estimated_spend_usd: 9.5,
+    });
+    rows.set("user-001:2026-04", aprilRow);
+
+    const currentMonth = getCurrentMonthUtc();
+    rows.set(`user-001:${currentMonth}`, makeRow({
+      user_id: "user-001",
+      month_utc: currentMonth,
+      estimated_spend_usd: 0,
+    }));
+
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    const state = await tracker.getState();
+    expect(state.estimatedSpendUsd).toBeLessThan(9.5);
+  });
+
+  it("preflightCheck blocks call that would exceed ceiling", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const currentMonth = getCurrentMonthUtc();
+    rows.set(`user-001:${currentMonth}`, makeRow({
+      user_id: "user-001",
+      month_utc: currentMonth,
+      estimated_spend_usd: 9.999,
+    }));
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    const result = await tracker.preflightCheck("text_llm");
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeDefined();
+  });
+
+  it("preflightCheck allows call within ceiling", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const currentMonth = getCurrentMonthUtc();
+    rows.set(`user-001:${currentMonth}`, makeRow({
+      user_id: "user-001",
+      month_utc: currentMonth,
+      estimated_spend_usd: 1,
+    }));
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    const result = await tracker.preflightCheck("text_llm");
+    expect(result.allowed).toBe(true);
+  });
+
+  it("markPoAlertSent sets poAlertSentAt on current month", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    await tracker.getState();
+    await tracker.markPoAlertSent();
+
+    const state = await tracker.getState();
+    expect(state.poAlertSentAt).not.toBeNull();
+  });
+
+  it("recordCostAndCheckBudget enables degrade mode when spend reaches ceiling", async () => {
+    const rows = new Map<string, MonthlySpendCounterRow>();
+    const store = createMockStore(rows);
+    const tracker = new SpendTracker(store, "user-001");
+
+    const state = await tracker.recordCostAndCheckBudget(10, false);
+    expect(state.degradeModeEnabled).toBe(true);
+  });
+});
+
+function getCurrentMonthUtc(): string {
+  const now = new Date();
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
+}
