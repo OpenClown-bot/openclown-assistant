@@ -1,7 +1,7 @@
 ---
 id: TKT-002
 title: "Tenant PostgreSQL Store"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "C3 Tenant-Scoped Store"
 depends_on: ["TKT-001@0.1.0"]
@@ -9,7 +9,12 @@ blocks: ["TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TK
 estimate: L
 assigned_executor: "codex-gpt-5.5"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-27
+closed_at: 2026-04-27
+closed_by: "orchestrator (PO-delegated)"
+closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/12"
+closure_commit: "66c151a"
+review_ref: "RV-CODE-002"
 ---
 
 # TKT-002: Tenant PostgreSQL Store
@@ -98,6 +103,7 @@ Implement the PostgreSQL tenant store with RLS-backed repositories.
 2026-04-26 22:38 gpt-5.5: Q-TKT-002-01 answered (option A); merged origin/main into branch; status blocked -> in_review
 2026-04-26 22:41 gpt-5.5: blocked on Q-TKT-002-02
 2026-04-27 10:14 gpt-5.5: Q-TKT-002-02 + Q-TKT-002-03 answered (option A both); pinned unpinned ticket-reference token in Q-TKT-002-01 line 41; status blocked -> in_review
+2026-04-27 10:31 orchestrator: PR #12 merged via squash-commit 66c151a; status in_review -> done; RV-CODE-002 status in_review -> approved (clerical close-out)
 
 ---
 
