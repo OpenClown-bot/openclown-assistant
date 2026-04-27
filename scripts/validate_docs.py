@@ -39,7 +39,12 @@ FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta"}
 FREEFORM_TOPLEVEL: set[str] = set()
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
-REF_RE = re.compile(r"\b(PRD|ARCH|ADR|TKT)-(\d{3,})@(\d+\.\d+\.\d+)")
+# A leading `(?<![A-Za-z-])` prevents matching the `TKT-002` substring inside
+# a Q-file cross-reference like `Q-TKT-002-01.md`, which is a question filename,
+# not a TKT artifact reference. Without this guard, the validator false-positives
+# every Q file body that mentions another Q file. The same guard on REF_RE keeps
+# behaviour symmetric for pinned references.
+REF_RE = re.compile(r"(?<![A-Za-z-])(PRD|ARCH|ADR|TKT)-(\d{3,})@(\d+\.\d+\.\d+)")
 
 # (required_fields, allowed_statuses)
 TYPE_RULES: dict[str, tuple[set[str], set[str]]] = {
@@ -167,7 +172,7 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
             errors.append(f"referenced artifact {ref_id} does not exist")
 
     if art.type_ != "backlog":
-        bare_re = re.compile(r"\b(PRD|ARCH|ADR|TKT)-\d{3,}(?!@)")
+        bare_re = re.compile(r"(?<![A-Za-z-])(PRD|ARCH|ADR|TKT)-\d{3,}(?!@)")
         for m in bare_re.finditer(body_no_fences):
             token = m.group(0)
             if "XXX" in token:
