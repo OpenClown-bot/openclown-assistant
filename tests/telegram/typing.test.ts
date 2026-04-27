@@ -18,7 +18,7 @@ describe("startTypingRenewal", () => {
   });
 
   it("renews typing action at the configured interval", async () => {
-    startTypingRenewal(sendChatAction, chatId);
+    const handle = startTypingRenewal(sendChatAction, chatId);
 
     await vi.advanceTimersByTimeAsync(0);
     expect(sendChatAction).toHaveBeenCalledTimes(1);
@@ -28,6 +28,8 @@ describe("startTypingRenewal", () => {
 
     await vi.advanceTimersByTimeAsync(TYPING_RENEWAL_INTERVAL_MS);
     expect(sendChatAction).toHaveBeenCalledTimes(3);
+
+    handle.cancel();
   });
 
   it("stops renewing after cancel is called", async () => {
@@ -84,6 +86,25 @@ describe("startTypingRenewal", () => {
 
     handle.cancel();
     expect(sendChatAction).toHaveBeenCalled();
+  });
+
+  it("cancel during in-flight sendChatAction prevents subsequent calls (F-M3 race)", async () => {
+    let resolveInFlight!: () => void;
+    const inFlightPromise = new Promise<void>((resolve) => {
+      resolveInFlight = resolve;
+    });
+    sendChatAction.mockReturnValueOnce(inFlightPromise);
+
+    const handle = startTypingRenewal(sendChatAction, chatId);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sendChatAction).toHaveBeenCalledTimes(1);
+
+    handle.cancel();
+    resolveInFlight();
+
+    await vi.advanceTimersByTimeAsync(TYPING_RENEWAL_INTERVAL_MS * 5);
+    expect(sendChatAction).toHaveBeenCalledTimes(1);
   });
 
   afterEach(() => {

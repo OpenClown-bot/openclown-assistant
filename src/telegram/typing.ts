@@ -9,7 +9,7 @@ export function startTypingRenewal(
   chatId: number
 ): TypingCancelHandle {
   let cancelled = false;
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let currentTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const sendOnce = async (): Promise<void> => {
     if (cancelled) return;
@@ -22,7 +22,10 @@ export function startTypingRenewal(
 
   const scheduleNext = (): void => {
     if (cancelled) return;
-    timeoutId = setTimeout(() => {
+    if (currentTimeoutId !== null) {
+      clearTimeout(currentTimeoutId);
+    }
+    currentTimeoutId = setTimeout(() => {
       if (cancelled) return;
       void sendOnce().finally(scheduleNext);
     }, TYPING_RENEWAL_INTERVAL_MS);
@@ -34,9 +37,10 @@ export function startTypingRenewal(
   return {
     cancel: () => {
       cancelled = true;
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
+      if (currentTimeoutId !== null) {
+        clearTimeout(currentTimeoutId);
       }
+      currentTimeoutId = null;
     },
   };
 }

@@ -20,6 +20,10 @@ export const KPI_EVENT_NAMES = {
   right_to_delete_requested: "right_to_delete_requested",
   right_to_delete_completed: "right_to_delete_completed",
   skill_ready: "skill_ready",
+  onboarding_started: "onboarding_started",
+  forget_me_requested: "forget_me_requested",
+  history_query: "history_query",
+  callback_received: "callback_received",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];

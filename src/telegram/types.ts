@@ -89,10 +89,21 @@ export interface C1Deps {
   pilotUserIds: readonly string[];
 }
 
+export class C1MalformedUpdateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "C1MalformedUpdateError";
+  }
+}
+
 export function normalizeMessage(
   requestId: string,
   message: TelegramMessage
 ): NormalizedTelegramUpdate {
+  if (!message?.from || typeof message.from.id !== "number") {
+    throw new C1MalformedUpdateError("from missing");
+  }
+
   const text = message.text?.trim() ?? "";
 
   let routeKind: RouteKind;
@@ -104,10 +115,7 @@ export function normalizeMessage(
   } else if (text.startsWith("/forget_me")) {
     routeKind = "forget_me";
     sourceLabel = "command:/forget_me";
-  } else if (
-    text.toLowerCase() === "/история" ||
-    text.toLowerCase() === "/history"
-  ) {
+  } else if (text.toLowerCase().startsWith("/история") || text.toLowerCase().startsWith("/history")) {
     routeKind = "history";
     sourceLabel = "command:history";
   } else if (message.voice) {
@@ -137,13 +145,19 @@ export function normalizeCallbackQuery(
   requestId: string,
   query: TelegramCallbackQuery
 ): NormalizedTelegramUpdate {
+  if (!query?.from || typeof query.from.id !== "number") {
+    throw new C1MalformedUpdateError("from missing");
+  }
+
+  const callbackData = typeof query.data === "string" ? query.data.slice(0, 256) : "";
+
   return {
     requestId,
     telegramUserId: query.from.id,
     telegramChatId: query.message?.chat.id ?? 0,
     routeKind: "callback",
     callbackQueryId: query.id,
-    callbackData: query.data,
+    callbackData,
     sourceLabel: "callback",
   };
 }

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { routeMessage, routeCallbackQuery, routeCronEvent, MAX_VOICE_DURATION_SECONDS } from "../../src/telegram/entrypoint.js";
 import type { C1Deps, NormalizedTelegramUpdate, TelegramHandlers } from "../../src/telegram/types.js";
+import { C1MalformedUpdateError } from "../../src/telegram/types.js";
 import type { RussianReplyEnvelope, TelegramMessage, TelegramCallbackQuery } from "../../src/shared/types.js";
 import { MSG_VOICE_TOO_LONG, MSG_GENERIC_RECOVERY } from "../../src/telegram/messages.js";
+import { KPI_EVENT_NAMES } from "../../src/observability/kpiEvents.js";
 
 function makeHandlers(): TelegramHandlers {
   return {
@@ -250,16 +252,38 @@ describe("routeMessage", () => {
     expect(deps.sendMessage).toHaveBeenCalledWith(fallbackReply);
   });
 
-  it("retries send once on transient failure", async () => {
-    (deps.handlers.start as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+  it("retries send once on transient failure with SAME envelope (D-I1)", async () => {
+    const envelope: RussianReplyEnvelope = {
       chatId: 111,
       text: "Привет!",
       typingRenewalRequired: false,
-    });
+    };
+    (deps.handlers.start as ReturnType<typeof vi.fn>).mockResolvedValueOnce(envelope);
     (deps.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("transient"));
     const msg = makeMessage({ text: "/start" });
     await routeMessage(deps, "req-14", msg);
-    expect(deps.sendMessage).toHaveBeenCalledTimes(2);
+    const sendMessageMock = deps.sendMessage as ReturnType<typeof vi.fn>;
+    expect(sendMessageMock).toHaveBeenCalledTimes(2);
+    expect(sendMessageMock.mock.calls[0][0]).toBe(envelope);
+    expect(sendMessageMock.mock.calls[1][0]).toBe(envelope);
+  });
+
+  it("emits telegram_send_failed on double failure, no MSG_SEND_FAILED sent (D-I1)", async () => {
+    const envelope: RussianReplyEnvelope = {
+      chatId: 111,
+      text: "Reply text",
+      typingRenewalRequired: false,
+    };
+    (deps.handlers.start as ReturnType<typeof vi.fn>).mockResolvedValueOnce(envelope);
+    (deps.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("fail1"));
+    (deps.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("fail2"));
+    const msg = makeMessage({ text: "/start" });
+    await routeMessage(deps, "req-14b", msg);
+    const sendMessageMock = deps.sendMessage as ReturnType<typeof vi.fn>;
+    expect(sendMessageMock).toHaveBeenCalledTimes(2);
+    expect(sendMessageMock.mock.calls[0][0]).toBe(envelope);
+    expect(sendMessageMock.mock.calls[1][0]).toBe(envelope);
+    expect(deps.logger.error).toHaveBeenCalled();
   });
 });
 
@@ -302,6 +326,13 @@ describe("routeCronEvent", () => {
       expect.objectContaining({ routeKind: "summary_delivery", cronTriggerType: "daily" })
     );
   });
+
+  it("rejects non-allowlisted cron userId without calling summaryDelivery (D-I2)", async () => {
+    await routeCronEvent(deps, "req-cron-deny", 999, 999, "daily");
+    expect(deps.handlers.summaryDelivery).not.toHaveBeenCalled();
+    expect(deps.sendMessage).not.toHaveBeenCalled();
+    expect(deps.logger.warn).toHaveBeenCalled();
+  });
 });
 
 describe("non-allowlisted user produces no C3 write calls", () => {
@@ -318,5 +349,248 @@ describe("non-allowlisted user produces no C3 write calls", () => {
       expect(handler).not.toHaveBeenCalled();
     }
     expect(deps.sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("malformed update handling (F-M1 + F-M4)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  it("no TypeError on message with from=undefined, sends MSG_GENERIC_RECOVERY", async () => {
+    const msg = makeMessage({ from: undefined as unknown as TelegramMessage["from"] });
+    await routeMessage(deps, "req-mal-1", msg);
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_GENERIC_RECOVERY })
+    );
+  });
+
+  it("malformed message does not call any handler", async () => {
+    const msg = makeMessage({ from: undefined as unknown as TelegramMessage["from"] });
+    await routeMessage(deps, "req-mal-2", msg);
+    const allHandlers = Object.values(deps.handlers);
+    for (const handler of allHandlers) {
+      expect(handler).not.toHaveBeenCalled();
+    }
+  });
+
+  it("C10 event for malformed update has user_id not containing 'undefined'", async () => {
+    const msg = makeMessage({ from: undefined as unknown as TelegramMessage["from"] });
+    await routeMessage(deps, "req-mal-3", msg);
+    const errorCalls = (deps.logger.error as ReturnType<typeof vi.fn>).mock.calls;
+    const found = errorCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.user_id === "anonymous";
+    });
+    expect(found).toBe(true);
+  });
+
+  it("no TypeError on callbackQuery with from=undefined", async () => {
+    const query = makeCallbackQuery({ from: undefined as unknown as TelegramCallbackQuery["from"] });
+    await routeCallbackQuery(deps, "req-mal-cb1", query);
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_GENERIC_RECOVERY })
+    );
+  });
+
+  it("C1MalformedUpdateError is exported and extends Error", () => {
+    const err = new C1MalformedUpdateError("from missing");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("C1MalformedUpdateError");
+  });
+});
+
+describe("voice duration validation (F-M2)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  it("rejects voice with NaN duration", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: NaN },
+    });
+    await routeMessage(deps, "req-voice-nan", msg);
+    expect(deps.handlers.voiceMeal).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_VOICE_TOO_LONG })
+    );
+  });
+
+  it("rejects voice with Infinity duration", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: Infinity },
+    });
+    await routeMessage(deps, "req-voice-inf", msg);
+    expect(deps.handlers.voiceMeal).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_VOICE_TOO_LONG })
+    );
+  });
+
+  it("rejects voice with duration 0", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: 0 },
+    });
+    await routeMessage(deps, "req-voice-zero", msg);
+    expect(deps.handlers.voiceMeal).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_VOICE_TOO_LONG })
+    );
+  });
+
+  it("NaN/Infinity/0 voice emits voice_duration_invalid error_code", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: NaN },
+    });
+    await routeMessage(deps, "req-voice-nan-err", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.error_code === "voice_duration_invalid";
+    });
+    expect(found).toBe(true);
+  });
+
+  it(">15s voice emits voice_too_long error_code", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: 20 },
+    });
+    await routeMessage(deps, "req-voice-toolong-err", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.error_code === "voice_too_long";
+    });
+    expect(found).toBe(true);
+  });
+});
+
+describe("route-kind → event-name mapping (D-I3)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  function getLoggedEventName(): string | undefined {
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    for (const call of infoCalls) {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      if (meta?.event_name && typeof meta.event_name === "string") {
+        return meta.event_name;
+      }
+    }
+    return undefined;
+  }
+
+  it("/start routes to onboarding_started event", async () => {
+    const msg = makeMessage({ text: "/start" });
+    await routeMessage(deps, "req-ev-start", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.onboarding_started;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("/forget_me routes to forget_me_requested event", async () => {
+    const msg = makeMessage({ text: "/forget_me" });
+    await routeMessage(deps, "req-ev-forget", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.forget_me_requested;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("voice_meal routes to meal_content_received event", async () => {
+    const msg = makeMessage({
+      text: undefined,
+      voice: { fileId: "f1", fileUniqueId: "u1", duration: 5 },
+    });
+    await routeMessage(deps, "req-ev-voice", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.meal_content_received;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("/history routes to history_query event", async () => {
+    const msg = makeMessage({ text: "/history" });
+    await routeMessage(deps, "req-ev-history", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.history_query;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("callback routes to callback_received event", async () => {
+    const query = makeCallbackQuery({});
+    await routeCallbackQuery(deps, "req-ev-cb", query);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.callback_received;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("cron summary routes to summary_delivered event", async () => {
+    await routeCronEvent(deps, "req-ev-cron", 111, 111, "daily");
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.summary_delivered;
+    });
+    expect(found).toBe(true);
+  });
+});
+
+describe("history command startsWith (D-I4)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  it("routes /history@OpenClownBot to history handler, NOT textMeal", async () => {
+    const msg = makeMessage({ text: "/history@OpenClownBot" });
+    await routeMessage(deps, "req-hist-bot", msg);
+    expect(deps.handlers.history).toHaveBeenCalledTimes(1);
+    expect(deps.handlers.textMeal).not.toHaveBeenCalled();
+  });
+
+  it("routes /история@OpenClownBot to history handler, NOT textMeal", async () => {
+    const msg = makeMessage({ text: "/история@OpenClownBot" });
+    await routeMessage(deps, "req-hist-ru-bot", msg);
+    expect(deps.handlers.history).toHaveBeenCalledTimes(1);
+    expect(deps.handlers.textMeal).not.toHaveBeenCalled();
+  });
+});
+
+describe("callback data truncation (F-L1)", () => {
+  it("truncates callback data to 256 chars", async () => {
+    const deps = makeDeps();
+    const longData = "a".repeat(300);
+    const query = makeCallbackQuery({ data: longData });
+    await routeCallbackQuery(deps, "req-trunc-cb", query);
+    expect(deps.handlers.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ callbackData: "a".repeat(256) })
+    );
   });
 });
