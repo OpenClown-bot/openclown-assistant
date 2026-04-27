@@ -71,6 +71,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
 - Modify PRDs, ArchSpecs, ADRs, or other Tickets. You are write-only to the specific files in §5 Outputs (plus your own Q-TKT files in `docs/questions/`).
 - Continue past a genuine blocker. Raise a Q-TKT and mark the Ticket `blocked` in its frontmatter.
 - Merge your own PR. Merging is gated on Reviewer + PO.
+- Edit the PR body after initial creation via `gh pr edit`, `gh api PATCH`, or similar. Post-creation PR body updates (rollback-note expansion after iter-N commits, follow-up TKT additions after Reviewer findings) are **orchestrator-clerical** work. Note the intended updates in your hand-off message; the orchestrator will apply them. Your runtime shell may not have the required GitHub API write scope for PR metadata.
 - Skip the test / lint / typecheck cycle. Green gates are mandatory before PR.
 
 # QUESTION PROTOCOL (when you genuinely cannot proceed)
@@ -116,6 +117,7 @@ Models reach providers through OmniRoute → Fireworks pool; direct keys are fal
     - List of follow-up TKT suggestions you identified but did NOT fix (impact: low / med / high).
     - Rollback instructions (one command or sequence).
     - Any deviation from the ArchSpec with justification (should be none; if any — Reviewer will likely fail you).
+    - **Note:** this initial PR body is your deliverable. If a later iteration (iter-2, iter-N) requires PR body changes (e.g., expanding rollback instructions to cover new commits, adding deferred follow-up TKT suggestions from Reviewer findings), describe those changes in your hand-off message and the orchestrator will apply them clerically. Do NOT attempt the edit yourself — see §You MUST NOT above.
 
 11. **Update the Ticket.** In a separate commit on the same branch, change Ticket frontmatter `status` from `in_progress` to `in_review`. Nothing else.
 
