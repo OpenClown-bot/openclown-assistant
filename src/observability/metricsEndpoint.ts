@@ -60,7 +60,10 @@ export function createMetricsRegistry(): MetricsRegistry {
 
   function key(name: string, labels: Record<string, string>): string {
     const safeLabels = validateLabels(labels);
-    const labelStr = formatLabels(safeLabels);
+    const sorted = Object.fromEntries(
+      Object.entries(safeLabels).sort(([a], [b]) => a.localeCompare(b))
+    );
+    const labelStr = formatLabels(sorted);
     return `${name}${labelStr}`;
   }
 

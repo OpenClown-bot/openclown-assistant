@@ -114,6 +114,25 @@ describe("metricsEndpoint label policy", () => {
     expect(output).toContain('provider_alias="omniroute"');
     expect(output).toContain('model_alias="gpt-oss-120b"');
   });
+
+  it("normalizes label order so identical labels in different property order produce one series (ITEM 6)", () => {
+    registry = createMetricsRegistry();
+    registry.increment(PROMETHEUS_METRIC_NAMES.kbju_updates_total, {
+      component: "C4",
+      source: "text",
+    });
+    registry.increment(PROMETHEUS_METRIC_NAMES.kbju_updates_total, {
+      source: "text",
+      component: "C4",
+    });
+    const output = getRenderedOutput();
+    const dataLines = output.split("\n").filter((l: string) =>
+      l.includes("kbju_updates_total") && !l.startsWith("#") && l.trim().length > 0
+    );
+    expect(dataLines.length).toBe(1);
+    expect(dataLines[0]).toMatch(/kbju_updates_total\{.*\}\s+2/);
+    expect(output).toContain('component="C4",source="text"');
+  });
 });
 
 describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
