@@ -39,6 +39,7 @@ import type {
   UpsertMonthlySpendCounterRequest,
   UpsertOnboardingStateRequest,
   UpsertSummaryScheduleRequest,
+  IncrementMonthlySpendRequest,
   UserProfileRow,
   UserRow,
   UserTargetRow,
@@ -248,6 +249,21 @@ export class TenantPostgresStore implements TenantStore {
     request: UpsertMonthlySpendCounterRequest
   ): Promise<MonthlySpendCounterRow> {
     return this.withTransaction(userId, (repository) => repository.upsertMonthlySpendCounter(userId, request));
+  }
+
+  public async getMonthlySpendCounter(
+    userId: string,
+    monthUtc: string
+  ): Promise<MonthlySpendCounterRow | null> {
+    return this.withTransaction(userId, (repository) => repository.getMonthlySpendCounter(userId, monthUtc));
+  }
+
+  public async incrementMonthlySpend(
+    userId: string,
+    monthUtc: string,
+    request: IncrementMonthlySpendRequest
+  ): Promise<MonthlySpendCounterRow> {
+    return this.withTransaction(userId, (repository) => repository.incrementMonthlySpend(userId, monthUtc, request));
   }
 
   public async upsertFoodLookupCache(userId: string, request: UpsertFoodLookupCacheRequest): Promise<FoodLookupCacheRow> {
@@ -761,6 +777,44 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
         request.estimatedSpendUsd,
         request.actualSpendUsd ?? null,
         request.degradeModeEnabled,
+        request.poAlertSentAt ?? null,
+      ]
+    );
+    return expectOne(result, "monthly_spend_counters");
+  }
+
+  public async getMonthlySpendCounter(
+    userId: string,
+    monthUtc: string
+  ): Promise<MonthlySpendCounterRow | null> {
+    const result = await this.db.query<MonthlySpendCounterRow>(
+      `SELECT * FROM monthly_spend_counters WHERE user_id = $1 AND month_utc = $2 LIMIT 1`,
+      [userId, monthUtc]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  public async incrementMonthlySpend(
+    userId: string,
+    monthUtc: string,
+    request: IncrementMonthlySpendRequest
+  ): Promise<MonthlySpendCounterRow> {
+    const result = await this.db.query<MonthlySpendCounterRow>(
+      `INSERT INTO monthly_spend_counters (
+         user_id, month_utc, estimated_spend_usd, actual_spend_usd,
+         degrade_mode_enabled, po_alert_sent_at
+       ) VALUES ($1, $2, $3, 0, COALESCE($4::boolean, false), $5::timestamptz)
+       ON CONFLICT (user_id, month_utc) DO UPDATE SET
+         estimated_spend_usd = monthly_spend_counters.estimated_spend_usd + EXCLUDED.estimated_spend_usd,
+         degrade_mode_enabled = COALESCE($4::boolean, monthly_spend_counters.degrade_mode_enabled),
+         po_alert_sent_at = COALESCE($5::timestamptz, monthly_spend_counters.po_alert_sent_at),
+         updated_at = now()
+       RETURNING *`,
+      [
+        userId,
+        monthUtc,
+        request.deltaUsd,
+        request.degradeModeEnabled ?? null,
         request.poAlertSentAt ?? null,
       ]
     );
