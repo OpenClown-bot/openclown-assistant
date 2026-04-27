@@ -5,8 +5,8 @@ import type {
 } from "../shared/types.js";
 import type { TenantStore } from "../store/types.js";
 import type {
-  UpsertMonthlySpendCounterRequest,
   MonthlySpendCounterRow,
+  IncrementMonthlySpendRequest,
 } from "../store/types.js";
 import { KPI_EVENT_NAMES } from "./kpiEvents.js";
 
@@ -119,18 +119,21 @@ export class SpendTracker {
 
   async getState(): Promise<SpendState> {
     const monthUtc = getCurrentMonthUtc();
+
     if (this.cache && this.cache.monthUtc === monthUtc) {
       return this.cache;
     }
 
-    const request: UpsertMonthlySpendCounterRequest = {
-      monthUtc,
-      estimatedSpendUsd: this.cache?.estimatedSpendUsd ?? 0,
-      degradeModeEnabled: this.cache?.degradeModeEnabled ?? false,
-      poAlertSentAt: this.cache?.poAlertSentAt ?? undefined,
-    };
-    const row = await this.store.upsertMonthlySpendCounter(this.userId, request);
-    this.cache = rowToState(row);
+    this.cache = null;
+
+    const row = await this.store.getMonthlySpendCounter(this.userId, monthUtc);
+    if (row) {
+      this.cache = rowToState(row);
+      return this.cache;
+    }
+
+    const seedRow = await this.store.incrementMonthlySpend(this.userId, monthUtc, { deltaUsd: 0 });
+    this.cache = rowToState(seedRow);
     return this.cache;
   }
 
@@ -160,41 +163,53 @@ export class SpendTracker {
     degradeModeEnabled: boolean
   ): Promise<SpendState> {
     const monthUtc = getCurrentMonthUtc();
-    const currentState = await this.getState();
-    const newEstimatedSpend = currentState.estimatedSpendUsd + estimatedCostUsd;
-    const shouldDegradeNow = newEstimatedSpend > MONTHLY_SPEND_CEILING_USD;
 
-    const request: UpsertMonthlySpendCounterRequest = {
-      monthUtc,
-      estimatedSpendUsd: newEstimatedSpend,
-      degradeModeEnabled: shouldDegradeNow || degradeModeEnabled,
-      poAlertSentAt: currentState.poAlertSentAt ?? undefined,
-    };
+    if (this.cache && this.cache.monthUtc !== monthUtc) {
+      this.cache = null;
+    }
 
-    const row = await this.store.upsertMonthlySpendCounter(this.userId, request);
-    this.cache = rowToState(row);
+    const row = await this.store.incrementMonthlySpend(this.userId, monthUtc, {
+      deltaUsd: estimatedCostUsd,
+    });
+
+    const shouldDegradeNow = shouldDegrade(row.estimated_spend_usd);
+    if (shouldDegradeNow && !row.degrade_mode_enabled) {
+      const updatedRow = await this.store.incrementMonthlySpend(this.userId, monthUtc, {
+        deltaUsd: 0,
+        degradeModeEnabled: true,
+      });
+      this.cache = rowToState(updatedRow);
+    } else if (degradeModeEnabled && !row.degrade_mode_enabled) {
+      const updatedRow = await this.store.incrementMonthlySpend(this.userId, monthUtc, {
+        deltaUsd: 0,
+        degradeModeEnabled: true,
+      });
+      this.cache = rowToState(updatedRow);
+    } else {
+      this.cache = rowToState(row);
+    }
+
     return this.cache;
   }
 
   async markPoAlertSent(): Promise<void> {
     const monthUtc = getCurrentMonthUtc();
-    const currentState = await this.getState();
+
+    if (this.cache && this.cache.monthUtc !== monthUtc) {
+      this.cache = null;
+    }
+
     const now = new Date().toISOString();
-
-    const request: UpsertMonthlySpendCounterRequest = {
-      monthUtc,
-      estimatedSpendUsd: currentState.estimatedSpendUsd,
-      degradeModeEnabled: currentState.degradeModeEnabled,
+    const row = await this.store.incrementMonthlySpend(this.userId, monthUtc, {
+      deltaUsd: 0,
       poAlertSentAt: now,
-    };
-
-    const row = await this.store.upsertMonthlySpendCounter(this.userId, request);
+    });
     this.cache = rowToState(row);
   }
 }
 
 export function shouldDegrade(estimatedSpendUsd: number): boolean {
-  return estimatedSpendUsd > MONTHLY_SPEND_CEILING_USD;
+  return estimatedSpendUsd >= MONTHLY_SPEND_CEILING_USD;
 }
 
 export function shouldSuppressPoAlert(

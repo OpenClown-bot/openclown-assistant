@@ -55,8 +55,8 @@ describe("costGuard shouldDegrade", () => {
     expect(shouldDegrade(5.0)).toBe(false);
   });
 
-  it("does not degrade when spend is exactly at $10 ceiling", () => {
-    expect(shouldDegrade(10.0)).toBe(false);
+  it("enables degrade mode when projected spend reaches $10 ceiling per ARCH-001@0.2.0 §4.8", () => {
+    expect(shouldDegrade(10.0)).toBe(true);
   });
 
   it("enables degrade mode when projected spend exceeds $10", () => {
