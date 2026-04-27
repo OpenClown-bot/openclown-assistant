@@ -40,19 +40,37 @@ const PII_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/raw_photo.*?(bytes|file|image)/gi, "[PHOTO_MARKER_REDACTED]"],
 ];
 
-const FORBIDDEN_KEY_SUBSTRINGS: readonly string[] = [
-  "raw_prompt",
-  "raw_transcript",
-  "raw_audio",
-  "raw_photo",
-  "telegram_bot_token",
-  "provider_key",
-  "provider_response_raw",
-  "callback_payload_meal_text",
-  "first_name",
-  "last_name",
-  "username",
+const ALLOWED_EXTRA_KEYS: readonly string[] = [
+  "call_type",
+  "component",
+  "model_alias",
+  "provider_alias",
+  "outcome",
+  "estimated_cost_usd",
+  "duration_ms",
+  "error_code",
+  "tenant_id",
+  "period_type",
+  "source",
+  "latency_ms",
+  "telegram_message_id_hash",
+  "degrade_mode_enabled",
 ];
+
+const CORE_EVENT_KEYS: readonly string[] = [
+  "timestamp_utc",
+  "level",
+  "service",
+  "component",
+  "event_name",
+  "request_id",
+  "user_id",
+  "outcome",
+  "degrade_mode_enabled",
+  "schema_version",
+];
+
+// F-M4: allowlist fully closes free-text leak surface; no Cyrillic regex needed (high false-positive risk avoided)
 
 function redactStringValues(value: string): string {
   let result = value;
@@ -62,18 +80,10 @@ function redactStringValues(value: string): string {
   return result;
 }
 
-function hasForbiddenKey(key: string): boolean {
-  const lower = key.toLowerCase();
-  return FORBIDDEN_KEY_SUBSTRINGS.some(
-    (forbidden) => lower === forbidden || lower.includes(forbidden)
-  );
-}
-
 export function redactPii(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
-    if (hasForbiddenKey(key)) {
-      result[key] = "[REDACTED]";
+    if (!ALLOWED_EXTRA_KEYS.includes(key)) {
       continue;
     }
     if (typeof value === "string") {
@@ -122,6 +132,9 @@ export function buildLogEvent(params: {
   if (params.extra) {
     const redactedExtra = redactPii(params.extra);
     for (const [key, value] of Object.entries(redactedExtra)) {
+      if ((CORE_EVENT_KEYS as readonly string[]).includes(key)) {
+        continue;
+      }
       event[key] = value;
     }
   }
