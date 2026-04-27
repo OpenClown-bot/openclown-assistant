@@ -197,6 +197,13 @@ describe("routeMessage", () => {
     );
   });
 
+  it("handler failure logs at error level (D-I8)", async () => {
+    (deps.handlers.textMeal as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("boom"));
+    const msg = makeMessage({ text: "съел торт" });
+    await routeMessage(deps, "req-9b", msg);
+    expect(deps.logger.error).toHaveBeenCalled();
+  });
+
   it("calls sendChatAction (typing) during handler execution", async () => {
     let handlerResolve!: () => void;
     const handlerPromise = new Promise<null>((resolve) => {

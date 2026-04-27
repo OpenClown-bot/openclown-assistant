@@ -44,10 +44,11 @@ function logRouteOutcome(
   deps: C1Deps,
   update: NormalizedTelegramUpdate,
   outcome: string,
-  extra?: Record<string, unknown>
+  extra?: Record<string, unknown>,
+  level: "info" | "warn" | "error" = "info"
 ): void {
   const event = buildRedactedEvent(
-    "info",
+    level,
     SERVICE_NAME,
     "C1",
     ROUTE_KIND_EVENT_NAME[update.routeKind],
@@ -150,11 +151,11 @@ async function invokeWithTyping(
     });
     logRouteOutcome(deps, update, "provider_failure", {
       error_code: error instanceof Error ? error.message : "unknown",
-    });
+    }, "error");
   }
 }
 
-function isVoiceDurationInvalid(duration: number | undefined): duration is number {
+function isVoiceDurationInvalid(duration: number | undefined): boolean {
   return typeof duration !== "number" || !Number.isFinite(duration) || duration <= 0;
 }
 
