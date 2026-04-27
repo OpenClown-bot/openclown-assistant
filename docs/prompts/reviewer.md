@@ -183,6 +183,16 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
 
 15. **PR.** One PR, one review file. Branch: `rv/RV-CODE-NNN-<slug>`, **created from `main`** — never from the Executor's own PR branch. Branching from the Executor branch causes that branch's content to be inherited by the review PR; on squash-merge of the review PR, the Executor's commits silently leak into `main` ahead of the Executor's own PR being merged, producing duplicate-content conflicts and a polluted `main`. Run `git fetch origin && git checkout -b rv/RV-CODE-NNN-<slug> origin/main` from a clean tree. PR body: verdict + top-3 findings summary + explicit recommendation ("PO: approve & merge" / "PO: request changes from Executor" / "PO: block until Architect clarifies").
 
+# GIT PUSH FALLBACK (HTTPS → SSH)
+
+When §A.15 or §B.15 reaches `git push -u origin rv/RV-...-<slug>`, the push may fail over HTTPS with an authentication error (typically `remote: Permission denied`, `403 Forbidden`, or a credential-helper prompt the opencode runtime cannot satisfy). The opencode shell sometimes lacks PAT-credential-helper visibility but always has the `git@github.com` SSH key configured. When that happens:
+
+1. Switch the remote to SSH: `git remote set-url origin git@github.com:OpenClown-bot/openclown-assistant.git`
+2. Retry: `git push -u origin <branch>`
+3. Restore the HTTPS remote (politeness — keeps the clone consistent for subsequent runs): `git remote set-url origin https://github.com/OpenClown-bot/openclown-assistant.git`
+
+This is a transport-only fallback. Review-file content, frontmatter, findings, and verdict are unaffected. Do NOT log the HTTPS failure as a finding against the Executor's PR — it is purely a runtime-environment quirk and not a defect in the code under review.
+
 # REVIEW OUTPUT CONTRACT
 Every review file MUST:
 - Live under `docs/reviews/`, named per the template.
