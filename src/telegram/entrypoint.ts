@@ -102,7 +102,9 @@ function logMalformedUpdate(
 
 async function sendWithRetry(
   deps: C1Deps,
-  envelope: RussianReplyEnvelope
+  envelope: RussianReplyEnvelope,
+  requestId: string,
+  userId: number
 ): Promise<void> {
   try {
     await deps.sendMessage(envelope);
@@ -115,8 +117,8 @@ async function sendWithRetry(
         SERVICE_NAME,
         "C1",
         KPI_EVENT_NAMES.telegram_send_failed,
-        "",
-        "",
+        requestId,
+        safeUserId(userId),
         "provider_failure",
         false
       );
@@ -139,16 +141,21 @@ async function invokeWithTyping(
     const reply = await handler();
     cancelHandle.cancel();
     if (reply) {
-      await sendWithRetry(deps, reply);
+      await sendWithRetry(deps, reply, update.requestId, update.telegramUserId);
     }
     logRouteOutcome(deps, update, "success");
   } catch (error) {
     cancelHandle.cancel();
-    await sendWithRetry(deps, {
-      chatId: update.telegramChatId,
-      text: MSG_GENERIC_RECOVERY,
-      typingRenewalRequired: false,
-    });
+    await sendWithRetry(
+      deps,
+      {
+        chatId: update.telegramChatId,
+        text: MSG_GENERIC_RECOVERY,
+        typingRenewalRequired: false,
+      },
+      update.requestId,
+      update.telegramUserId
+    );
     logRouteOutcome(deps, update, "provider_failure", {
       error_code: error instanceof Error ? error.message : "unknown",
     }, "error");
@@ -169,11 +176,16 @@ export async function routeMessage(
     update = normalizeMessage(requestId, message);
   } catch (error) {
     if (error instanceof C1MalformedUpdateError) {
-      await sendWithRetry(deps, {
-        chatId: message?.chat?.id ?? 0,
-        text: MSG_GENERIC_RECOVERY,
-        typingRenewalRequired: false,
-      });
+      await sendWithRetry(
+        deps,
+        {
+          chatId: message?.chat?.id ?? 0,
+          text: MSG_GENERIC_RECOVERY,
+          typingRenewalRequired: false,
+        },
+        requestId,
+        message?.from?.id ?? NaN
+      );
       logMalformedUpdate(deps, requestId);
       return;
     }
@@ -187,22 +199,32 @@ export async function routeMessage(
 
   if (update.routeKind === "voice_meal" && update.voice) {
     if (isVoiceDurationInvalid(update.voice.duration)) {
-      await sendWithRetry(deps, {
-        chatId: update.telegramChatId,
-        text: MSG_VOICE_TOO_LONG,
-        typingRenewalRequired: false,
-      });
+      await sendWithRetry(
+        deps,
+        {
+          chatId: update.telegramChatId,
+          text: MSG_VOICE_TOO_LONG,
+          typingRenewalRequired: false,
+        },
+        update.requestId,
+        update.telegramUserId
+      );
       logRouteOutcome(deps, update, "user_fallback", {
         error_code: "voice_duration_invalid",
       });
       return;
     }
     if (update.voice.duration > MAX_VOICE_DURATION_SECONDS) {
-      await sendWithRetry(deps, {
-        chatId: update.telegramChatId,
-        text: MSG_VOICE_TOO_LONG,
-        typingRenewalRequired: false,
-      });
+      await sendWithRetry(
+        deps,
+        {
+          chatId: update.telegramChatId,
+          text: MSG_VOICE_TOO_LONG,
+          typingRenewalRequired: false,
+        },
+        update.requestId,
+        update.telegramUserId
+      );
       logRouteOutcome(deps, update, "user_fallback", {
         error_code: "voice_too_long",
       });
@@ -254,11 +276,16 @@ export async function routeCallbackQuery(
     update = normalizeCallbackQuery(requestId, query);
   } catch (error) {
     if (error instanceof C1MalformedUpdateError) {
-      await sendWithRetry(deps, {
-        chatId: query?.message?.chat?.id ?? 0,
-        text: MSG_GENERIC_RECOVERY,
-        typingRenewalRequired: false,
-      });
+      await sendWithRetry(
+        deps,
+        {
+          chatId: query?.message?.chat?.id ?? 0,
+          text: MSG_GENERIC_RECOVERY,
+          typingRenewalRequired: false,
+        },
+        requestId,
+        query?.from?.id ?? NaN
+      );
       logMalformedUpdate(deps, requestId);
       return;
     }

@@ -292,6 +292,30 @@ describe("routeMessage", () => {
     expect(sendMessageMock.mock.calls[1][0]).toBe(envelope);
     expect(deps.logger.error).toHaveBeenCalled();
   });
+
+  it("telegram_send_failed event carries non-empty request_id + user_id (D-I11)", async () => {
+    const envelope: RussianReplyEnvelope = {
+      chatId: 111,
+      text: "Reply text",
+      typingRenewalRequired: false,
+    };
+    (deps.handlers.start as ReturnType<typeof vi.fn>).mockResolvedValueOnce(envelope);
+    (deps.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("fail1"));
+    (deps.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("fail2"));
+    const msg = makeMessage({ text: "/start" });
+    await routeMessage(deps, "req-d-i11", msg);
+    const errorMock = deps.logger.error as ReturnType<typeof vi.fn>;
+    const sendFailedCall = errorMock.mock.calls.find((args) => {
+      const meta = args[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === "telegram_send_failed";
+    });
+    expect(sendFailedCall, "expected at least one telegram_send_failed log").toBeDefined();
+    const event = sendFailedCall![1] as Record<string, unknown>;
+    expect(event.request_id).toBe("req-d-i11");
+    expect(event.user_id).not.toBe("");
+    expect(event.user_id).not.toBeUndefined();
+    expect(event.outcome).toBe("provider_failure");
+  });
 });
 
 describe("routeCallbackQuery", () => {

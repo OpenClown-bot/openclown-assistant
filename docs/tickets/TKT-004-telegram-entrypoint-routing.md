@@ -83,6 +83,7 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 <!-- 2026-04-27 19:02 glm-5.1: iter-2 fix-list complete (RV-CODE-004 F-M1+F-M4 / F-M2 / F-M3 / F-L1; Devin Review D-I1 / D-I2 / D-I3 / D-I4; F-L2 / D-I5 deferred to follow-up) -->
 <!-- 2026-04-27 19:34 glm-5.1: iter-3 fix-list complete (D-I7 type predicate, D-I8 log level for provider_failure; D-I9 deferred to observability-hardening follow-up TKT) -->
 <!-- 2026-04-28 14:18 glm-5.1: iter-4 fix-list complete (D-I10 chat validation in normalizeMessage + normalizeCallbackQuery) -->
+<!-- 2026-04-28 HH:MM glm-5.1: iter-5 fix-list complete (D-I11 sendWithRetry traceability — signature accepts requestId/userId, threaded through 7 callsites) -->
 
 ---
 
