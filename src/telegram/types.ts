@@ -100,8 +100,13 @@ export function normalizeMessage(
   requestId: string,
   message: TelegramMessage
 ): NormalizedTelegramUpdate {
-  if (!message?.from || typeof message.from.id !== "number") {
-    throw new C1MalformedUpdateError("from missing");
+  if (
+    !message?.from ||
+    typeof message.from.id !== "number" ||
+    !message?.chat ||
+    typeof message.chat.id !== "number"
+  ) {
+    throw new C1MalformedUpdateError("from or chat missing");
   }
 
   const text = message.text?.trim() ?? "";
@@ -154,7 +159,7 @@ export function normalizeCallbackQuery(
   return {
     requestId,
     telegramUserId: query.from.id,
-    telegramChatId: query.message?.chat.id ?? 0,
+    telegramChatId: query.message?.chat?.id ?? 0,
     routeKind: "callback",
     callbackQueryId: query.id,
     callbackData,

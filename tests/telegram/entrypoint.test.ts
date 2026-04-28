@@ -402,6 +402,23 @@ describe("malformed update handling (F-M1 + F-M4)", () => {
     );
   });
 
+  it("no TypeError on message with chat=undefined, sends MSG_GENERIC_RECOVERY (D-I10)", async () => {
+    const msg = makeMessage({ chat: undefined as unknown as TelegramMessage["chat"] });
+    await routeMessage(deps, "req-mal-chat", msg);
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_GENERIC_RECOVERY })
+    );
+  });
+
+  it("no TypeError on callbackQuery with message present but chat=undefined (D-I10)", async () => {
+    const baseMsg = makeMessage({});
+    const malformedMsg = { ...baseMsg, chat: undefined as unknown as TelegramMessage["chat"] };
+    const query = makeCallbackQuery({ message: malformedMsg });
+    await expect(
+      routeCallbackQuery(deps, "req-mal-cb-chat", query)
+    ).resolves.not.toThrow();
+  });
+
   it("C1MalformedUpdateError is exported and extends Error", () => {
     const err = new C1MalformedUpdateError("from missing");
     expect(err).toBeInstanceOf(Error);
