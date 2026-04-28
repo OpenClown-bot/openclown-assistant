@@ -1,7 +1,7 @@
 ---
 id: TKT-004
 title: "Telegram Entrypoint Routing"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C1 Access-Controlled Telegram Entrypoint"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
@@ -78,8 +78,12 @@ Implement the allowlisted Telegram entrypoint router for Russian bot flows.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-004-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-04-27 18:14 glm-5.1: started -->
+<!-- 2026-04-27 18:14 glm-5.1: all 6 §5 Outputs implemented, 125 tests green, typecheck/lint/validate_docs pass -->
+<!-- 2026-04-27 19:02 glm-5.1: iter-2 fix-list complete (RV-CODE-004 F-M1+F-M4 / F-M2 / F-M3 / F-L1; Devin Review D-I1 / D-I2 / D-I3 / D-I4; F-L2 / D-I5 deferred to follow-up) -->
+<!-- 2026-04-27 19:34 glm-5.1: iter-3 fix-list complete (D-I7 type predicate, D-I8 log level for provider_failure; D-I9 deferred to observability-hardening follow-up TKT) -->
+<!-- 2026-04-28 14:18 glm-5.1: iter-4 fix-list complete (D-I10 chat validation in normalizeMessage + normalizeCallbackQuery) -->
+<!-- 2026-04-28 15:05 glm-5.1: iter-5 fix-list complete (D-I11 sendWithRetry traceability — signature accepts requestId/userId, threaded through 7 callsites) -->
 
 ---
 
