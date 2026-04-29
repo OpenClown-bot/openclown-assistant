@@ -69,6 +69,8 @@ import {
 } from "./messages.js";
 import { calculateTargets, FORMULA_VERSION } from "./targetCalculator.js";
 
+const UNIVERSAL_TIMEZONE_ALIASES = ["UTC", "Etc/UTC", "GMT", "Etc/GMT"] as const;
+
 function validateSex(input: string): ValidationResult {
   const parsed = parseSex(input);
   if (parsed !== null) return { valid: true, value: parsed as Sex };
@@ -136,6 +138,9 @@ function validatePace(input: string): ValidationResult {
 
 function validateTimezone(input: string): ValidationResult {
   const trimmed = input.trim();
+  if ((UNIVERSAL_TIMEZONE_ALIASES as readonly string[]).includes(trimmed)) {
+    return { valid: true, value: trimmed };
+  }
   const supported = Intl.supportedValuesOf("timeZone");
   if (supported.includes(trimmed)) return { valid: true, value: trimmed };
   return { valid: false, errorMessage: MSG_REASK_TIMEZONE };
@@ -325,15 +330,9 @@ export async function handleOnboardingStep(
     replyParts.push(MSG_DISCLAIMER);
     replyParts.push(MSG_CONFIRM_TARGET);
 
-    const confirmResult = await updateStateWithVersionCheck(
-      userId, state, "target_confirmation", serializePartialAnswers(answers),
-      store, STEP_REASKS[currentStep] ?? MSG_ASK_SEX, chatId
-    );
-    if (confirmResult.conflict) return { reply: confirmResult.reply!, newState: state, persisted: false };
-
     return {
       reply: makeEnvelope(chatId, replyParts.join("\n\n")),
-      newState: confirmResult.state,
+      newState: updatedState,
       persisted: false,
     };
   }

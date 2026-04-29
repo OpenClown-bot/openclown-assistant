@@ -155,6 +155,9 @@ function createMockStore(state?: OnboardingStateRow, onboardingStatus?: string):
       if (forceVersionConflict) {
         throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
       }
+      if (request.expectedVersion !== currentState.version) {
+        throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
+      }
       currentState = {
         ...currentState,
         current_step: request.currentStep,
@@ -211,6 +214,9 @@ function createMockStore(state?: OnboardingStateRow, onboardingStatus?: string):
           request: UpdateOnboardingStateWithVersionRequest
         ) {
           if (forceVersionConflict) {
+            throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
+          }
+          if (request.expectedVersion !== currentState.version) {
             throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
           }
           currentState = {
@@ -424,9 +430,22 @@ describe("STEP_VALIDATORS — valid input", () => {
     if (result.valid) expect(result.value).toBe("Europe/Moscow");
   });
 
-  it("valid timezone: UTC [F-M3]", () => {
+  it("valid timezone: UTC (universal alias) [F-M5]", () => {
     const result = STEP_VALIDATORS.timezone("UTC");
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("UTC");
+  });
+
+  it("valid timezone: Etc/UTC [F-M5]", () => {
+    const result = STEP_VALIDATORS.timezone("Etc/UTC");
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("Etc/UTC");
+  });
+
+  it("valid timezone: GMT (universal alias) [F-M5]", () => {
+    const result = STEP_VALIDATORS.timezone("GMT");
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("GMT");
   });
 
   it("valid timezone: America/Argentina/La_Rioja (3-segment) [F-M3]", () => {
