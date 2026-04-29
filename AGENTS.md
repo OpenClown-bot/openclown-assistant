@@ -11,6 +11,8 @@ This repository is managed by a **multi-LLM pipeline** with strict role separati
 
 Devin Review (the bot) auto-reviews every PR; it is a **second** reviewer alongside Kimi, not a replacement.
 
+The **Orchestrator** is a separate, PO-delegated coordination role outside the four-LLM pipeline above. Its full role prompt lives in `docs/meta/devin-session-handoff.md`; its formal write-zone is defined in `CONTRIBUTING.md` § Roles; its session-handoff continuity (cold / warm / opencode templates + auto-cold-after-each-closed-TKT-cycle rule) is in `docs/session-log/`. If you are running as the Orchestrator, load `docs/meta/devin-session-handoff.md` first, then check `docs/session-log/` for the latest snapshot.
+
 Follow the role file **exactly**. Do not cross role boundaries. See `CONTRIBUTING.md` for the full process rules.
 
 Before making any change:
