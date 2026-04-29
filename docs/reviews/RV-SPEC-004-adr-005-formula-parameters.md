@@ -1,7 +1,7 @@
 ---
 id: RV-SPEC-004
 type: spec_review
-target_ref: ADR-005@0.2.0 (PR #29, branch arch/ADR-005-formula-parameters @ 3045637)
+target_ref: ADR-005@0.2.0 (PR #29, SHA 3045637)
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-29
@@ -14,17 +14,18 @@ updated: 2026-04-29
 
 ADR-005@0.2.0 is a focused, additive amendment that correctly pins Mifflin-St Jeor coefficients (PMID 2305711), standard Harris-Benedict-derived activity multipliers, the 7700 kcal/kg pace heuristic, goal-specific macro splits, and a `formula_version` persistence contract. Numerical values are correct against cited sources, URLs resolve, and the `formula_version` constant aligns with the existing `user_targets` schema in ARCH-001@0.3.1 §5.
 
-**Post-fix assessment (commit 3045637):**
+**Iter-2 assessment (commit 3045637):**
 - F-M1 **RESOLVED** — Q3 now explicitly derives the calorie-delta sign from the `goal` enum (`lose`/`gain`/`maintain`) and stores `pace_kg_per_week` as strictly positive per PRD-001@0.2.0 §5 US-1.
-- F-M2 **RESOLVED** — `ARCH-001@0.3.0` was bumped to `ARCH-001@0.3.1` and all `ADR-005@0.1.0` body pins (frontmatter + §4.1 + §4.2) were updated to `ADR-005@0.2.0`; `TKT-005@0.1.0` was re-pinned to `ARCH-001@0.3.1`.
-- F-L1, F-L2, F-L3 **REMAIN OPEN** — three low nits on JS `Math.round` wording, `user_profiles.formula_version` schema clarification, and ADR frontmatter `version:` convention drift remain unaddressed.
+- F-M2 **RESOLVED** — `ARCH-001@0.3.0` was bumped to `ARCH-001@0.3.1` and all `ADR-005@0.1.0` body pins (frontmatter + §4.1) were updated to `ADR-005@0.2.0`; `TKT-005@0.1.0` was re-pinned to `ARCH-001@0.3.1`.
+- F-L3 **DEFERRED per PO ratification** — PO accepted that `version:` field convention drift will be harmonised in a separate follow-up PR (TEMPLATE.md + 8 other ADRs).
+- F-L1, F-L2 **REMAIN OPEN** — two low nits on JS `Math.round` wording and `user_profiles.formula_version` schema clarification remain unaddressed; non-blocking.
 
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: Medium findings F-M1 and F-M2 are resolved in commit 3045637; three low nits (F-L1–F-L3) remain but do not block merge.
+One-sentence justification: All medium findings (F-M1, F-M2) are resolved in commit 3045637; F-L3 is PO-deferred; remaining low nits (F-L1, F-L2) are non-blocking.
 
 ## Findings
 
@@ -45,6 +46,18 @@ One-sentence justification: Medium findings F-M1 and F-M2 are resolved in commit
 
 ### Questions for Architect
 *None.*
+
+## §3 Iter-2 Re-evaluation (HEAD 3045637)
+
+Re-evaluated against Architect's iter-2 push to PR #29.
+
+| Finding | Status in iter-2 | Evidence (file:line in diff) | Reviewer assessment |
+|---|---|---|---|
+| **F-M1** Q3 sign convention | **RESOLVED** | `ADR-005@0.2.0` §Decision Detail Q3, line 88: replaced ambiguous "positive → surplus / negative → deficit / zero → maintenance" with three explicit goal-derived formulas (`lose`: negative delta, `gain`: positive delta, `maintain`: zero). Also cites `PRD-001@0.2.0` §3 range `0.1–2.0 kg/week`. | Sign derivation is now unambiguous for an Executor. No misinterpretation surface remains. |
+| **F-M2** Parent ArchSpec stale pins | **RESOLVED** | `ARCH-001@0.3.1` frontmatter line 4: version bumped `0.3.0 → 0.3.1`. Line 41: `adrs:` list updated `ADR-005@0.1.0 → ADR-005@0.2.0`. Line 354: §4.1 step 4 updated `ADR-005@0.1.0 → ADR-005@0.2.0`. `TKT-005@0.1.0` frontmatter line 5: `arch_ref` bumped `ARCH-001@0.3.0 → ARCH-001@0.3.1`. Lines 33–36: §4 Inputs updated. | Cascade is complete. K7 and C6 lookup references at `ARCH-001@0.3.1` lines 360/685/714/980/986 correctly remain at `ADR-005@0.1.0` per minimal-cascade rule (content unchanged in `@0.2.0`). |
+| **F-L3** ADR `version:` convention drift | **DEFERRED** | No change in iter-2. | PO ratified deferral to separate follow-up PR. Acceptable. |
+| **F-L1** Math.round wording | Still open | No change in iter-2. | Non-blocking low nit. |
+| **F-L2** `user_profiles.formula_version` | Still open | No change in iter-2. | Non-blocking low nit. |
 
 ## Independent Assessments (per review brief)
 
