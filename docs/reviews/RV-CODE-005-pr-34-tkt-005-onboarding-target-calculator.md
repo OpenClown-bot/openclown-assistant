@@ -11,15 +11,15 @@ created: 2026-04-29
 # Code Review — PR #34 (TKT-005@0.1.0)
 
 ## Summary
-PR #34 implements the C2 onboarding state machine and Mifflin-St Jeor target calculator with Russian prompts. All 7 ACs from TKT-005@0.1.0 are covered by tests (218 green), lint/typecheck pass, and scope is compliant. Two medium contract gaps (ArchSpec resume behavior and English sex input rejection) and one high-severity atomicity bug in the completion transaction are present.
+PR #34 implements the C2 onboarding state machine and Mifflin-St Jeor target calculator with Russian prompts. All 7 ACs from TKT-005@0.1.0 are covered by tests (228 green after iter-3), lint/typecheck pass, and scope is compliant. Initial review (iter-1) flagged one high (F-H1 atomicity) + four medium (F-M1–F-M4) + four low (F-L1–F-L4) findings; iter-2 fixed F-H1 + F-M2/F-M3/F-M4 with regression tests; Devin Review panel surfaced one additional high regression (F-H2 stale version) + two mediums (F-M5 UTC contract gap, F-M6 mock version-validation gap) which iter-3 fixed. F-M1 (resume bug) and F-L1–F-L4 are real but deferred per PO sign-off to follow-up TKTs (TKT-NEW-A/B/C/D); panel flags FLAG_2/4/5/7 likewise deferred.
 
 ## Verdict
 - [ ] pass
-- [ ] pass_with_changes
-- [x] fail
+- [x] pass_with_changes
+- [ ] fail
 
-One-sentence justification: The implementation correctly satisfies all explicit ACs and ADR-005@0.2.0 formula contracts, but a nested transaction breaks atomicity of onboarding completion (high), and two medium defects (resume behavior and English sex rejection) violate ArchSpec contracts.
-Recommendation to PO: block merge: Executor must fix F-H1 (atomicity) before merge; F-M1–F-M4 may be patched in this iter-2 PR or deferred to follow-up TKTs with explicit PO sign-off.
+One-sentence justification: All blocking findings (high F-H1 + F-H2; medium F-M2–F-M6) are resolved across iter-2 and iter-3 with corroborating regression tests; F-M1 (resume) + F-L1–F-L4 + panel flags FLAG_2/4/5/7 are real defects in merged code but deferred per PO sign-off to follow-up TKTs, mandating `pass_with_changes` per `docs/prompts/reviewer.md` §A.14 (zero high findings → `pass_with_changes` when medium/low remain).
+Recommendation to PO: approve & merge.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs
@@ -56,7 +56,7 @@ Recommendation to PO: block merge: Executor must fix F-H1 (atomicity) before mer
 - **Rollback:** PR body lists `git revert HEAD~1..HEAD --no-edit`. This only reverts the status-flip commit (`e1f76f2`) on the PR branch, not the implementation commit (`1340fdd`). Correct rollback on `main` after merge would be `git revert e1f76f2^..e1f76f2` or two discrete reverts. This is a minor documentation gap, not a code defect.
 
 ## Verdict
-**fail** — F-H1 must be fixed before merge (atomicity violation). F-M1–F-M4 should be fixed or explicitly deferred to follow-up TKTs with PO sign-off. F-L1–F-L4 are non-blocking.
+**pass_with_changes** — All blocking findings resolved across iter-2 (F-H1, F-M2, F-M3, F-M4) and iter-3 (F-H2, F-M5, F-M6). F-M1 + F-L1–F-L4 + Devin Review panel flags FLAG_2 (calorie floor) / FLAG_4 (single-comma replace) / FLAG_5 (dead code in target_confirmation else branch) / FLAG_7 (rounding inconsistency) are real but deferred per PO sign-off to TKT-NEW-A/B/C/D. F-M3 timezone regex was fully resolved in iter-2 by removing the regex, but iter-3 added F-M5 UNIVERSAL_TIMEZONE_ALIASES allowlist on top to accept universal aliases UTC/Etc/UTC/GMT/Etc/GMT (Node 24 `Intl.supportedValuesOf("timeZone")` quirk).
 
 ---
 
@@ -93,3 +93,56 @@ Recommendation to PO: block merge: Executor must fix F-H1 (atomicity) before mer
 One-sentence justification: All four blocking findings (F-H1 high + F-M2/F-M3/F-M4 medium) are resolved with corroborating tests; F-M1 + F-L1..L4 remain real defects in merged code but are deferred per PO sign-off to follow-up TKTs (TKT-NEW-A/B/C), mandating `pass_with_changes` per §A.14 (zero high findings).
 
 Recommendation to PO: approve & merge PR #34. Open TKT-NEW-A (F-M1 — getLatestOnboardingState store method + resume logic), TKT-NEW-B (F-L1+L2+L3 UX nits), TKT-NEW-C (F-L4 audit emission) before further C2 work.
+
+---
+
+## Iter-4 re-evaluation (Executor TKT-005@0.1.0 iter-3)
+
+**Target ref:** `d058840` (iter-2 fix) → `575fd50` (iter-3 fix per Devin Review panel)
+**Reviewed diff:** `git diff d058840..575fd50`
+
+### Acknowledgement of iter-3 review misses
+
+Iter-3 verdict (`pass_with_changes` on commit `d058840`) failed to surface three findings later flagged by Devin Review on PR #34:
+
+- **F-H2 (HIGH, missed):** I confirmed F-M4 was resolved by inspecting the new `updateStateWithVersionCheck` helper but did not symbolically execute the `target_confirmation` branch in `handleOnboardingStep`, where the helper was called twice with stale `state.version` on the second call (`onboardingFlow.ts:328` in iter-2). The second call was logically redundant and propagated stale version, breaking the happy-path completion. This was a high regression introduced by iter-2 and missed by iter-3 review.
+- **F-M5 (MEDIUM, missed):** I claimed regression tests covered `UTC` based on the test name `"valid timezone: UTC [F-M3]"`, but did not verify the assertion. The assertion was `expect(result.valid).toBe(false)`, locking in a contract violation: Node 24 `Intl.supportedValuesOf("timeZone")` does not return `"UTC"` or `"Etc/UTC"`, and ARCH-001@0.3.1 §C5 explicitly uses UTC as the budget reset baseline. Universal IANA aliases UTC/Etc/UTC/GMT must be accepted.
+- **F-M6 (MEDIUM, missed):** I did not verify that the test mock for `updateOnboardingStateWithVersion` enforced `expectedVersion` semantics. The iter-2 mock only checked the `forceVersionConflict` boolean flag, hiding F-H2 from happy-path regression tests.
+
+**Methodology lesson for future RV-CODE iterations:** read assertions, not test names; symbolically execute call sequences with state mutation, not just inspect helper signatures; verify mock fidelity to production store semantics for any data integrity invariant.
+
+### Findings status after iter-3
+
+| ID  | Was (iter-2/iter-3 panel) | Now (iter-3 fix)                | Evidence                                                                 |
+|-----|---------------------------|---------------------------------|--------------------------------------------------------------------------|
+| F-H1 | High, resolved iter-2     | **Resolved** (regression-confirmed iter-3) | `onboardingFlow.ts:420` (iter-2) preserved; happy-path tests now version-validated by iter-3 mock fix. |
+| F-H2 | High, NEW iter-2 regression | **Resolved**                  | Redundant 2nd `updateStateWithVersionCheck` call deleted; `target_confirmation` branch now returns `newState: updatedState` (`onboardingFlow.ts` target_confirmation block). With iter-3 mock fix (F-M6), happy-path tests would have failed if F-H2 remained — confirms regression-by-construction. |
+| F-M1 | Medium, deferred per PO   | **Deferred per PO** → TKT-NEW-A | Unchanged from iter-3. `getOrCreateOnboardingState` still resets returning user. |
+| F-M2 | Medium, resolved iter-2   | **Resolved**                    | Unchanged. |
+| F-M3 | Medium, resolved iter-2   | **Resolved**                    | Unchanged (regex deletion). F-M5 below stacks on top. |
+| F-M4 | Medium, resolved iter-2   | **Resolved (now reg-tested)**   | Helper unchanged; F-M6 mock fix means version-mismatch tests now actually exercise the SQL `WHERE version=$expected` semantics. |
+| F-M5 | Medium, NEW (panel-found) | **Resolved**                    | `UNIVERSAL_TIMEZONE_ALIASES = ["UTC", "Etc/UTC", "GMT", "Etc/GMT"]` allowlist added to `validateTimezone` before `Intl.supportedValuesOf` check; tests `tests/onboarding/onboardingFlow.test.ts:433-449` cover UTC, Etc/UTC, GMT with `valid: true`. |
+| F-M6 | Medium, NEW (panel-found) | **Resolved**                    | Mock at `tests/onboarding/onboardingFlow.test.ts:218-220` throws `OptimisticVersionError` when `request.expectedVersion !== currentState.version`. |
+| F-L1 | Low, deferred per PO      | **Deferred per PO** → TKT-NEW-B | Unchanged. |
+| F-L2 | Low, deferred per PO      | **Deferred per PO** → TKT-NEW-B | Unchanged. |
+| F-L3 | Low, deferred per PO      | **Deferred per PO** → TKT-NEW-B | Unchanged. |
+| F-L4 | Low, deferred per PO      | **Deferred per PO** → TKT-NEW-C | Unchanged. |
+| FLAG_2 (no calorie floor) | Panel-found, deferred | **Deferred per PO** → TKT-NEW-D | `targetCalculator.ts:52-54`. Spec gap (TKT-005@0.1.0 §6 ACs do not mandate floor); product/medical decision. |
+| FLAG_4 (String.replace single comma) | Panel-found, deferred | **Deferred per PO** → TKT-NEW-B | `onboardingFlow.ts:78`. Edge-case input parsing. |
+| FLAG_5 (dead else branch in target_confirmation) | Panel-found, deferred | **Deferred per PO** → TKT-NEW-B | `onboardingFlow.ts:285-294`. Cosmetic. |
+| FLAG_7 (rounding inconsistency calories↔macros) | Panel-found, deferred | **Deferred per PO** → TKT-NEW-B | `targetCalculator.ts:94-96`. Cosmetic. |
+
+**Test count:** 226 (iter-2) → 228 (iter-3). +3 new F-M5 universal-alias tests (UTC, Etc/UTC, GMT) − 1 deleted buggy UTC `valid: false` test = +2 net.
+
+**Scope check:** iter-3 modifies only TKT-005@0.1.0 §5 Outputs files (`src/onboarding/onboardingFlow.ts`, `tests/onboarding/onboardingFlow.test.ts`) plus the §10 Execution Log append on the Ticket. No `src/store/*`, `src/telegram/*`, `src/observability/*`, `messages.ts`, `targetCalculator.ts`, `types.ts` changes. Frontmatter `status: in_review` preserved.
+
+**CI:** `npm test` 228 green (local), PR #34 validate-docs ✓, Devin Review ✓.
+
+**Iter-4 verdict:**
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: All previously blocking findings (high F-H1 + F-H2; medium F-M2–F-M6) are resolved with corroborating tests and regression-by-construction (F-M6 mock fix exposes F-H2 if reintroduced); F-M1 + F-L1–F-L4 + four Devin Review panel flags remain real defects but are deferred per PO sign-off to TKT-NEW-A/B/C/D, mandating `pass_with_changes` per `docs/prompts/reviewer.md` §A.14 (zero high findings).
+
+Recommendation to PO: approve & merge PR #34. Open TKT-NEW-A (F-M1 — `getLatestOnboardingState` store method + resume logic), TKT-NEW-B (F-L1+L2+L3+FLAG_4+FLAG_5+FLAG_7 — UX nits + edge-case parsing + dead code + rounding consistency), TKT-NEW-C (F-L4 — C10 audit emission for state-corruption resets), and TKT-NEW-D (FLAG_2 — calorie floor product/medical decision) before further C2 work.
