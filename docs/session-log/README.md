@@ -35,7 +35,7 @@ This directory complements (does not replace) `docs/meta/devin-session-handoff.m
 
 1. Tell the current orchestrator: **"переезжаем в новую Devin сессию"**. Optionally specify scope (e.g. "warm — keep texture" vs "cold — formal state only").
 2. Current orchestrator runs the warm template, which captures texture sections in addition to formal state. ~7–10 minutes for the orchestrator to produce.
-3. The orchestrator commits the warm snapshot to this directory and pushes via the standard PR flow (or — if the PO authorises — direct commit, since `session-log` is FREEFORM and skips frontmatter validation).
+3. The orchestrator commits the warm snapshot to this directory on a `devin/...` branch and opens a small PR (single-file, low-risk). The PO merges before pasting the snapshot into the new session. Per `CONTRIBUTING.md` Hard rule 9, `main` must always be reached via PR — there is no direct-push exception for `session-log/`.
 4. PO copies the file (same as Scenario 1, step 2 onward).
 5. **Sanity check on arrival:** new Devin will quote 1–2 specific observations from the texture section in its first reply, proving it actually read the file.
 
@@ -69,7 +69,7 @@ After every **closed TKT cycle** — i.e. both the Code PR and the corresponding
 
 Rationale: if credits run out unexpectedly between cycles, the PO must always have an up-to-date snapshot to paste into a fresh session. The cost (~3–5 minutes of orchestrator time per closed cycle) is small relative to the loss of recreating context from chat memory.
 
-The auto-cold file is generated from `TEMPLATES/handoff-cold-devin.md` and committed via the PR flow (or direct push if the PO has authorised that for `docs/session-log/` specifically — see CONTRIBUTING.md Orchestrator write-zone).
+The auto-cold file is generated from `TEMPLATES/handoff-cold-devin.md` and committed via the standard PR flow (one PR titled `session-log: auto-cold after <TKT-NNN> cycle close`). Per `CONTRIBUTING.md` Hard rule 9, all changes to `main` go through a PR — the Orchestrator write-zone covers `docs/session-log/` for the *commit*, not for bypassing the PR flow.
 
 Warm handoffs remain **on-demand only** ("переезжаем" trigger). Texture is expensive to capture and only worth it when planned.
 
