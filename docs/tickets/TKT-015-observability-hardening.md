@@ -70,7 +70,7 @@ Harden C1/C10 observability edge cases from the post-review closure scope.
 - [ ] `npm run typecheck` passes.
 - [ ] A sticker Telegram `Message` from an allowlisted user produces exactly one `sendMessage` call containing `MSG_GENERIC_RECOVERY`.
 - [ ] The sticker test proves no domain handler is invoked for the unsupported message.
-- [ ] The sticker test proves C10 emits route-unmatched telemetry with `outcome: "unsupported_message_type"` and `extra.message_subtype: "sticker"`; if no existing constant fits, add `KPI_EVENT_NAMES.route_unmatched` and `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` without renaming existing constants.
+- [ ] The sticker test proves C10 emits route-unmatched telemetry with `outcome: "unsupported_message_type"`, `extra.message_subtype: "sticker"`, and the Prometheus metric `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` (the route-unmatched constants `KPI_EVENT_NAMES.route_unmatched` and `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` MUST exist in `src/observability/kpiEvents.ts`; add them if absent, without renaming existing constants).
 - [ ] An emit-boundary test passes a prebuilt event object directly to `emitLog` with non-allowlisted keys such as `meal_text: "пирог"` and `username: "pilot"`; the logger metadata does not contain those keys or values.
 - [ ] The emit-boundary test proves allowed core fields (`event_name`, `request_id`, `user_id`, `outcome`, `schema_version`) survive final serialization.
 - [ ] A routing test with a 4096-character Cyrillic string that does not start with `/история` or `/history` proves no `String.prototype.toLowerCase` call receives a receiver length greater than 256 characters.
