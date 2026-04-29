@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.3.0
+version: 0.3.1
 status: approved
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
@@ -38,7 +38,7 @@ adrs:
   - ADR-002@0.1.0
   - ADR-003@0.1.0
   - ADR-004@0.1.0
-  - ADR-005@0.1.0
+  - ADR-005@0.2.0
   - ADR-006@0.1.0
   - ADR-007@0.1.0
   - ADR-008@0.1.0
@@ -351,7 +351,7 @@ graph LR
 1. C1 accepts `/start` only from `TELEGRAM_PILOT_USER_IDS`, maps Telegram numeric user ID to internal `users.id`, and creates or resumes an onboarding state in C3.
 2. C2 collects sex, age, height, weight, activity level, goal, optional pace, explicit IANA timezone, and report time preferences through deterministic Russian prompts.
 3. C2 validates each answer against PRD-001@0.2.0 US-1 ranges before persistence; invalid answers are not stored as profile facts.
-4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.1.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
+4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.2.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
 5. C1 displays the non-medical disclaimer, target summary, and confirmation prompt. Logging mode starts only after the user confirms targets.
 
 ### 4.2 Text meal logging

@@ -85,9 +85,11 @@ Source: Harris-Benedict-derived industrial standard (cited e.g., NIDDK Body Weig
 
 Constant: 7700 kcal per 1 kg body weight change
 
-Formula: daily_delta_kcal = pace_kg_per_week × 7700 / 7
+`pace_kg_per_week` is stored as a positive value in the PRD-001@0.2.0 §3 range `0.1–2.0 kg/week` for both `lose` and `gain`; `maintain` ignores pace per the same PRD section. The calorie-delta sign is derived from `goal`:
 
-Sign convention: positive pace_kg_per_week → caloric surplus (gain); negative → deficit (lose); zero → maintenance.
+- `lose`: `daily_delta_kcal = -(pace_kg_per_week × 7700 / 7)` (deficit)
+- `gain`: `daily_delta_kcal = +(pace_kg_per_week × 7700 / 7)` (surplus)
+- `maintain`: `daily_delta_kcal = 0` (pace ignored)
 
 ### Q4: Macro split per goal (% of total daily kcal)
 
