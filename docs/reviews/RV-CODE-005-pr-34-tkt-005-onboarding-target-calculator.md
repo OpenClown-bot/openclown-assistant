@@ -15,11 +15,11 @@ PR #34 implements the C2 onboarding state machine and Mifflin-St Jeor target cal
 
 ## Verdict
 - [ ] pass
-- [x] pass_with_changes
-- [ ] fail
+- [ ] pass_with_changes
+- [x] fail
 
 One-sentence justification: The implementation correctly satisfies all explicit ACs and ADR-005@0.2.0 formula contracts, but a nested transaction breaks atomicity of onboarding completion (high), and two medium defects (resume behavior and English sex rejection) violate ArchSpec contracts.
-Recommendation to PO: approve & merge after Executor fixes F-H1; F-M1 and F-M2 may be patched in this PR or deferred to the follow-up TKT the Executor already identified.
+Recommendation to PO: block merge: Executor must fix F-H1 (atomicity) before merge; F-M1–F-M4 may be patched in this iter-2 PR or deferred to follow-up TKTs with explicit PO sign-off.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs
@@ -56,4 +56,4 @@ Recommendation to PO: approve & merge after Executor fixes F-H1; F-M1 and F-M2 m
 - **Rollback:** PR body lists `git revert HEAD~1..HEAD --no-edit`. This only reverts the status-flip commit (`e1f76f2`) on the PR branch, not the implementation commit (`1340fdd`). Correct rollback on `main` after merge would be `git revert e1f76f2^..e1f76f2` or two discrete reverts. This is a minor documentation gap, not a code defect.
 
 ## Verdict
-**pass_with_changes** — F-H1 must be fixed before merge (atomicity violation). F-M1–F-M4 should be fixed or explicitly deferred to follow-up TKTs with PO sign-off. F-L1–F-L4 are non-blocking.
+**fail** — F-H1 must be fixed before merge (atomicity violation). F-M1–F-M4 should be fixed or explicitly deferred to follow-up TKTs with PO sign-off. F-L1–F-L4 are non-blocking.
