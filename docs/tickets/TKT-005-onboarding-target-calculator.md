@@ -1,7 +1,7 @@
 ---
 id: TKT-005
 title: "Onboarding Target Calculator"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.3.1
 component: "C2 Onboarding and Target Calculator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-004@0.1.0"]
@@ -78,6 +78,7 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 <!-- YYYY-MM-DD HH:MM model-id: started -->
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
 2026-04-29 01:00 glm-5.1: claimed TKT-005@0.1.0 — status ready → in_progress
+2026-04-29 02:00 glm-5.1: implemented all 6 §5 Outputs, all ACs green, PR #34 opened, status → in_review
 
 ---
 
