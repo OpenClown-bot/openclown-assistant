@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.3.0
+version: 0.3.1
 status: approved
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
@@ -16,6 +16,12 @@ updated: 2026-04-29
 approved_at: 2026-04-29
 approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
 changelog:
+  - version: 0.3.1
+    date: 2026-04-29
+    changes:
+      - "F-M2 (RV-SPEC-004): cascade ADR-005@0.1.0 → ADR-005@0.2.0 in §4.1 C2 target creation body text and frontmatter `adrs:` list, to consume Q-TKT-005-01 ratified KBJU formula parameters (Mifflin-St Jeor coefficients per PMID 2305711, Harris-Benedict-derived activity multipliers, 7700 kcal/kg pace conversion, goal-specific macro split, Math.round target rounding, persisted `formula_version` constant)"
+      - "TKT-005@0.1.0 frontmatter `arch_ref` re-pinned to ARCH-001@0.3.1 to consume the bumped ArchSpec"
+      - "K7-accuracy ADR-005@0.1.0 pins intentionally retained in §4.2 C6 lookup sources (line ~360), §7 K-metrics (line ~685), §8.3 Tracing (line ~714), and §12 R1 / Q_TO_BUSINESS_1 (lines ~980 / ~986) — those reference K7 numerical bounds (+/-25% calories per meal, +/-30% macros per meal, +/-15% daily calories, +/-20% daily macros) defined in @0.1.0 and unchanged in @0.2.0 (snapshot rationale)"
   - version: 0.3.0
     date: 2026-04-28
     changes:
@@ -38,7 +44,7 @@ adrs:
   - ADR-002@0.1.0
   - ADR-003@0.1.0
   - ADR-004@0.1.0
-  - ADR-005@0.1.0
+  - ADR-005@0.2.0
   - ADR-006@0.1.0
   - ADR-007@0.1.0
   - ADR-008@0.1.0
@@ -351,7 +357,7 @@ graph LR
 1. C1 accepts `/start` only from `TELEGRAM_PILOT_USER_IDS`, maps Telegram numeric user ID to internal `users.id`, and creates or resumes an onboarding state in C3.
 2. C2 collects sex, age, height, weight, activity level, goal, optional pace, explicit IANA timezone, and report time preferences through deterministic Russian prompts.
 3. C2 validates each answer against PRD-001@0.2.0 US-1 ranges before persistence; invalid answers are not stored as profile facts.
-4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.1.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
+4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.2.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
 5. C1 displays the non-medical disclaimer, target summary, and confirmation prompt. Logging mode starts only after the user confirms targets.
 
 ### 4.2 Text meal logging

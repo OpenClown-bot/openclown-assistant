@@ -1,18 +1,19 @@
 ---
 id: ADR-005
 title: "Hybrid KBJU Estimation"
+version: 0.2.0
 status: proposed
-arch_ref: ARCH-001@0.2.0
+arch_ref: ARCH-001@0.3.1
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-29
 superseded_by: null
 ---
 
 # ADR-005: Hybrid KBJU Estimation
 
 ## Context
-ARCH-001@0.2.0 C2 and C6 need deterministic target calculation plus meal KBJU estimates for Russian free text, voice transcripts, corrected photo item lists, and manual entry. PRD-001@0.2.0 §7 requires a food/nutrition reference database for a hybrid lookup path, with LLM-only degradation allowed if lookup integration cost exceeds the ceiling. PRD-001@0.2.0 K7 leaves the numeric accuracy target open for Architect feasibility.
+ARCH-001@0.3.1 C2 and C6 need deterministic target calculation plus meal KBJU estimates for Russian free text, voice transcripts, corrected photo item lists, and manual entry. PRD-001@0.2.0 §7 requires a food/nutrition reference database for a hybrid lookup path, with LLM-only degradation allowed if lookup integration cost exceeds the ceiling. PRD-001@0.2.0 K7 leaves the numeric accuracy target open for Architect feasibility.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: Open Food Facts + USDA FoodData Central lookup with LLM fallback
@@ -41,7 +42,7 @@ ARCH-001@0.2.0 C2 and C6 need deterministic target calculation plus meal KBJU es
 
 ### Option E: Fork Phase 0 `calorie-counter`
 - Description: Port or fork the audited `calorie-counter` skill as the baseline calculation engine.
-- Pros: Existing nutrition-tracker reference from ARCH-001@0.2.0 §0.2 Capability A; simple SQLite/stdlib behavior.
+- Pros: Existing nutrition-tracker reference from ARCH-001@0.3.1 §0.2 Capability A; simple SQLite/stdlib behavior.
 - Cons: Phase 0 found it covers only calories/protein and lacks fat/carbs, Russian parsing, tenant isolation, and confirmation gates. Porting Python 3.7 logic conflicts with Node 24 TypeScript skill runtime.
 - Cost / latency / ops burden: $0 provider cost; high rewrite/port burden for incomplete domain coverage.
 
@@ -58,10 +59,71 @@ Why the losers lost:
 - Option D: LLM-only is the degrade path, not the primary path requested by PRD-001@0.2.0 §7.
 - Option E: The audited skill is a reference only; it misses required KBJU fields and runtime constraints.
 
+## Decision Detail: KBJU Formula Parameters
+
+### Q1: Mifflin-St Jeor BMR coefficients (kcal/day)
+
+Male: BMR = 10·weight_kg + 6.25·height_cm − 5·age_years + 5
+
+Female: BMR = 10·weight_kg + 6.25·height_cm − 5·age_years − 161
+
+Source: PMID 2305711 (Mifflin et al., 1990 — original publication)
+
+### Q2: Activity multiplier table (TDEE = BMR × multiplier)
+
+| activity_level | multiplier |
+|---|---|
+| sedentary | 1.2 |
+| light | 1.375 |
+| moderate | 1.55 |
+| active | 1.725 |
+| very_active | 1.9 |
+
+Source: Harris-Benedict-derived industrial standard (cited e.g., NIDDK Body Weight Planner methodology brief).
+
+### Q3: Pace-to-calorie-delta conversion
+
+Constant: 7700 kcal per 1 kg body weight change
+
+`pace_kg_per_week` is stored as a positive value in the PRD-001@0.2.0 §3 range `0.1–2.0 kg/week` for both `lose` and `gain`; `maintain` ignores pace per the same PRD section. The calorie-delta sign is derived from `goal`:
+
+- `lose`: `daily_delta_kcal = -(pace_kg_per_week × 7700 / 7)` (deficit)
+- `gain`: `daily_delta_kcal = +(pace_kg_per_week × 7700 / 7)` (surplus)
+- `maintain`: `daily_delta_kcal = 0` (pace ignored)
+
+### Q4: Macro split per goal (% of total daily kcal)
+
+| goal | protein | fat | carbs |
+|---|---|---|---|
+| lose | 30% | 25% | 45% |
+| maintain | 25% | 30% | 45% |
+| gain | 25% | 25% | 50% |
+
+Conversion to grams (canonical Atwater coefficients):
+
+protein_g = (calories_target × protein_pct) / 4
+
+fat_g = (calories_target × fat_pct) / 9
+
+carbs_g = (calories_target × carbs_pct) / 4
+
+### Q5: Rounding rule for final integer targets
+
+Math.round (round-half-up) for calories_target, protein_g, fat_g, carbs_g.
+
+Apply rounding after macro-percent → grams conversion (not before).
+
+Sum of rounded macro grams may diverge ≤2 kcal from calories_target — this is acceptable (documented tradeoff, not a bug).
+
+### Formula version
+
+The downstream code MUST persist `formula_version = "mifflin_st_jeor_v1_2026_04"` alongside any calculated `user_targets` row for audit trail.
+
 ## Consequences
 - Positive: The estimator has source attribution for common foods and a cost-free lookup leg before LLM fallback.
 - Negative / trade-offs accepted: Portion estimation remains approximate, especially for photos and home-cooked mixed dishes; the UX must present drafts as estimates and require confirmation.
-- Follow-up work: ARCH-001@0.2.0 Phase 6 must define item source fields (`off`, `usda_fdc`, `llm_fallback`, `manual_entry`), confidence, correction deltas, and lookup-cache retention.
+- Follow-up work: ARCH-001@0.3.1 Phase 6 must define item source fields (`off`, `usda_fdc`, `llm_fallback`, `manual_entry`), confidence, correction deltas, and lookup-cache retention.
+- Audit impact: C2 must persist the formula-version field on each `user_targets` calculation so target rows can be traced to this ADR amendment during K7 and tenant audits.
 
 ## References
 - Open Food Facts data and API reuse terms: <https://world.openfoodfacts.org/data>
@@ -70,4 +132,4 @@ Why the losers lost:
 - FatSecret Platform API docs: <https://platform.fatsecret.com/docs/guides/api-overview>
 - Mifflin-St Jeor PubMed record PMID 2305711: <https://pubmed.ncbi.nlm.nih.gov/2305711/>
 - NIDDK Body Weight Planner: <https://www.niddk.nih.gov/bwp>
-- Phase 0 KBJU-skill audit in ARCH-001@0.2.0 §0.2 Capability A
+- Phase 0 KBJU-skill audit in ARCH-001@0.3.1 §0.2 Capability A
