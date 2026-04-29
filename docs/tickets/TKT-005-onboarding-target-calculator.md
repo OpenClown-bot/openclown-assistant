@@ -20,7 +20,7 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 ## 2. In Scope
 - Add C2 step-state machine for `/start` onboarding in Russian.
 - Validate sex, age, height, weight, activity level, weight goal, optional pace, IANA timezone, report time, and target confirmation.
-- Implement Mifflin-St Jeor BMR, activity multiplier, goal delta, and macro target calculation from ADR-005@0.1.0.
+- Implement Mifflin-St Jeor BMR, activity multiplier, goal delta, and macro target calculation from ADR-005@0.2.0.
 - Persist profile, targets, onboarding status, and summary schedules through C3 after explicit confirmation.
 - Add Russian onboarding prompts, examples, default pace disclosure, target summary, and one-sentence non-medical disclaimer.
 
@@ -34,7 +34,7 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 - ARCH-001@0.3.0 §4.1 Onboarding and target creation
 - ARCH-001@0.3.0 §5 `users`, `user_profiles`, `user_targets`, `summary_schedules`, `onboarding_states`
 - ARCH-001@0.3.0 §9.1 Secrets Management
-- ADR-005@0.1.0
+- ADR-005@0.2.0
 - `src/shared/types.ts`
 - `src/store/tenantStore.ts`
 - `src/telegram/types.ts`
