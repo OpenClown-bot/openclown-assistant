@@ -3,7 +3,7 @@ id: ADR-005
 title: "Hybrid KBJU Estimation"
 version: 0.2.0
 status: proposed
-arch_ref: ARCH-001@0.3.0
+arch_ref: ARCH-001@0.3.1
 author_model: "gpt-5.5-thinking"
 created: 2026-04-26
 updated: 2026-04-29
@@ -13,7 +13,7 @@ superseded_by: null
 # ADR-005: Hybrid KBJU Estimation
 
 ## Context
-ARCH-001@0.3.0 C2 and C6 need deterministic target calculation plus meal KBJU estimates for Russian free text, voice transcripts, corrected photo item lists, and manual entry. PRD-001@0.2.0 §7 requires a food/nutrition reference database for a hybrid lookup path, with LLM-only degradation allowed if lookup integration cost exceeds the ceiling. PRD-001@0.2.0 K7 leaves the numeric accuracy target open for Architect feasibility.
+ARCH-001@0.3.1 C2 and C6 need deterministic target calculation plus meal KBJU estimates for Russian free text, voice transcripts, corrected photo item lists, and manual entry. PRD-001@0.2.0 §7 requires a food/nutrition reference database for a hybrid lookup path, with LLM-only degradation allowed if lookup integration cost exceeds the ceiling. PRD-001@0.2.0 K7 leaves the numeric accuracy target open for Architect feasibility.
 
 ## Options Considered (>=3 real options, no strawmen)
 ### Option A: Open Food Facts + USDA FoodData Central lookup with LLM fallback
@@ -42,7 +42,7 @@ ARCH-001@0.3.0 C2 and C6 need deterministic target calculation plus meal KBJU es
 
 ### Option E: Fork Phase 0 `calorie-counter`
 - Description: Port or fork the audited `calorie-counter` skill as the baseline calculation engine.
-- Pros: Existing nutrition-tracker reference from ARCH-001@0.3.0 §0.2 Capability A; simple SQLite/stdlib behavior.
+- Pros: Existing nutrition-tracker reference from ARCH-001@0.3.1 §0.2 Capability A; simple SQLite/stdlib behavior.
 - Cons: Phase 0 found it covers only calories/protein and lacks fat/carbs, Russian parsing, tenant isolation, and confirmation gates. Porting Python 3.7 logic conflicts with Node 24 TypeScript skill runtime.
 - Cost / latency / ops burden: $0 provider cost; high rewrite/port burden for incomplete domain coverage.
 
@@ -122,7 +122,7 @@ The downstream code MUST persist `formula_version = "mifflin_st_jeor_v1_2026_04"
 ## Consequences
 - Positive: The estimator has source attribution for common foods and a cost-free lookup leg before LLM fallback.
 - Negative / trade-offs accepted: Portion estimation remains approximate, especially for photos and home-cooked mixed dishes; the UX must present drafts as estimates and require confirmation.
-- Follow-up work: ARCH-001@0.3.0 Phase 6 must define item source fields (`off`, `usda_fdc`, `llm_fallback`, `manual_entry`), confidence, correction deltas, and lookup-cache retention.
+- Follow-up work: ARCH-001@0.3.1 Phase 6 must define item source fields (`off`, `usda_fdc`, `llm_fallback`, `manual_entry`), confidence, correction deltas, and lookup-cache retention.
 - Audit impact: C2 must persist the formula-version field on each `user_targets` calculation so target rows can be traced to this ADR amendment during K7 and tenant audits.
 
 ## References
@@ -132,4 +132,4 @@ The downstream code MUST persist `formula_version = "mifflin_st_jeor_v1_2026_04"
 - FatSecret Platform API docs: <https://platform.fatsecret.com/docs/guides/api-overview>
 - Mifflin-St Jeor PubMed record PMID 2305711: <https://pubmed.ncbi.nlm.nih.gov/2305711/>
 - NIDDK Body Weight Planner: <https://www.niddk.nih.gov/bwp>
-- Phase 0 KBJU-skill audit in ARCH-001@0.3.0 §0.2 Capability A
+- Phase 0 KBJU-skill audit in ARCH-001@0.3.1 §0.2 Capability A
