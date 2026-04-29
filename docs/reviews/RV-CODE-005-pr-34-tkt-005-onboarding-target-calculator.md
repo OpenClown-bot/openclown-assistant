@@ -57,3 +57,39 @@ Recommendation to PO: block merge: Executor must fix F-H1 (atomicity) before mer
 
 ## Verdict
 **fail** — F-H1 must be fixed before merge (atomicity violation). F-M1–F-M4 should be fixed or explicitly deferred to follow-up TKTs with PO sign-off. F-L1–F-L4 are non-blocking.
+
+---
+
+## Iter-3 re-evaluation (Executor TKT-005@0.1.0 iter-2)
+
+**Target ref:** `e1f76f2` (iter-1 implementation) → `d058840` (iter-2 fix)
+**Reviewed diff:** `git diff e1f76f2..d058840`
+
+**Findings status after iter-2:**
+
+| ID  | Was       | Now                                     | Evidence                                                                 |
+|-----|-----------|-----------------------------------------|--------------------------------------------------------------------------|
+| F-H1 | High      | **Resolved**                            | `onboardingFlow.ts:420` uses `repo.updateOnboardingStateWithVersion` inside `withTransaction` callback (no nested tx). All five writes (createUserProfile, createUserTarget, upsertSummarySchedule, updateUserOnboardingStatus, updateOnboardingStateWithVersion) share one repo-scoped transaction. |
+| F-M1 | Medium    | **Deferred per PO** → TKT-NEW-A         | Out of TKT-005@0.1.0 §5 Outputs scope (requires `getLatestOnboardingState` on `TenantScopedRepository`). `getOrCreateOnboardingState` still calls `store.upsertOnboardingState` without `id` (line 216). Captured in follow-up TKT per Orchestrator plan. |
+| F-M2 | Medium    | **Resolved**                            | `validateSex` adds `VALID_SEX_VALUES.includes(lowered)` fallback (`onboardingFlow.ts:76`); regression tests cover `male` and `female` acceptance. |
+| F-M3 | Medium    | **Resolved**                            | `VALID_TIMEZONE_RE` removed from `types.ts`; `validateTimezone` uses `Intl.supportedValuesOf("timeZone")` (`onboardingFlow.ts:137`); regression tests cover `UTC`, three-segment zones (`America/Argentina/La_Rioja`), and invalid zone rejection (`Mars/Olympus_Mons`). |
+| F-M4 | Medium    | **Resolved**                            | New `updateStateWithVersionCheck` helper wraps `repo.updateOnboardingStateWithVersion(..., expectedVersion: state.version)` inside `store.withTransaction`; `OptimisticVersionError` caught and re-ask returned; regression tests for step-advance mismatch, confirmation-reask mismatch, and no-conflict happy path. |
+| F-L1 | Low       | **Deferred per PO** → TKT-NEW-B         | `REPORT_TIME_RE` still rejects single-digit hour. Cosmetic; no contract violation. |
+| F-L2 | Low       | **Deferred per PO** → TKT-NEW-B         | Test description label "160 cm" with body 165. Cosmetic. |
+| F-L3 | Low       | **Deferred per PO** → TKT-NEW-B         | `Record<string, string>` typing for STEP_PROMPTS / STEP_REASKS. Style. |
+| F-L4 | Low       | **Deferred per PO** → TKT-NEW-C         | Silent state-corruption reset un-audited. Awaits C10 integration. |
+
+**Test count:** 218 (iter-1) → 226 (iter-2). +8 new tests (English-sex acceptance ×2, IANA-zone acceptance ×2 + invalid-zone rejection ×1, version-mismatch regression ×3).
+
+**Scope check:** iter-2 modifies only TKT-005@0.1.0 §5 Outputs files (`src/onboarding/onboardingFlow.ts`, `src/onboarding/types.ts`, `tests/onboarding/onboardingFlow.test.ts`) plus the §10 Execution Log append on the Ticket. Frontmatter `status: in_review` preserved. No `src/store/*` changes. No leakage.
+
+**CI:** `npm test` 226 green (local), PR #34 validate-docs ✓, Devin Review ✓.
+
+**Iter-3 verdict:**
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: All four blocking findings (F-H1 high + F-M2/F-M3/F-M4 medium) are resolved with corroborating tests; F-M1 + F-L1..L4 remain real defects in merged code but are deferred per PO sign-off to follow-up TKTs (TKT-NEW-A/B/C), mandating `pass_with_changes` per §A.14 (zero high findings).
+
+Recommendation to PO: approve & merge PR #34. Open TKT-NEW-A (F-M1 — getLatestOnboardingState store method + resume logic), TKT-NEW-B (F-L1+L2+L3 UX nits), TKT-NEW-C (F-L4 audit emission) before further C2 work.
