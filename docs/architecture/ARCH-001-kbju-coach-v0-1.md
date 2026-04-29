@@ -16,6 +16,12 @@ updated: 2026-04-29
 approved_at: 2026-04-29
 approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
 changelog:
+  - version: 0.3.1
+    date: 2026-04-29
+    changes:
+      - "F-M2 (RV-SPEC-004): cascade ADR-005@0.1.0 → ADR-005@0.2.0 in §4.1 C2 target creation body text and frontmatter `adrs:` list, to consume Q-TKT-005-01 ratified KBJU formula parameters (Mifflin-St Jeor coefficients per PMID 2305711, Harris-Benedict-derived activity multipliers, 7700 kcal/kg pace conversion, goal-specific macro split, Math.round target rounding, persisted `formula_version` constant)"
+      - "TKT-005@0.1.0 frontmatter `arch_ref` re-pinned to ARCH-001@0.3.1 to consume the bumped ArchSpec"
+      - "K7-accuracy ADR-005@0.1.0 pins intentionally retained in §4.2 C6 lookup sources (line ~360), §7 K-metrics (line ~685), §8.3 Tracing (line ~714), and §12 R1 / Q_TO_BUSINESS_1 (lines ~980 / ~986) — those reference K7 numerical bounds (+/-25% calories per meal, +/-30% macros per meal, +/-15% daily calories, +/-20% daily macros) defined in @0.1.0 and unchanged in @0.2.0 (snapshot rationale)"
   - version: 0.3.0
     date: 2026-04-28
     changes:
