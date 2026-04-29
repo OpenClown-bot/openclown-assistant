@@ -1,7 +1,7 @@
 ---
 id: RV-SPEC-004
 type: spec_review
-target_ref: ADR-005@0.2.0 (PR #29, SHA f72ed12)
+target_ref: ADR-005@0.2.0 (PR #29, SHA 3ee8912)
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-29
@@ -27,6 +27,16 @@ Scope verified by orchestrator-reproducible git diff 3045637..f72ed12: 1 Q-file 
 - Q-file naming: `docs/questions/Q-001-tkt-005-missing-formula-parameters.md` was renamed to `docs/questions/Q-TKT-005-01.md`, aligning the filename with the CONTRIBUTING.md `Q-TKT-XXX-NN.md` convention and with the file's own frontmatter `id: Q-TKT-005-01`. Resolves the iter-1 Devin-Review-only finding flagged on the Q-file naming.
 - ArchSpec cascade completion: `ADR-005@0.2.0`'s own `arch_ref` plus 4 body references previously pinned at `ARCH-001@0.3.0` were cascaded to `ARCH-001@0.3.1`, eliminating the residual version chain gap between `ADR-005@0.2.0` and the ArchSpec bump iter-2 introduced. Closes the Devin-Review residual portion of F-M2.
 - Verdict unchanged: still `pass`. F-L1 (Math.round wording) and F-L2 (user_profiles.formula_version clarification) remain non-blocking; F-L3 (frontmatter `version:` convention drift) remains PO-deferred to a separate clerical PR per the iter-2 ratification.
+
+**Iter-4 assessment (commit 3ee8912):**
+- Scope verified: incremental diff iter-3 → iter-4 is exactly 1 file modified (the `ARCH-001@0.3.1` artifact at commit `3ee8912`), 1 hunk, 6 insertions, 0 deletions, all inside the `changelog:` block of `ARCH-001@0.3.1` frontmatter. No body edits, no other frontmatter mutations.
+- Content scope: a new `- version: 0.3.1` entry was added immediately above the existing `- version: 0.3.0` entry, preserving newest-first changelog ordering. The entry contains three sub-bullets: (a) F-M2 (RV-SPEC-004) `ADR-005@0.1.0` → `@0.2.0` cascade rationale, (b) `TKT-005@0.1.0` `arch_ref` re-pin to `ARCH-001@0.3.1`, (c) intentional retention of K7-accuracy `ADR-005@0.1.0` pins per Architect's snapshot rationale ratified in iter-2.
+- Devin Review NUDGE_3 (F-Bug2 "missing changelog entry for `ARCH-001@0.3.1`") closed by this iter-4 commit. The iter-2 `ARCH-001@0.3.0` `version:` → `0.3.1` bump and the iter-3 cascade are now both captured in the `changelog:` array, satisfying the repo's convention that every version bump be documented in `changelog:`.
+- Devin Review F-Bug1 ("incomplete cascade leaves 5 stale `ADR-005@0.1.0` references in `ARCH-001@0.3.1`") was triaged and ignored: those 5 references are intentional snapshot pins to K7-accuracy bounds defined in `@0.1.0` and unchanged in `@0.2.0` — explicitly retained per Architect's iter-2 rationale (now also documented in the new changelog entry's third sub-bullet).
+- PO-deferred findings (NOT re-opened): F-L1 (Math.round wording in §Q5) and F-L3 (ADR `version:` frontmatter convention drift) — both routed to a clerical follow-up PR after `TKT-005@0.1.0` cycle close per PO direction.
+
+**Iter-4 verdict: pass.**
+No new findings. `ADR-005@0.2.0` + `ARCH-001@0.3.1` + `Q-TKT-005-01` + `TKT-005@0.1.0` `arch_ref` re-pin are scope-compliant, validator-clean, and ready for merge.
 
 ## Verdict
 - [x] pass
