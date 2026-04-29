@@ -1,7 +1,7 @@
 ---
 id: RV-SPEC-004
 type: spec_review
-target_ref: ADR-005@0.2.0 (PR #29, SHA 3045637)
+target_ref: ADR-005@0.2.0 (PR #29, SHA f72ed12)
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-29
@@ -19,6 +19,14 @@ ADR-005@0.2.0 is a focused, additive amendment that correctly pins Mifflin-St Je
 - F-M2 **RESOLVED** — `ARCH-001@0.3.0` was bumped to `ARCH-001@0.3.1` and all `ADR-005@0.1.0` body pins (frontmatter + §4.1) were updated to `ADR-005@0.2.0`; `TKT-005@0.1.0` was re-pinned to `ARCH-001@0.3.1`.
 - F-L3 **DEFERRED per PO ratification** — PO accepted that `version:` field convention drift will be harmonised in a separate follow-up PR (TEMPLATE.md + 8 other ADRs).
 - F-L1, F-L2 **REMAIN OPEN** — two low nits on JS `Math.round` wording and `user_profiles.formula_version` schema clarification remain unaddressed; non-blocking.
+
+**Iter-3 assessment (commit f72ed12):**
+
+Scope verified by orchestrator-reproducible git diff 3045637..f72ed12: 1 Q-file rename (R100, byte-identical content) + 5-line cascade edit on the ADR-005@0.2.0 source file (5 occurrences of `ARCH-001@0.3.0` swapped for `ARCH-001@0.3.1`). 0 semantic content changes to any `ADR-005@0.2.0` decision (formulas Q1, multipliers Q2, pace conversion Q3 sign convention, macro split Q4, rounding Q5 all unchanged).
+
+- Q-file naming: `docs/questions/Q-001-tkt-005-missing-formula-parameters.md` was renamed to `docs/questions/Q-TKT-005-01.md`, aligning the filename with the CONTRIBUTING.md `Q-TKT-XXX-NN.md` convention and with the file's own frontmatter `id: Q-TKT-005-01`. Resolves the iter-1 Devin-Review-only finding flagged on the Q-file naming.
+- ArchSpec cascade completion: `ADR-005@0.2.0`'s own `arch_ref` plus 4 body references previously pinned at `ARCH-001@0.3.0` were cascaded to `ARCH-001@0.3.1`, eliminating the residual version chain gap between `ADR-005@0.2.0` and the ArchSpec bump iter-2 introduced. Closes the Devin-Review residual portion of F-M2.
+- Verdict unchanged: still `pass`. F-L1 (Math.round wording) and F-L2 (user_profiles.formula_version clarification) remain non-blocking; F-L3 (frontmatter `version:` convention drift) remains PO-deferred to a separate clerical PR per the iter-2 ratification.
 
 ## Verdict
 - [x] pass
