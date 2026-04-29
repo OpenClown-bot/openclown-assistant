@@ -12,11 +12,14 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Technical Architect (primary) | GPT-5.5 xhigh | Codex CLI (on VPS or laptop) | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/`, `tests/`, `infra/`, repo root |
 | Technical Architect (alternative) | GPT-5.5 thinking | opencode CLI (verify thinking-mode is supported by the runtime) | Same as primary | Same as primary |
 | Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
-| Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else |
+| Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else, **NEVER `status: approved`** (PO sets that based on Reviewer verdict) |
 | Reviewer (auto bot) | Devin Review | GitHub bot | inline PR comments only | Files in repo |
+| Orchestrator (PO assistant) | Devin (webapp) | Devin session | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body during promotion | `src/`, `tests/`, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 | Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
 | Code Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute | Same as default | Same as default |
 | Code Executor (specialist) | Codex GPT-5.5 | Codex CLI | Same as default | Same as default |
+
+The **Orchestrator** row formalises the Devin-on-PO's-account session that coordinates the four pipeline roles. It is a PO-delegated coordination role, not a pipeline role; it does not appear in the PRD → ArchSpec → Code → Review chain. See `docs/meta/devin-session-handoff.md` for the full role prompt and `docs/session-log/README.md` for handoff continuity rules. Orchestrator edits to files outside its declared write-zone (e.g. `CONTRIBUTING.md` itself, `docs/prompts/`, formal artifact bodies) require **explicit PO authorisation recorded verbatim in the PR body**.
 
 ## Hard rules
 

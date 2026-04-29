@@ -34,7 +34,11 @@ DOCS_ROOT = REPO_ROOT / "docs"
 # by the recommendation skill (see ARCH-001@0.2.0 §6 External Interfaces).
 # `meta` holds the orchestrator session-handoff prompt and other cross-role
 # meta-process documents (see docs/meta/devin-session-handoff.md).
-FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta"}
+# `session-log` holds orchestrator state snapshots used to migrate the
+# orchestrator role between Devin accounts (or to opencode + GPT-5.5)
+# without losing context. Snapshots are by definition volatile operational
+# state, not versioned artifacts; see docs/session-log/README.md.
+FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta", "session-log"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL: set[str] = set()
 
