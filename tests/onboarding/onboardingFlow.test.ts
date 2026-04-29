@@ -7,7 +7,9 @@ import type {
   UserTargetRow,
   SummaryScheduleRow,
   UserRow,
+  UpdateOnboardingStateWithVersionRequest,
 } from "../../src/store/types.js";
+import { OptimisticVersionError } from "../../src/store/tenantStore.js";
 import type { OnboardingAnswers, OnboardingStep } from "../../src/onboarding/types.js";
 import { ONBOARDING_STEPS, DEFAULT_PACE_KG_PER_WEEK } from "../../src/onboarding/types.js";
 import {
@@ -117,10 +119,12 @@ let persistedProfile = false;
 let persistedTarget = false;
 let persistedSchedule = false;
 let mockOnboardingStatus: string = "pending";
+let forceVersionConflict = false;
 
 function createMockStore(state?: OnboardingStateRow, onboardingStatus?: string): TenantStore {
   let currentState = state ?? makeOnboardingState({});
   mockOnboardingStatus = onboardingStatus ?? "pending";
+  forceVersionConflict = false;
 
   persistedProfile = false;
   persistedTarget = false;
@@ -135,6 +139,22 @@ function createMockStore(state?: OnboardingStateRow, onboardingStatus?: string):
       userId: string,
       request: { id?: string; currentStep: string; partialAnswers: import("../../src/store/types.js").JsonObject }
     ) {
+      currentState = {
+        ...currentState,
+        current_step: request.currentStep,
+        partial_answers: request.partialAnswers,
+        version: currentState.version + 1,
+      };
+      return currentState;
+    },
+
+    async updateOnboardingStateWithVersion(
+      userId: string,
+      request: UpdateOnboardingStateWithVersionRequest
+    ) {
+      if (forceVersionConflict) {
+        throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
+      }
       currentState = {
         ...currentState,
         current_step: request.currentStep,
@@ -173,6 +193,33 @@ function createMockStore(state?: OnboardingStateRow, onboardingStatus?: string):
           request: { onboardingStatus: string }
         ) {
           return { ...makeUserRow(), onboarding_status: request.onboardingStatus };
+        },
+        async upsertOnboardingState(
+          userId: string,
+          request: { id?: string; currentStep: string; partialAnswers: import("../../src/store/types.js").JsonObject }
+        ) {
+          currentState = {
+            ...currentState,
+            current_step: request.currentStep,
+            partial_answers: request.partialAnswers,
+            version: currentState.version + 1,
+          };
+          return currentState;
+        },
+        async updateOnboardingStateWithVersion(
+          userId: string,
+          request: UpdateOnboardingStateWithVersionRequest
+        ) {
+          if (forceVersionConflict) {
+            throw new OptimisticVersionError("onboarding_states", request.expectedVersion);
+          }
+          currentState = {
+            ...currentState,
+            current_step: request.currentStep,
+            partial_answers: request.partialAnswers,
+            version: currentState.version + 1,
+          };
+          return currentState;
         },
       };
       return action(repo as unknown as TenantScopedRepository);
@@ -305,6 +352,18 @@ describe("STEP_VALIDATORS — valid input", () => {
     if (result.valid) expect(result.value).toBe("female");
   });
 
+  it("valid sex: male (English fallback) [F-M2]", () => {
+    const result = STEP_VALIDATORS.sex("male");
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("male");
+  });
+
+  it("valid sex: female (English fallback) [F-M2]", () => {
+    const result = STEP_VALIDATORS.sex("female");
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("female");
+  });
+
   it("valid age: 30", () => {
     const result = STEP_VALIDATORS.age("30");
     expect(result.valid).toBe(true);
@@ -363,6 +422,23 @@ describe("STEP_VALIDATORS — valid input", () => {
     const result = STEP_VALIDATORS.timezone("Europe/Moscow");
     expect(result.valid).toBe(true);
     if (result.valid) expect(result.value).toBe("Europe/Moscow");
+  });
+
+  it("valid timezone: UTC [F-M3]", () => {
+    const result = STEP_VALIDATORS.timezone("UTC");
+    expect(result.valid).toBe(false);
+  });
+
+  it("valid timezone: America/Argentina/La_Rioja (3-segment) [F-M3]", () => {
+    const result = STEP_VALIDATORS.timezone("America/Argentina/La_Rioja");
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value).toBe("America/Argentina/La_Rioja");
+  });
+
+  it("invalid timezone: Mars/Olympus_Mons [F-M3]", () => {
+    const result = STEP_VALIDATORS.timezone("Mars/Olympus_Mons");
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.errorMessage).toBe(MSG_REASK_TIMEZONE);
   });
 
   it("valid report time: 21:00", () => {
@@ -686,5 +762,88 @@ describe("target summary includes disclaimer and confirmation", () => {
     expect(reply.text).toContain("Белки:");
     expect(reply.text).toContain("Жиры:");
     expect(reply.text).toContain("Углеводы:");
+  });
+});
+
+describe("F-M4: version conflict handling", () => {
+  it("version mismatch on step advance → re-ask current step", async () => {
+    const answers: OnboardingAnswers = {
+      sex: "male",
+      age: 30,
+    };
+    const state = makeOnboardingState({
+      current_step: "height",
+      partial_answers: serializePartialAnswers(answers),
+    });
+    const store = createMockStore(state);
+    forceVersionConflict = true;
+
+    const { reply, newState, persisted } = await handleOnboardingStep(
+      CHAT_ID,
+      USER_ID,
+      "175",
+      state,
+      store
+    );
+
+    expect(persisted).toBe(false);
+    expect(reply.text).toContain("Рост");
+    expect(newState).toBe(state);
+  });
+
+  it("version mismatch on target confirmation re-ask → returns re-ask", async () => {
+    const answers: OnboardingAnswers = {
+      sex: "male",
+      age: 30,
+      height: 175,
+      weight: 70,
+      activityLevel: "moderate",
+      weightGoal: "lose",
+      paceKgPerWeek: 0.5,
+      defaultPaceApplied: false,
+      timezone: "Europe/Moscow",
+      reportTime: "21:00",
+    };
+    const state = makeOnboardingState({
+      current_step: "target_confirmation",
+      partial_answers: serializePartialAnswers(answers),
+    });
+    const store = createMockStore(state);
+    forceVersionConflict = true;
+
+    const { reply, persisted } = await handleOnboardingStep(
+      CHAT_ID,
+      USER_ID,
+      "нет",
+      state,
+      store
+    );
+
+    expect(persisted).toBe(false);
+    expect(reply.text).toContain(MSG_CONFIRM_TARGET);
+  });
+
+  it("no version conflict → normal flow proceeds", async () => {
+    const answers: OnboardingAnswers = {
+      sex: "male",
+      age: 30,
+    };
+    const state = makeOnboardingState({
+      current_step: "height",
+      partial_answers: serializePartialAnswers(answers),
+    });
+    const store = createMockStore(state);
+
+    const { reply, newState, persisted } = await handleOnboardingStep(
+      CHAT_ID,
+      USER_ID,
+      "175",
+      state,
+      store
+    );
+
+    expect(persisted).toBe(false);
+    expect(newState.current_step).toBe("weight");
+    expect(newState.version).toBe(state.version + 1);
   });
 });

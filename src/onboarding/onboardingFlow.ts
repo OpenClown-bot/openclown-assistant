@@ -10,9 +10,11 @@ import type {
   CreateUserTargetRequest,
   OnboardingStateRow,
   TenantStore,
+  UpdateOnboardingStateWithVersionRequest,
   UpsertOnboardingStateRequest,
   UpsertSummaryScheduleRequest,
 } from "../store/types.js";
+import { OptimisticVersionError } from "../store/tenantStore.js";
 import type {
   C2Deps,
   OnboardingAnswers,
@@ -23,7 +25,6 @@ import {
   DEFAULT_PACE_KG_PER_WEEK,
   VALID_ACTIVITY_LEVELS,
   VALID_SEX_VALUES,
-  VALID_TIMEZONE_RE,
   VALID_WEIGHT_GOALS,
   VALIDATION_RANGES,
   REPORT_TIME_RE,
@@ -71,6 +72,9 @@ import { calculateTargets, FORMULA_VERSION } from "./targetCalculator.js";
 function validateSex(input: string): ValidationResult {
   const parsed = parseSex(input);
   if (parsed !== null) return { valid: true, value: parsed as Sex };
+  const lowered = input.trim().toLowerCase();
+  if (VALID_SEX_VALUES.includes(lowered as Sex))
+    return { valid: true, value: lowered as Sex };
   return { valid: false, errorMessage: MSG_REASK_SEX };
 }
 
@@ -132,7 +136,8 @@ function validatePace(input: string): ValidationResult {
 
 function validateTimezone(input: string): ValidationResult {
   const trimmed = input.trim();
-  if (VALID_TIMEZONE_RE.test(trimmed)) return { valid: true, value: trimmed };
+  const supported = Intl.supportedValuesOf("timeZone");
+  if (supported.includes(trimmed)) return { valid: true, value: trimmed };
   return { valid: false, errorMessage: MSG_REASK_TIMEZONE };
 }
 
@@ -165,6 +170,38 @@ const STEP_VALIDATORS: Record<OnboardingStep, (input: string) => ValidationResul
 
 export { STEP_VALIDATORS };
 
+async function updateStateWithVersionCheck(
+  userId: string,
+  state: OnboardingStateRow,
+  currentStep: string,
+  partialAnswers: ReturnType<typeof serializePartialAnswers>,
+  store: TenantStore,
+  reaskMessage: string,
+  chatId: number
+): Promise<{ state: OnboardingStateRow; conflict: boolean; reply: RussianReplyEnvelope | null }> {
+  try {
+    const updated = await store.withTransaction(userId, async (repo) =>
+      repo.updateOnboardingStateWithVersion(userId, {
+        id: state.id,
+        expectedVersion: state.version,
+        currentStep,
+        partialAnswers,
+      })
+    );
+    return { state: updated, conflict: false, reply: null };
+  } catch (err) {
+    if (err instanceof OptimisticVersionError) {
+      console.error("onboarding-state version conflict for user " + userId);
+      return {
+        state,
+        conflict: true,
+        reply: makeEnvelope(chatId, reaskMessage),
+      };
+    }
+    throw err;
+  }
+}
+
 export async function getOrCreateOnboardingState(
   userId: string,
   store: TenantStore
@@ -196,14 +233,13 @@ export async function handleOnboardingStep(
   let persisted = false;
 
   if (!ONBOARDING_STEPS.includes(currentStep)) {
-    const newState = await store.upsertOnboardingState(userId, {
-      id: state.id,
-      currentStep: "sex",
-      partialAnswers: {},
-    });
+    const result = await updateStateWithVersionCheck(
+      userId, state, "sex", {}, store, MSG_ASK_SEX, chatId
+    );
+    if (result.conflict) return { reply: result.reply!, newState: state, persisted: false };
     return {
       reply: makeEnvelope(chatId, MSG_WELCOME + "\n\n" + MSG_ASK_SEX),
-      newState,
+      newState: result.state,
       persisted: false,
     };
   }
@@ -242,18 +278,18 @@ export async function handleOnboardingStep(
     const confirmation = result.value as boolean;
     if (confirmation) {
       persisted = true;
-      const persistedState = await persistOnboardingCompletion(userId, answers, store);
+      const persistedState = await persistOnboardingCompletion(userId, answers, state, store);
       const reply = makeEnvelope(chatId, MSG_ONBOARDING_COMPLETE);
       return { reply, newState: persistedState, persisted: true };
     }
-    const reaskState = await store.upsertOnboardingState(userId, {
-      id: state.id,
-      currentStep: "target_confirmation",
-      partialAnswers: serializePartialAnswers(answers),
-    });
+    const reaskResult = await updateStateWithVersionCheck(
+      userId, state, "target_confirmation", serializePartialAnswers(answers),
+      store, MSG_CONFIRM_TARGET, chatId
+    );
+    if (reaskResult.conflict) return { reply: reaskResult.reply!, newState: state, persisted: false };
     return {
       reply: makeEnvelope(chatId, MSG_CONFIRM_TARGET),
-      newState: reaskState,
+      newState: reaskResult.state,
       persisted: false,
     };
   }
@@ -264,11 +300,12 @@ export async function handleOnboardingStep(
     replyParts.push(MSG_DEFAULT_PACE_DISCLOSED);
   }
 
-  const updatedState = await store.upsertOnboardingState(userId, {
-    id: state.id,
-    currentStep: next ?? "target_confirmation",
-    partialAnswers: serializePartialAnswers(answers),
-  });
+  const advanceResult = await updateStateWithVersionCheck(
+    userId, state, next ?? "target_confirmation", serializePartialAnswers(answers),
+    store, STEP_REASKS[currentStep] ?? MSG_ASK_SEX, chatId
+  );
+  if (advanceResult.conflict) return { reply: advanceResult.reply!, newState: state, persisted: false };
+  const updatedState = advanceResult.state;
 
   if (next === null || next === "target_confirmation") {
     const targets = calculateTargets({
@@ -288,15 +325,15 @@ export async function handleOnboardingStep(
     replyParts.push(MSG_DISCLAIMER);
     replyParts.push(MSG_CONFIRM_TARGET);
 
-    const confirmState = await store.upsertOnboardingState(userId, {
-      id: state.id,
-      currentStep: "target_confirmation",
-      partialAnswers: serializePartialAnswers(answers),
-    });
+    const confirmResult = await updateStateWithVersionCheck(
+      userId, state, "target_confirmation", serializePartialAnswers(answers),
+      store, STEP_REASKS[currentStep] ?? MSG_ASK_SEX, chatId
+    );
+    if (confirmResult.conflict) return { reply: confirmResult.reply!, newState: state, persisted: false };
 
     return {
       reply: makeEnvelope(chatId, replyParts.join("\n\n")),
-      newState: confirmState,
+      newState: confirmResult.state,
       persisted: false,
     };
   }
@@ -330,6 +367,7 @@ function stepToAnswerKey(step: OnboardingStep): string | null {
 async function persistOnboardingCompletion(
   userId: string,
   answers: OnboardingAnswers,
+  state: OnboardingStateRow,
   store: TenantStore
 ): Promise<OnboardingStateRow> {
   const targets = calculateTargets({
@@ -379,7 +417,9 @@ async function persistOnboardingCompletion(
       onboardingStatus: "active" as OnboardingStatus,
     });
 
-    return store.upsertOnboardingState(userId, {
+    return repo.updateOnboardingStateWithVersion(userId, {
+      id: state.id,
+      expectedVersion: state.version,
       currentStep: "target_confirmation",
       partialAnswers: serializePartialAnswers(answers),
     });

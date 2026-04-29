@@ -43,8 +43,6 @@ export const VALID_WEIGHT_GOALS: WeightGoal[] = ["lose", "maintain", "gain"];
 
 export const VALID_SEX_VALUES: Sex[] = ["male", "female"];
 
-export const VALID_TIMEZONE_RE = /^[A-Za-z][A-Za-z0-9_+\-]+\/[A-Za-z][A-Za-z0-9_+\-]+$/;
-
 export const REPORT_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export interface OnboardingAnswers {

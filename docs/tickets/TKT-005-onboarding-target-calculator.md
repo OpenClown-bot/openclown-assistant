@@ -79,6 +79,7 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
 2026-04-29 01:00 glm-5.1: claimed TKT-005@0.1.0 — status ready → in_progress
 2026-04-29 02:00 glm-5.1: implemented all 6 §5 Outputs, all ACs green, PR #34 opened, status → in_review
+2026-04-29 03:00 glm-5.1: NUDGE iter-2 — fixed F-H1 + F-M2 + F-M3 + F-M4 per RV-CODE-005; F-M1 + F-L1..L4 deferred to follow-up TKTs per PO
 
 ---
 
