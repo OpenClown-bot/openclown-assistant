@@ -2,9 +2,19 @@
 id: RV-SPEC-003
 type: spec_review
 target_ref: ARCH-001@0.3.0 + TKT-015@0.1.0
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-28
+approved_at: 2026-04-29
+approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
+approved_note: |
+  F-M1 (TKT-015@0.1.0 §6 AC6 conditional vs ARCH-001@0.3.0 §8.2 Required metric)
+  addressed on PR #25 head before merge:
+    - Pre-fix head: ce89183 (Architect amendment, original verdict `pass_with_changes`)
+    - F-M1 fix commit: f061992 (clerical patch removing the conditional hedge from TKT-015@0.1.0 §6 AC6, asserting unconditional `kbju_route_unmatched_count` emission per RV-SPEC-003@0.1.0 F-M1)
+    - PR #25 (ARCH-001@0.3.0 amendment) merged at 712dc70
+    - PR #26 (this RV-SPEC-003@0.1.0 review file) rebased onto new main and merged at 75b2d39
+  Verdict updated from `pass_with_changes` to `pass` in this closure-PR.
 ---
 
 # Spec Review — ARCH-001@0.3.0 + TKT-015@0.1.0
@@ -13,12 +23,16 @@ created: 2026-04-28
 
 ARCH-001@0.2.0 → 0.3.0 is a focused, well-scoped amendment that hardens two existing components (C1, C10) without introducing new stacks, product scope, or resource footprint. All four deferred post-review findings (D-I5, D-I9, F-L2, IPv6 wildcard) are addressed with contract-level precision in the ArchSpec and machine-checkable acceptance criteria in TKT-015@0.1.0. Validation passes (38 artifacts, 0 failed). One medium finding remains: TKT-015@0.1.0 §6 AC6 makes the `kbju_route_unmatched_count` metric conditional ("if no existing constant fits"), while ARCH-001@0.3.0 §8.2 lists it in the Required metric set unconditionally. This is a contract-level inconsistency that must be resolved before Executor pickup.
 
+**Post-fix state (2026-04-29):** F-M1 addressed on PR #25 head at commit f061992 (clerical patch removing the conditional hedge from TKT-015@0.1.0 §6 AC6, asserting unconditional emission of `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` to match ARCH-001@0.3.0 §8.2 Required metric set). PR #25 merged at 712dc70; Reviewer-PR #26 rebased onto new main and merged at 75b2d39. Verdict updated from `pass_with_changes` to `pass`.
+
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: The amendment is structurally sound and fully traceable to its deferred findings, but TKT-015@0.1.0 §6 AC6 must be hardened to match the unconditional Required metric contract in ARCH-001@0.3.0 §8.2 before Executor pickup.
+One-sentence justification: The amendment is structurally sound and fully traceable to its deferred findings; the F-M1 conditional-vs-required inconsistency on TKT-015@0.1.0 §6 AC6 was patched on PR #25 head at f061992 before merge.
+
+Original verdict (pre-F-M1-patch) was `pass_with_changes`; post-fix state is `pass` after the §6 AC6 hedge was removed and unconditional emission asserted.
 
 ## Findings
 
