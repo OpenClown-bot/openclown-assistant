@@ -2,14 +2,14 @@
 id: TKT-005
 title: "Onboarding Target Calculator"
 status: ready
-arch_ref: ARCH-001@0.2.0
+arch_ref: ARCH-001@0.3.0
 component: "C2 Onboarding and Target Calculator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-004@0.1.0"]
 blocks: ["TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-29
 ---
 
 # TKT-005: Onboarding Target Calculator
@@ -30,10 +30,10 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 - No LLM calls in onboarding.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.2.0 §3.2 C2 Onboarding and Target Calculator
-- ARCH-001@0.2.0 §4.1 Onboarding and target creation
-- ARCH-001@0.2.0 §5 `users`, `user_profiles`, `user_targets`, `summary_schedules`, `onboarding_states`
-- ARCH-001@0.2.0 §9.1 Secrets Management
+- ARCH-001@0.3.0 §3.2 C2 Onboarding and Target Calculator
+- ARCH-001@0.3.0 §4.1 Onboarding and target creation
+- ARCH-001@0.3.0 §5 `users`, `user_profiles`, `user_targets`, `summary_schedules`, `onboarding_states`
+- ARCH-001@0.3.0 §9.1 Secrets Management
 - ADR-005@0.1.0
 - `src/shared/types.ts`
 - `src/store/tenantStore.ts`
