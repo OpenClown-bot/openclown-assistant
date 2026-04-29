@@ -2,10 +2,12 @@
 id: RV-SPEC-004
 type: spec_review
 target_ref: ADR-005@0.2.0 (PR #29, SHA 3ee8912)
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-29
 updated: 2026-04-29
+approved_at: 2026-04-29
+approved_by: "yourmomsenpai (PO)"
 ---
 
 # Spec Review — ADR-005@0.2.0: pin KBJU formula parameters (Q-TKT-005-01)
