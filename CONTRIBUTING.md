@@ -1,6 +1,6 @@
 # Contributing — Process Rules
 
-This file defines **how humans and LLMs collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; Reviewers (Kimi + Devin Review) enforce the rest. The Product Owner is the final authority.
+This file defines **how humans and LLMs collaborate** in this repo. These are not suggestions. CI enforces the machine-checkable parts; Reviewers (Kimi + Qodo PR-Agent) enforce the rest. The Product Owner is the final authority.
 
 ## Roles and write zones
 
@@ -13,7 +13,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Technical Architect (alternative) | GPT-5.5 thinking | opencode CLI (verify thinking-mode is supported by the runtime) | Same as primary | Same as primary |
 | Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else, **NEVER `status: approved`** (PO sets that based on Reviewer verdict) |
-| Reviewer (auto bot) | Devin Review | GitHub bot | inline PR comments only | Files in repo |
+| Reviewer (auto bot) | Qodo PR-Agent (Qwen 3.6 Plus via OmniRoute) | GitHub Actions | inline PR comments + AI-generated description sections (via `use_description_markers`) | Repo source files; substantive artifact bodies |
 | Orchestrator (PO assistant) | Devin (webapp) | Devin session | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body during promotion | `src/`, `tests/`, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 | Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
 | Code Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute | Same as default | Same as default |
@@ -38,7 +38,7 @@ The **Orchestrator** row formalises the Devin-on-PO's-account session that coord
    - Executor may NOT add new runtime dependencies unless the Ticket §7 Constraints explicitly allows them.
 7. **Reviewer independence.** Reviewer must be a different model family from the artifact's author (Business Planner for PRD reviews, Architect for ArchSpec reviews, Executor for code reviews). A GPT-written PRD or ArchSpec must not be reviewed by GPT (use Kimi K2.6).
 8. **No secrets in git.** Ever. Use `.env.example` and document in ArchSpec §9 Security. CI does NOT scan secrets — review responsibility falls on Reviewer.
-9. **No direct push to `main`.** All changes via PR. PRs require: docs CI green, Reviewer LLM verdict `pass` or `pass_with_changes`, Devin Review verdict, PO approval.
+9. **No direct push to `main`.** All changes via PR. PRs require: docs CI green, Reviewer LLM verdict `pass` or `pass_with_changes`, PR-Agent auto-review (informational), PO approval.
 
 ## Handoff contracts
 
