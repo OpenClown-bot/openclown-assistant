@@ -39,12 +39,14 @@ approved_note: |
     Devin Review panel additions: `Intl.supportedValuesOf` memoization + `persistOnboardingCompletion`
     OptimisticVersionError catch.
   - TKT-NEW-C — F-L4: silent state-corruption reset un-audited; awaits
-    C10 observability (TKT-015) integration.
+    C10 observability (TKT-015@0.1.0) integration.
   - TKT-NEW-D — FLAG_2: no calorie floor on final output; product/medical
     decision (may require ADR-NEW).
 
   Cosmetic Reviewer-evolution lesson captured in session-log
-  2026-04-30-session-N+1.md: RV-CODE-005 retained the duplicate
+  2026-04-30-session-1.md (auto-cold snapshot per
+  docs/meta/devin-session-handoff.md §6.1, generated in a separate
+  follow-up PR after this closure merges): RV-CODE-005 retained the duplicate
   `## Verdict` heading (canonical at line 16 + closing at line 58) which
   Devin Review flagged as informational deviation from TEMPLATE-code.md
   convention; not a hard-rule violation (validate_docs.py passed); future
