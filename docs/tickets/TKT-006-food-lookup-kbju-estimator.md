@@ -1,7 +1,7 @@
 ---
 id: TKT-006
 title: "Food Lookup KBJU Estimator"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.2.0
 component: "C6 KBJU Estimator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
