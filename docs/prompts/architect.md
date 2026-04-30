@@ -38,6 +38,9 @@ Read in this order. Files marked **MANDATORY for Phase 0** auto-fail your ArchSp
 - OpenClaw source: <https://github.com/openclaw/openclaw>
 - Awesome OpenClaw Skills: <https://github.com/VoltAgent/awesome-openclaw-skills> — Phase 0 source of truth; iterate through every candidate relevant to the PRD scope.
 - LLM-arena (when comparing alternative models in an ADR): <https://arena.ai>
+- OpenClaw Plugins (composio-community): <https://github.com/composio-community/awesome-openclaw-plugins>
+- OpenClaw Plugins (vincentkoc): <https://github.com/vincentkoc/awesome-openclaw>
+- OpenClaw Plugins (composio.dev): <https://composio.dev/content/top-openclaw-plugins>
 
 For any other empirical claim (rate limits, benchmark numbers, library behaviour, model pricing, SLA), do focused web research yourself and **cite the URL inline in the ADR**. Do NOT pre-bake provider-specific URL lists into your reasoning — they go stale fast. The Anti-Hallucination Discipline section below is the binding rule.
 
