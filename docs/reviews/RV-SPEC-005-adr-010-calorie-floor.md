@@ -15,8 +15,8 @@ updated: 2026-04-30
 ADR-010@0.1.0 is a focused, medically defensible safety guard that correctly identifies the gap in ADR-005@0.2.0 and PRD-001@0.2.0 US-1: aggressive pace selections can produce negative or very-low-energy calorie targets for low-maintenance users. The four options are genuinely distinct, the empirical basis (1200/1500 kcal/day) is consistent with cited clinical sources, the application order is achievable without structural refactor of `src/onboarding/targetCalculator.ts`, and the formula-version bump (`v1 → v2`) is semantically justified. Two medium findings prevent a clean pass: the ARCH-001@0.4.0 cascade omits the new telemetry event from §8.2 required metric names, and ADR-010@0.1.0 §3 mischaracterizes BACKLOG-001@0.1.0 §TKT-NEW-D as having explicitly rejected Option C when it did not.
 
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
 One-sentence justification: ADR-010@0.1.0 is sound and implementable, but the ARCH-001@0.4.0 telemetry cascade and the Option C attribution must be corrected before the Architect cycle closes.
@@ -55,3 +55,19 @@ One-sentence justification: ADR-010@0.1.0 is sound and implementable, but the AR
 - **What is the data-retention / GDPR boundary?** — The `kbju_onboarding_target_floor_clamped` durable event contains `user_id`, `sex`, and `raw_calories_kcal`; all are user-scoped C3 rows and fall under the existing right-to-delete hard-delete transaction (ARCH-001@0.4.0 §9.5).
 - **What happens if the floor constant is misconfigured at runtime?** — The floor is a compile-time / deterministic constant (`MIN_DAILY_CALORIES_BY_SEX`), not a runtime config. A misconfiguration would require a code change and redeploy, which would be caught by the Executor ticket tests.
 - **Can a user bypass the floor by editing their profile post-onboarding?** — Profile editing is not a PRD-001@0.2.0 US. If introduced later, the same ADR-010@0.1.0 floor must apply to any target recalculation path.
+
+---
+
+**Iter-2 assessment (commit 1e3a71e)**
+
+Scope verified by orchestrator-reproducible diff `e225b30..1e3a71e`: 2 files modified, +7/-4 lines. Changes span ADR-010@0.1.0 §3 (Option C wording), ARCH-001@0.4.0 §5 schema (formula_version comments on `user_profiles` and `user_targets`), ARCH-001@0.4.0 §8.2 (metric names list + cross-reference bullet), and ARCH-001@0.4.0 changelog (3 new v0.4.0 entries).
+
+- **F-M1 (Option C citation) RESOLVED** — ADR-010@0.1.0 §3 line 91 now reads: "It changes the input variable rather than guarding the final emitted risk value, making the safety boundary indirect and harder to explain to users; the floor on the output value is also independent of any future pace-validation tightening that might still be desirable for unrelated reasons." The unsupported BACKLOG-001@0.1.0 citation is gone.
+- **F-M2 (telemetry cascade in ARCH-001@0.4.0 §8.2) RESOLVED** — `kbju_onboarding_target_floor_clamped` is now present in the §8.2 required metric names list (line 718). A cross-reference bullet immediately follows (line 719) that cites ADR-010@0.1.0 §Q4, documents the no-PII field whitelist, and ties emission to TKT-015@0.1.0. Three new v0.4.0 changelog entries record the cascade.
+- **F-L1 (formula_version schema split) RESOLVED** — Both `user_profiles.formula_version: string` (line 452) and `user_targets.formula_version: string` (line 468) now carry inline comments documenting the two canonical values: `mifflin_st_jeor_v1_2026_04` (pre-ADR-010@0.1.0) and `mifflin_st_jeor_v2_2026_04` (floor-capable).
+
+**Hidden findings from Devin Review panel (PR #41):** 2 additional findings were reported by the Devin Review bot but could not be enumerated by the orchestrator or Reviewer (Devin Review panel requires external application access). They are deferred pending manual triage in a follow-up PR if they prove substantive. The Step 1 rebase already resolves any validator-failure class of hidden finding.
+
+**Iter-2 verdict: pass.**
+
+All iter-1 findings are resolved. No new findings introduced.
