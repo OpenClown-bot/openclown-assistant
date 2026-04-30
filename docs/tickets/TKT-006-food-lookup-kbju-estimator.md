@@ -1,7 +1,7 @@
 ---
 id: TKT-006
 title: "Food Lookup KBJU Estimator"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C6 KBJU Estimator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
@@ -84,8 +84,9 @@ Implement the hybrid food lookup estimator behind the OmniRoute text path.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-006-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-04-30 21:09 glm-5.1: started -->
+<!-- 2026-04-30 21:15 glm-5.1: all 8 §5 Outputs implemented, 281/281 tests green, typecheck green, validate_docs 0 failed -->
+<!-- 2026-04-30 21:15 glm-5.1: opened PR #NN -->
 
 ---
 
