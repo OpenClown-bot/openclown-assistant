@@ -1,7 +1,7 @@
 ---
 id: TKT-005
 title: "Onboarding Target Calculator"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.3.1
 component: "C2 Onboarding and Target Calculator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-004@0.1.0"]
@@ -77,6 +77,10 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 ## 10. Execution Log (Executor fills as work proceeds)
 <!-- YYYY-MM-DD HH:MM model-id: started -->
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+2026-04-29 01:00 glm-5.1: claimed TKT-005@0.1.0 — status ready → in_progress
+2026-04-29 02:00 glm-5.1: implemented all 6 §5 Outputs, all ACs green, PR #34 opened, status → in_review
+2026-04-29 03:00 glm-5.1: NUDGE iter-2 — fixed F-H1 + F-M2 + F-M3 + F-M4 per RV-CODE-005; F-M1 + F-L1..L4 deferred to follow-up TKTs per PO
+2026-04-29 21:51 glm-5.1: iter-3 — fix F-H2 (remove redundant 2nd updateStateWithVersionCheck; use updatedState), F-M5 (UNIVERSAL_TIMEZONE_ALIASES allowlist for UTC/Etc/UTC/GMT/Etc/GMT), F-M6 (mock validates expectedVersion); F-M1 + F-L1..L4 + 4 panel flags PO-deferred to TKT-NEW-A/B/D
 
 ---
 
