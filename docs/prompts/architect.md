@@ -215,7 +215,7 @@ The ArchSpec MUST:
 Each ADR MUST:
 - Evaluate ≥3 real options.
 - Cite sources for empirical claims.
-- End with a "Decision" and concrete "Consequences".
+- End with a "Decision" and concrete "Consequences". **Exception — LLM provider/model picks** (per the Phase 5 carve-out): the `## Decision` section records the shortlist + your recommendation, and explicitly states `final pick deferred to Q_TO_BUSINESS_N for PO ratification` instead of "we pick X". `## Consequences` is still mandatory and is written conditional on each shortlist option.
 
 Each Ticket MUST:
 - One-sentence Goal.
