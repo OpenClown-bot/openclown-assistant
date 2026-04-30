@@ -88,7 +88,7 @@ The floor is a product safety bound for KBJU Coach's non-medical target calculat
 Why the losers lost:
 
 - Option B: It is safer than no floor, but blocks onboarding when a deterministic clamp plus disclosure gives the same boundary with less state-machine complexity.
-- Option C: It changes pace validation rather than guarding the final emitted risk value and was explicitly not the selected route in BACKLOG-001@0.1.0 §TKT-NEW-D.
+- Option C: It changes the input variable rather than guarding the final emitted risk value, making the safety boundary indirect and harder to explain to users; the floor on the output value is also independent of any future pace-validation tightening that might still be desirable for unrelated reasons.
 - Option D: It is simpler, but less conservative for male users than the common 1,200-1,500 kcal/day clinical low-calorie range.
 
 ## 4. Decision Detail: Calorie Floor Parameters

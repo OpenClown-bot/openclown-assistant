@@ -20,6 +20,8 @@ changelog:
     date: 2026-04-30
     changes:
       - "ADR-010@0.1.0 proposed calorie-floor cascade: C2 target creation now clamps `goal=lose` final daily calories to sex-specific floors (female 1200 kcal/day, male 1500 kcal/day), discloses the clamp before confirmation, computes macros from the clamped target, and persists the new `formula_version = \"mifflin_st_jeor_v2_2026_04\"` once implemented by a downstream Executor ticket"
+      - "F-M2 (RV-SPEC-005): §8.2 required metric names list extended with `kbju_onboarding_target_floor_clamped` and cross-referenced to ADR-010@0.1.0 §Q4 field whitelist"
+      - "F-L1 (RV-SPEC-005): §5 pseudo-schema documents the `formula_version` v1/v2 canonical-value split for K7 analysis and right-to-delete auditing"
   - version: 0.3.1
     date: 2026-04-29
     changes:
@@ -447,7 +449,7 @@ user_profiles:
   weight_goal: enum[lose, maintain, gain]
   pace_kg_per_week: decimal_0_1_to_2_0_optional
   default_pace_applied: boolean
-  formula_version: string
+  formula_version: string  # canonical: "mifflin_st_jeor_v1_2026_04" (pre-ADR-010@0.1.0) or "mifflin_st_jeor_v2_2026_04" (ADR-010@0.1.0 floor-capable)
   created_at: timestamptz
   updated_at: timestamptz
 
@@ -463,7 +465,7 @@ user_targets:
   protein_g: integer
   fat_g: integer
   carbs_g: integer
-  formula_version: string
+  formula_version: string  # canonical: "mifflin_st_jeor_v1_2026_04" (pre-ADR-010@0.1.0) or "mifflin_st_jeor_v2_2026_04" (ADR-010@0.1.0 floor-capable)
   confirmed_at: timestamptz
 
 summary_schedules:
@@ -713,7 +715,8 @@ Interface sources:
 - Endpoint: Prometheus-format `/metrics` served only on explicit loopback (`127.0.0.1` / `::1`) or Docker-internal hostnames; unspecified-address wildcards (`0.0.0.0`, `::`, `[::]`) are forbidden. It is not exposed through the public Telegram/OpenClaw ingress.
 - Label policy: endpoint metrics may label by `component`, `source`, `period_type`, `outcome`, `provider_alias`, and `model_alias`; they must not label by Telegram ID, username, internal `user_id`, meal text, or free-form error text.
 - Durable metric events: C10 writes per-request events to C3 so end-of-pilot analysis can run after log rotation and can be removed by right-to-delete.
-- Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`.
+- Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`, `kbju_onboarding_target_floor_clamped`.
+- ADR-010@0.1.0 §Q4 cross-reference: `kbju_onboarding_target_floor_clamped` is the durable C10 event mandated by ADR-010@0.1.0 for `goal=lose` final-calorie clamps. Field whitelist (no PII): `user_id`, `goal`, `sex`, `raw_calories_kcal`, `floor_calories_kcal`, `formula_version`, `outcome`. Emission is conditional on TKT-015@0.1.0 observability hardening.
 
 ### 8.3 KPI Measurement
 - K1: query `confirmed_meals` grouped by `user_id` and `meal_local_date`, excluding `deleted_at IS NOT NULL`.
