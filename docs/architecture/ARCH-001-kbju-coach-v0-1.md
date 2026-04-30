@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.3.1
+version: 0.4.0
 status: approved
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
@@ -12,10 +12,14 @@ review_refs:
   - RV-SPEC-002@0.1.0
   - RV-SPEC-003@0.1.0
 created: 2026-04-26
-updated: 2026-04-29
+updated: 2026-04-30
 approved_at: 2026-04-29
 approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
 changelog:
+  - version: 0.4.0
+    date: 2026-04-30
+    changes:
+      - "ADR-010@0.1.0 proposed calorie-floor cascade: C2 target creation now clamps `goal=lose` final daily calories to sex-specific floors (female 1200 kcal/day, male 1500 kcal/day), discloses the clamp before confirmation, computes macros from the clamped target, and persists the new `formula_version = \"mifflin_st_jeor_v2_2026_04\"` once implemented by a downstream Executor ticket"
   - version: 0.3.1
     date: 2026-04-29
     changes:
@@ -49,6 +53,7 @@ adrs:
   - ADR-007@0.1.0
   - ADR-008@0.1.0
   - ADR-009@0.1.0
+  - ADR-010@0.1.0
 tickets:
   - TKT-001@0.1.0
   - TKT-002@0.1.0
@@ -357,7 +362,7 @@ graph LR
 1. C1 accepts `/start` only from `TELEGRAM_PILOT_USER_IDS`, maps Telegram numeric user ID to internal `users.id`, and creates or resumes an onboarding state in C3.
 2. C2 collects sex, age, height, weight, activity level, goal, optional pace, explicit IANA timezone, and report time preferences through deterministic Russian prompts.
 3. C2 validates each answer against PRD-001@0.2.0 US-1 ranges before persistence; invalid answers are not stored as profile facts.
-4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.2.0, then writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
+4. C2 calculates BMR, activity-adjusted calories, pace delta, and protein/fat/carb targets using ADR-005@0.2.0, then applies ADR-010@0.1.0 `goal=lose` final-calorie floors before macro conversion (female 1200 kcal/day, male 1500 kcal/day), discloses any clamp before confirmation, persists `formula_version = "mifflin_st_jeor_v2_2026_04"` for clamped-floor-capable calculations, and writes `user_profiles`, `user_targets`, and `summary_schedules` in one user-scoped transaction.
 5. C1 displays the non-medical disclaimer, target summary, and confirmation prompt. Logging mode starts only after the user confirms targets.
 
 ### 4.2 Text meal logging
