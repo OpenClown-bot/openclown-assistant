@@ -2,10 +2,14 @@
 id: RV-SPEC-005
 type: spec_review
 target_ref: ADR-010@0.1.0 (PR #40, SHA e225b30)
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-30
 updated: 2026-04-30
+approved_at: 2026-04-30
+approved_after_iters: 2
+approved_by: "yourmomsenpai (PO)"
+approved_note: "RV-SPEC-005 reached verdict `pass` on iter-2 (commit 2cefb7d). All iter-1 findings F-M1, F-M2, F-L1 RESOLVED on Architect iter-3 commit 1e3a71e. Review-branch was rebased onto `arch/ADR-010-calorie-floor` for iter-2 to side-step the validator `target_ref` footgun (rv branch forked from main lacked ADR-010). Closure-PR ratifies ADR-010@0.1.0 → `accepted` and ARCH-001@0.4.0 → `approved` simultaneously."
 ---
 
 # Spec Review — ADR-010@0.1.0 + ARCH-001@0.4.0 cascade

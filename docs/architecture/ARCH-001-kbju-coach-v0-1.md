@@ -2,7 +2,7 @@
 id: ARCH-001
 title: "KBJU Coach v0.1"
 version: 0.4.0
-status: in_review
+status: approved
 prd_ref: PRD-001@0.2.0
 owner: "@OpenClown-bot"
 author_model: "gpt-5.5-thinking"
@@ -11,10 +11,12 @@ reviewer_models:
 review_refs:
   - RV-SPEC-002@0.1.0
   - RV-SPEC-003@0.1.0
+  - RV-SPEC-004@0.1.0
+  - RV-SPEC-005@0.1.0
 created: 2026-04-26
 updated: 2026-04-30
-approved_at: 2026-04-29
-approved_by: "orchestrator (PO-delegated, see docs/meta/devin-session-handoff.md §5 hard rule on clerical patches)"
+approved_at: 2026-04-30
+approved_by: "yourmomsenpai (PO)"
 changelog:
   - version: 0.4.0
     date: 2026-04-30
