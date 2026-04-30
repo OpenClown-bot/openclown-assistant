@@ -133,7 +133,7 @@ Decompose into the minimum viable set of components. Each component has: Respons
 For every non-obvious choice (storage, voice transcription provider, photo recognition path, LLM-routing config, deployment topology, observability), create one ADR using `scripts/new_artifact.py adr "…"`. Each ADR MUST:
 - Explore ≥3 real options (not strawmen).
 - State trade-offs concretely (latency, cost in $, ops burden, learning curve).
-- Pick one; explain why the losers lost.
+- Pick one; explain why the losers lost. **Exception — LLM provider/model picks (routing, fallback, embeddings, transcription, vision):** the ADR still evaluates ≥3 options and states trade-offs as above, but the *final* pick is left as `Q_TO_BUSINESS_N` with the shortlist surfaced for PO ratification per the LLM-selection rule in the REQUIRED READING block. Do not pre-fill a `## Decision` "we pick X" for an LLM choice — record the shortlist + your recommendation, then escalate.
 - Cite sources for empirical claims.
 
 For every option that came from your Phase 0 Recon Report — link to the §0 row that justifies it.
