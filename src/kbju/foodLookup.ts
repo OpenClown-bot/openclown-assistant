@@ -31,9 +31,11 @@ export function hashQuery(queryText: string): string {
 export class OpenFoodFactsClient implements FoodLookupClient {
   public readonly sourceName = "open_food_facts" as const;
   private callTimestamps: number[] = [];
+  private rateLimitQueue: Promise<void> = Promise.resolve();
 
   public async lookupFood(queryText: string): Promise<FoodLookupResult | null> {
-    if (!this.checkRateLimit()) {
+    const allowed = await this.tryAcquireSlot(60_000, OFF_LOOKUP_RATE_LIMIT_PER_MINUTE);
+    if (!allowed) {
       return null;
     }
 
@@ -84,8 +86,6 @@ export class OpenFoodFactsClient implements FoodLookupClient {
         return null;
       }
 
-      this.callTimestamps.push(Date.now());
-
       return {
         itemNameRu: queryText,
         portionGrams: 100,
@@ -101,11 +101,21 @@ export class OpenFoodFactsClient implements FoodLookupClient {
     }
   }
 
-  private checkRateLimit(): boolean {
-    const now = Date.now();
-    const windowStart = now - 60_000;
-    this.callTimestamps = this.callTimestamps.filter((ts) => ts > windowStart);
-    return this.callTimestamps.length < OFF_LOOKUP_RATE_LIMIT_PER_MINUTE;
+  private tryAcquireSlot(windowMs: number, limit: number): Promise<boolean> {
+    const task = () => {
+      const now = Date.now();
+      const windowStart = now - windowMs;
+      this.callTimestamps = this.callTimestamps.filter((ts) => ts > windowStart);
+      if (this.callTimestamps.length >= limit) {
+        return false;
+      }
+      this.callTimestamps.push(now);
+      return true;
+    };
+
+    return new Promise<boolean>((resolve) => {
+      this.rateLimitQueue = this.rateLimitQueue.then(() => resolve(task()));
+    });
   }
 }
 
@@ -113,13 +123,15 @@ export class UsdaFoodDataClient implements FoodLookupClient {
   public readonly sourceName = "usda_fdc" as const;
   private readonly apiKey: string;
   private callTimestamps: number[] = [];
+  private rateLimitQueue: Promise<void> = Promise.resolve();
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
   public async lookupFood(queryText: string): Promise<FoodLookupResult | null> {
-    if (!this.checkRateLimit()) {
+    const allowed = await this.tryAcquireSlot(3_600_000, USDA_LOOKUP_RATE_LIMIT_PER_HOUR);
+    if (!allowed) {
       return null;
     }
 
@@ -173,8 +185,6 @@ export class UsdaFoodDataClient implements FoodLookupClient {
         return null;
       }
 
-      this.callTimestamps.push(Date.now());
-
       return {
         itemNameRu: queryText,
         portionGrams: 100,
@@ -190,11 +200,21 @@ export class UsdaFoodDataClient implements FoodLookupClient {
     }
   }
 
-  private checkRateLimit(): boolean {
-    const now = Date.now();
-    const windowStart = now - 3_600_000;
-    this.callTimestamps = this.callTimestamps.filter((ts) => ts > windowStart);
-    return this.callTimestamps.length < USDA_LOOKUP_RATE_LIMIT_PER_HOUR;
+  private tryAcquireSlot(windowMs: number, limit: number): Promise<boolean> {
+    const task = () => {
+      const now = Date.now();
+      const windowStart = now - windowMs;
+      this.callTimestamps = this.callTimestamps.filter((ts) => ts > windowStart);
+      if (this.callTimestamps.length >= limit) {
+        return false;
+      }
+      this.callTimestamps.push(now);
+      return true;
+    };
+
+    return new Promise<boolean>((resolve) => {
+      this.rateLimitQueue = this.rateLimitQueue.then(() => resolve(task()));
+    });
   }
 }
 

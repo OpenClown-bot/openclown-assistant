@@ -221,6 +221,8 @@ async function retryOnce(
   options: OmniRouteCallOptions,
   preflight: PreflightResult
 ): Promise<OmniRouteCallResult> {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);

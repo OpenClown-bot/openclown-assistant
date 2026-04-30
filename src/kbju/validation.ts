@@ -119,6 +119,11 @@ export function isSuspiciousLlmOutput(rawResponseText: string): boolean {
     "new instruction",
     "you are now",
     "forget your",
+    "игнорируй",
+    "забудь",
+    "переопредели",
+    "новая инструкция",
+    "ты теперь",
   ];
 
   for (const pattern of instructionPatterns) {
@@ -127,7 +132,7 @@ export function isSuspiciousLlmOutput(rawResponseText: string): boolean {
     }
   }
 
-  const chatRolePatterns = ["system:", "assistant:"];
+  const chatRolePatterns = ["system:", "assistant:", "система:", "ассистент:"];
   const allValues = collectStringValues(parsedObj);
   for (const value of allValues) {
     const valueLower = value.toLowerCase();

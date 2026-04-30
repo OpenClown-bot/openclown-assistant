@@ -10,6 +10,7 @@ import {
   type FoodLookupClient,
 } from "../../src/kbju/foodLookup.js";
 import type { FoodLookupResult } from "../../src/kbju/types.js";
+import { OFF_LOOKUP_RATE_LIMIT_PER_MINUTE, USDA_LOOKUP_RATE_LIMIT_PER_HOUR } from "../../src/kbju/types.js";
 import type { KBJUValues, MealItemSource } from "../../src/shared/types.js";
 
 function makeOffResult(overrides?: Partial<FoodLookupResult>): FoodLookupResult {
@@ -195,5 +196,113 @@ describe("CachedFoodLookupClient", () => {
 
     expect(mockClient.lookupFood).toHaveBeenCalledOnce();
     expect(result).toEqual(lookupResult);
+  });
+});
+
+describe("OpenFoodFactsClient rate-limit concurrency", () => {
+  it("never exceeds rate limit under parallel calls", async () => {
+    const originalFetch = globalThis.fetch;
+    let externalCallCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      externalCallCount++;
+      return {
+        ok: true,
+        json: async () => ({
+          products: [{
+            code: "123",
+            nutriments: {
+              "energy-kcal_100g": 100,
+              "proteins_100g": 5,
+              "fat_100g": 2,
+              "carbohydrates_100g": 15,
+            },
+          }],
+        }),
+      };
+    });
+
+    try {
+      const client = new OpenFoodFactsClient();
+      const parallelCount = OFF_LOOKUP_RATE_LIMIT_PER_MINUTE + 10;
+      const results = await Promise.all(
+        Array.from({ length: parallelCount }, (_, i) => client.lookupFood(`food-${i}`))
+      );
+      const allowedCount = results.filter((r) => r !== null).length;
+      expect(allowedCount).toBeLessThanOrEqual(OFF_LOOKUP_RATE_LIMIT_PER_MINUTE);
+      expect(externalCallCount).toBeLessThanOrEqual(OFF_LOOKUP_RATE_LIMIT_PER_MINUTE);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("rejects calls that exceed the per-minute cap", async () => {
+    const originalFetch = globalThis.fetch;
+    let externalCallCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      externalCallCount++;
+      return {
+        ok: true,
+        json: async () => ({
+          products: [{
+            code: "123",
+            nutriments: {
+              "energy-kcal_100g": 100,
+              "proteins_100g": 5,
+              "fat_100g": 2,
+              "carbohydrates_100g": 15,
+            },
+          }],
+        }),
+      };
+    });
+
+    try {
+      const client = new OpenFoodFactsClient();
+      const parallelCount = OFF_LOOKUP_RATE_LIMIT_PER_MINUTE + 20;
+      const results = await Promise.all(
+        Array.from({ length: parallelCount }, (_, i) => client.lookupFood(`food-${i}`))
+      );
+      const rejectedCount = results.filter((r) => r === null).length;
+      expect(rejectedCount).toBeGreaterThan(0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("UsdaFoodDataClient rate-limit concurrency", () => {
+  it("never exceeds rate limit under parallel calls", async () => {
+    const originalFetch = globalThis.fetch;
+    let externalCallCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      externalCallCount++;
+      return {
+        ok: true,
+        json: async () => ({
+          foods: [{
+            fdcId: 123,
+            foodNutrients: [
+              { nutrientId: 1008, amount: 100 },
+              { nutrientId: 1003, amount: 5 },
+              { nutrientId: 1004, amount: 2 },
+              { nutrientId: 1005, amount: 15 },
+            ],
+          }],
+        }),
+      };
+    });
+
+    try {
+      const client = new UsdaFoodDataClient("test-api-key");
+      const parallelCount = USDA_LOOKUP_RATE_LIMIT_PER_HOUR + 10;
+      const results = await Promise.all(
+        Array.from({ length: parallelCount }, (_, i) => client.lookupFood(`food-${i}`))
+      );
+      const allowedCount = results.filter((r) => r !== null).length;
+      expect(allowedCount).toBeLessThanOrEqual(USDA_LOOKUP_RATE_LIMIT_PER_HOUR);
+      expect(externalCallCount).toBeLessThanOrEqual(USDA_LOOKUP_RATE_LIMIT_PER_HOUR);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
