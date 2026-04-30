@@ -1,3 +1,11 @@
+---
+id: BACKLOG-001
+title: "Onboarding follow-ups (post TKT-005)"
+status: open
+spec_ref: ARCH-001@0.3.1
+created: 2026-04-30
+---
+
 # Onboarding follow-ups (post TKT-005)
 
 Deferred work surfaced during the TKT-005 (Onboarding Target Calculator) review cycle (`docs/reviews/RV-CODE-005-pr-34-tkt-005-onboarding-target-calculator.md`) and Devin Review panel triage. Captured here per `docs/backlog/README.md` rules — not yet Tickets, not yet estimated; promotion to TKT happens when the Architect produces an ArchSpec section that covers the item.
