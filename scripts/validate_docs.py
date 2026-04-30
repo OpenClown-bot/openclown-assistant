@@ -168,11 +168,31 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
     if sup and isinstance(sup, str) and sup not in known_ids:
         errors.append(f"supersedes refers to unknown artifact: {sup}")
 
+    # Reviews legitimately reference the artifact under review by ID, even when
+    # the target is not yet on `main` (e.g. a SPEC-mode review of a `proposed`
+    # ADR sitting on its own arch-branch). Per `docs/prompts/reviewer.md`
+    # §A.15 / §B.15 review-PR branches are forked from `main`, so the target
+    # artifact's file may not exist on the rv-branch tree and would not appear
+    # in `known_ids`. Exempt the single artifact-id named in the review's
+    # `target_ref` (or `ticket_ref`, for code reviews) from the body
+    # existence-check below. All other references must still resolve.
+    target_artifact_id: str | None = None
+    if art.type_ == "reviews":
+        for ref_field in ("target_ref", "ticket_ref"):
+            value = art.frontmatter.get(ref_field)
+            if isinstance(value, str):
+                m = re.match(r"\s*((?:PRD|ARCH|ADR|TKT)-\d{3,})", value)
+                if m:
+                    target_artifact_id = m.group(1)
+                    break
+
     body_no_fences = re.sub(r"```.*?```", "", art.body, flags=re.DOTALL)
     for m in REF_RE.finditer(body_no_fences):
         kind, num, _ver = m.group(1), m.group(2), m.group(3)
         ref_id = f"{kind}-{num}"
         if ref_id not in known_ids:
+            if ref_id == target_artifact_id:
+                continue
             errors.append(f"referenced artifact {ref_id} does not exist")
 
     if art.type_ != "backlog":
