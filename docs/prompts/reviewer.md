@@ -138,6 +138,8 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
 
 15. **PR.** One PR, one review file. Branch: `rv/RV-SPEC-NNN-<slug>`, **created from `main`** — never from the artifact's own branch. Branching from the artifact branch causes that branch's content to be inherited by the review PR; on squash-merge of the review PR, the artifact's commits silently leak into `main` ahead of the artifact's own PR being merged, producing duplicate-content conflicts and a polluted `main`. Run `git fetch origin && git checkout -b rv/RV-SPEC-NNN-<slug> origin/main` from a clean tree. PR body: verdict + top-3 findings summary.
 
+   **Unmerged target.** When the artifact under review is not yet on `main` (e.g. a SPEC-mode review of a `proposed` ADR sitting on its own arch-branch awaiting your sign-off), `scripts/validate_docs.py` auto-exempts the artifact-id named in the review frontmatter's `target_ref` from the body existence-check. You can branch from `main` and reference the target as `ID@X.Y.Z` in the review body without first merging the target. PO-side merge sequencing: artifact-PR first, then review-PR (fast-forward). If your local checkout pre-dates the validator exemption (the patch landed on `main` after RV-SPEC-005 closure; check via `git -C ~/repos/openclown-assistant log --oneline scripts/validate_docs.py | head -3`), rebase the review-branch onto the artifact's branch before pushing as a temporary workaround and notify the orchestrator that your environment lacks the exemption.
+
 # §B. CODE MODE WORKFLOW
 
 1. **Bootstrap.** Read in full:
@@ -182,6 +184,8 @@ Use the SPEC workflow (§A) or CODE workflow (§B) accordingly.
 14. **Verdict & severity.** Same severity / verdict scheme as SPEC mode (§A.14).
 
 15. **PR.** One PR, one review file. Branch: `rv/RV-CODE-NNN-<slug>`, **created from `main`** — never from the Executor's own PR branch. Branching from the Executor branch causes that branch's content to be inherited by the review PR; on squash-merge of the review PR, the Executor's commits silently leak into `main` ahead of the Executor's own PR being merged, producing duplicate-content conflicts and a polluted `main`. Run `git fetch origin && git checkout -b rv/RV-CODE-NNN-<slug> origin/main` from a clean tree. PR body: verdict + top-3 findings summary + explicit recommendation ("PO: approve & merge" / "PO: request changes from Executor" / "PO: block until Architect clarifies").
+
+   **Unmerged target.** Code reviews normally do not encounter unmerged-target friction because the Ticket file (`ticket_ref`) is always promoted to `main` before the Executor begins work. If for any reason the target Ticket is not yet on `main` when you start the review, `scripts/validate_docs.py` auto-exempts the artifact-id named in the review frontmatter's `ticket_ref` (and, as a fallback, `target_ref`) from the body existence-check — see §A.15 "Unmerged target" for the same convention applied to SPEC-mode reviews.
 
 # GIT PUSH FALLBACK (HTTPS → SSH)
 
