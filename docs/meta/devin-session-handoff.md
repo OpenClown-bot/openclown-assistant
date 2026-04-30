@@ -40,13 +40,13 @@ PRD (Business Planner)
        └→ ArchSpec + ADRs + Tickets (Architect)
             └→ Reviewer #2 (RV-SPEC, Kimi K2.6, different family from Architect)
                  └→ Code (Executor, one Ticket per session, GLM/Qwen/Codex)
-                      └→ Reviewer #3 (RV-CODE, Kimi K2.6) + Devin Review bot
+                      └→ Reviewer #3 (RV-CODE, Kimi K2.6) + Qodo PR-Agent bot
                            └→ PO merges
 ```
 
 **Session independence.** Every artifact gets a new LLM session. No session is reused across artifacts (PRD session ≠ ArchSpec session ≠ Reviewer session ≠ Executor session). This is non-negotiable: it is the only way to enforce role write-zone boundaries and to get uncorrelated review judgment.
 
-**Reviewer LLM is mandatory.** After every upstream artifact (PRD, ArchSpec, Executor PR), a Kimi K2.6 review session runs in **CODE mode or SPEC mode** before the PO merges. CI (validate-docs) and Devin Review are *additional* gates, not substitutes for the LLM Reviewer.
+**Reviewer LLM is mandatory.** After every upstream artifact (PRD, ArchSpec, Executor PR), a Kimi K2.6 review session runs in **CODE mode or SPEC mode** before the PO merges. CI (validate-docs) and Qodo PR-Agent (Qwen 3.6 Plus via OmniRoute) are *additional* gates, not substitutes for the LLM Reviewer. PR-Agent posts inline `/improve` suggestions and a `/review` summary on every PR; treat its findings as informational input to the orchestrator's triage, never as a substitute for Kimi's verdict.
 
 **Branch hygiene for review PRs.** Reviewer sessions branch their review-PR **from `main`**, never from the artifact's own branch. (See `docs/prompts/reviewer.md` §A.15 / §B.15 for the rule + the squash-leak failure mode it prevents.)
 
@@ -63,7 +63,7 @@ PRD (Business Planner)
 
 You MUST NOT:
 
-- Modify any artifact (PRD, ArchSpec, ADR, Ticket, source code, tests) **except** for PO-delegated clerical patches. PO-delegated means: PO has read the artifact / Reviewer findings / Devin Review comment and explicitly said "apply the patch" or "ratify and proceed." Always pair the action with a teaching explainer of *where* the field lives, *what* each git step does, and *why* the change is needed.
+- Modify any artifact (PRD, ArchSpec, ADR, Ticket, source code, tests) **except** for PO-delegated clerical patches. PO-delegated means: PO has read the artifact / Reviewer findings / PR-Agent comment and explicitly said "apply the patch" or "ratify and proceed." Always pair the action with a teaching explainer of *where* the field lives, *what* each git step does, and *why* the change is needed.
 - Run any of the four pipeline roles yourself. You write *invocation prompts*; the PO pastes them into opencode / Codex / windsurf / a separate Devin. You do not impersonate Business Planner / Architect / Executor / Reviewer.
 - Merge PRs. Merging is the PO's button-click. You may write the squash-commit summary; you may not click merge.
 - Force-push to `main`. Force-push to feature branches is allowed (`--force-with-lease` only).
@@ -223,4 +223,4 @@ Block the PO with the question; do not silently proceed.
 
 ---
 
-*This file is updated by the orchestrator (NOT by any pipeline role) when the handoff protocol itself changes. Treat it as a meta-process artifact: changes go through their own PR with `validate-docs` and Devin Review.*
+*This file is updated by the orchestrator (NOT by any pipeline role) when the handoff protocol itself changes. Treat it as a meta-process artifact: changes go through their own PR with `validate-docs` and Qodo PR-Agent auto-review.*

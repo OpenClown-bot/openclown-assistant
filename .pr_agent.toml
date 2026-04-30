@@ -1,14 +1,123 @@
 [config]
+# Model: Qwen 3.6 Plus through OmniRoute (Fireworks endpoint).
+# Plus is the latest flagship; matches our GLM/Kimi tier and is OmniRoute-billed.
 model = "fireworks/accounts/fireworks/models/qwen3p6-plus"
+# 128k context window — Qwen Plus's native limit.
 custom_model_max_tokens = 131072
+# 3 minutes — Qwen on OmniRoute can be slower than gpt-5.4 family.
+ai_timeout = 180
+# More patch context lets Qwen reason about callers/callees per chunk.
+patch_extra_lines_before = 8
+patch_extra_lines_after = 3
+allow_dynamic_context = true
+# Skip noise: orchestrator clerical / session-log / auto-cold PRs are low-signal.
+ignore_pr_title = ["^\\[Auto\\]", "^Auto", "^session-log:", "^clerical:"]
+# English review output to match the repo convention (Russian for PO chat only).
+response_language = "en-US"
 
 [pr_reviewer]
-extra_instructions = "Focus on security vulnerabilities, performance issues, and code quality."
+# Mandate the most useful checks for our threat model + scope discipline.
+require_security_review = true
+require_tests_review = true
+require_estimate_effort_to_review = true
+require_can_be_split_review = true
+require_ticket_analysis_review = true
+# Up from default 3 — we want PR-Agent to surface more as the supplementary reviewer.
+num_max_findings = 6
+publish_output_no_suggestions = true
+final_update_message = true
+enable_review_labels_security = true
+enable_review_labels_effort = true
+extra_instructions = """\
+This repo is a docs-as-code KBJU coach (Telegram bot) managed by a multi-LLM \
+pipeline (Architect, Code Executor, Reviewer Kimi K2.6) — see AGENTS.md.
 
-[pr_code_suggestions]
-num_code_suggestions = 6
-suggestions_score_threshold = 7
+You are the supplementary second reviewer alongside Kimi K2.6. Focus on issues \
+Kimi may underweight:
+
+1. AC traceability: every Ticket PR (title 'TKT-NNN: ...') lists Acceptance \
+   Criteria with file:line 'Proof' links in the description. Verify each cited \
+   file:line actually exists in the diff and the proof matches the AC text. \
+   Flag missing or weak proofs.
+2. Scope discipline: PR diff must touch only files in the Ticket's §5 Outputs \
+   section + the ticket's own frontmatter (HARD SCOPE carve-out for status / \
+   §10 log). Architectural files (docs/architecture/, docs/architecture/adr/, \
+   docs/reviews/, docs/prompts/, docs/meta/) are off-limits to Executor PRs \
+   unless explicitly listed in the Ticket. Flag scope creep.
+3. Frontmatter integrity: every artifact under docs/architecture/, \
+   docs/tickets/, docs/reviews/ has a YAML frontmatter `id` field. The \
+   validator (scripts/validate_docs.py) checks references; flag any new \
+   artifact without proper frontmatter.
+4. Security focus: the bot processes Russian user text and feeds it to LLMs. \
+   Watch for prompt-injection bypasses (Russian/Cyrillic patterns), \
+   unsanitized log fields, secrets in code, JSON-schema validation gaps.
+5. Concurrency safety: the bot runs as a single Telegram process; rate-limiters \
+   and shared in-memory state must be atomic across awaits. Flag read-modify- \
+   write sequences that span await boundaries (RV-CODE-006 F-M3 caught one).
+6. Test quality: tests use Vitest. Flag tests that don't use \
+   `vi.useFakeTimers()` for time-based assertions, that mock instead of using \
+   real objects unnecessarily, or that miss failure-path coverage.
+
+Do NOT flag:
+- Markdown / docs formatting nits — Reviewer Kimi K2.6's domain.
+- Style preferences — no eslint config in repo; both `npm run lint` and \
+  `npm run typecheck` alias to `tsc --noEmit` (repo quirk).
+- Speculative refactor suggestions on first-pass code; Executor will iterate \
+  per Reviewer's medium findings.
+"""
 
 [pr_description]
-generate_ai_title = true
+# Honor the repo's PR template; do NOT overwrite human-authored content.
+publish_labels = true
+add_original_user_description = true
+generate_ai_title = false
+use_bullet_points = true
+enable_pr_type = true
+enable_pr_diagram = true
+enable_large_pr_handling = true
+collapsible_file_list = "adaptive"
+collapsible_file_list_threshold = 6
 use_description_markers = true
+extra_instructions = """\
+PR descriptions in this repo follow .github/PULL_REQUEST_TEMPLATE.md (when \
+present) or a Ticket-specific AC table. Do NOT overwrite existing description \
+content; respect the human-authored sections. Add AI walkthrough only inside \
+description markers when present, and keep it collapsed by default.
+"""
+
+[pr_code_suggestions]
+# Inline suggestions become committable directly from the GitHub UI.
+commitable_code_suggestions = true
+focus_only_on_problems = true
+num_code_suggestions_per_chunk = 4
+max_number_of_calls = 4
+parallel_calls = true
+new_score_mechanism = true
+new_score_mechanism_th_high = 9
+new_score_mechanism_th_medium = 7
+suggestions_score_threshold = 7
+extra_instructions = """\
+Suggest improvements that are:
+- Security-focused: input validation, output sanitization, prompt-injection \
+  defenses (Russian/Cyrillic patterns), secret-leak prevention.
+- Concurrency-safe: atomic reads/writes around shared state, mutex/queue \
+  serialization for read-modify-write across awaits.
+- TypeScript-idiomatic: strict types, no `any`, no `as any`, no `// @ts-ignore`.
+- Test-aware: suggest test additions for new code paths, prefer real objects \
+  over mocks, use `vi.useFakeTimers()` for time-based assertions.
+
+Do NOT suggest:
+- Cosmetic refactors (renaming, splitting functions for size only).
+- Library swaps — we're locked to current deps for v0.1.
+- Documentation comments — repo convention is terse code, no narrative \
+  comments unless explaining non-obvious invariants.
+"""
+
+[pr_questions]
+use_conversation_history = true
+
+[pr_help]
+num_retrieved_snippets = 8
+
+[pr_help_docs]
+docs_path = "docs"
