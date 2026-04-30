@@ -2,11 +2,18 @@
 id: ADR-010
 title: "Calorie floor on final target"
 version: 0.1.0
-status: proposed
+status: accepted
 arch_ref: ARCH-001@0.4.0
 author_model: "gpt-5.5-xhigh"
+reviewer_models:
+  - "kimi-k2.6"
+review_refs:
+  - RV-SPEC-005@0.1.0
 created: 2026-04-30
 updated: 2026-04-30
+approved_at: 2026-04-30
+approved_by: "yourmomsenpai (PO)"
+approved_note: "ADR-010@0.1.0 (calorie floor on final target) accepted following RV-SPEC-005 iter-2 verdict pass. Review trail: iter-1 (788f2af, pass_with_changes) → iter-2 (2cefb7d, pass after F-M1 Option C citation, F-M2 ARCH-001@0.4.0 §8.2 telemetry cascade, F-L1 formula_version v1/v2 schema split RESOLVED in Architect commit 1e3a71e). Both branches merged via PR #40 (commit ab0b092, ADR-010 + ARCH-001@0.4.0 cascade) and PR #41 (commit 87da684, RV-SPEC-005 review artifact). Hidden Devin Review panel findings deferred (Devin Review ACU exhausted post-merge; manual triage in follow-up PR if substantive). Downstream Executor ticket (clamp implementation per §Q1–§Q4 with `formula_version = mifflin_st_jeor_v2_2026_04`) routed via BACKLOG-001@0.1.0 §TKT-NEW-D promotion when v0.1 cycle bandwidth permits."
 superseded_by: null
 ---
 
