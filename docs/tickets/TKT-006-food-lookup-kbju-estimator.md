@@ -1,7 +1,7 @@
 ---
 id: TKT-006
 title: "Food Lookup KBJU Estimator"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "C6 KBJU Estimator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
@@ -9,7 +9,10 @@ blocks: ["TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
 estimate: L
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-04-30
+completed_at: 2026-04-30
+completed_by: "yourmomsenpai (PO)"
+completed_note: "TKT-006 closed following RV-CODE-006 iter-2 verdict pass. Implementation merged via PR #42 (squash commit a8a9f35) covering all 8 ACs (npm test 291/291, lint clean, typecheck clean, OFF→USDA→LLM lookup order, OmniRoute-first routing, suspicious-output rejection without retry, prompt/response excluded from observability logs). Review trail: iter-1 (commit 8a9175b, pass_with_changes 3M/3L) → iter-2 (commit 754d87b, pass after F-M1 Russian/Cyrillic injection patterns, F-M2 500ms HTTP 429 backoff, F-M3 per-client rate-limit promise-chain mutex RESOLVED on Executor commit 528fa42 — rebased from 08cec21 onto post-PR #46 main). Three low findings (F-L1 dead code, F-L2 mutable shared constant, F-L3 cross-module coupling) deferred to BACKLOG-002@0.1.0 §TKT-NEW-E/F/G per PO Option A on 2026-04-30. PR-Agent supplementary review: ran on iter-1 PR with old config (pre-PR #47), `Failed to generate code suggestions for PR` (Kimi PR formatting incompatibility); not load-bearing — Reviewer Kimi K2.6 verdict is authoritative."
 ---
 
 # TKT-006: Food Lookup KBJU Estimator
