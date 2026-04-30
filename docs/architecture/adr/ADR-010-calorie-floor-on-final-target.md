@@ -3,7 +3,7 @@ id: ADR-010
 title: "Calorie floor on final target"
 version: 0.1.0
 status: proposed
-arch_ref: ARCH-001@0.3.1
+arch_ref: ARCH-001@0.4.0
 author_model: "gpt-5.5-xhigh"
 created: 2026-04-30
 updated: 2026-04-30
