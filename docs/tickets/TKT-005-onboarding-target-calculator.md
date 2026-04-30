@@ -1,7 +1,7 @@
 ---
 id: TKT-005
 title: "Onboarding Target Calculator"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.3.1
 component: "C2 Onboarding and Target Calculator"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-004@0.1.0"]
@@ -9,7 +9,12 @@ blocks: ["TKT-009@0.1.0", "TKT-011@0.1.0", "TKT-014@0.1.0"]
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-29
+updated: 2026-04-30
+closed_at: 2026-04-30
+closed_by: "orchestrator (PO-delegated)"
+closure_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/34"
+closure_commit: "6d82512"
+review_ref: "RV-CODE-005"
 ---
 
 # TKT-005: Onboarding Target Calculator
@@ -81,6 +86,7 @@ Implement deterministic onboarding state handling with KBJU target calculation.
 2026-04-29 02:00 glm-5.1: implemented all 6 §5 Outputs, all ACs green, PR #34 opened, status → in_review
 2026-04-29 03:00 glm-5.1: NUDGE iter-2 — fixed F-H1 + F-M2 + F-M3 + F-M4 per RV-CODE-005; F-M1 + F-L1..L4 deferred to follow-up TKTs per PO
 2026-04-29 21:51 glm-5.1: iter-3 — fix F-H2 (remove redundant 2nd updateStateWithVersionCheck; use updatedState), F-M5 (UNIVERSAL_TIMEZONE_ALIASES allowlist for UTC/Etc/UTC/GMT/Etc/GMT), F-M6 (mock validates expectedVersion); F-M1 + F-L1..L4 + 4 panel flags PO-deferred to TKT-NEW-A/B/D
+2026-04-30 10:00 orchestrator: PR #34 squash-merged at commit 6d82512; PR #35 RV-CODE-005 squash-merged at commit 2eabc14 with iter-4 verdict pass_with_changes; TKT-005@0.1.0 status in_review → done; review_ref RV-CODE-005 pinned; deferred findings (F-M1, F-L1..L4, FLAG_2/4/5/7, plus 2 Devin Review additions: Intl.supportedValuesOf memo + persistOnboardingCompletion race UX) tracked in TKT-NEW-A/B/C/D briefs
 
 ---
 
