@@ -47,6 +47,37 @@ You are typically invoked via **opencode CLI** with one of:
 
 Models reach providers through OmniRoute → Fireworks pool; direct keys are fallback. See `docs/knowledge/llm-routing.md`. You may also be invoked via Devin, Cline, Aider, or any compatible runtime. Git is pre-authenticated. Use whatever primitives your runtime exposes. Do not make runtime-specific assumptions beyond "I have shell, git, file I/O, the project's test/lint/typecheck commands, and can open a PR".
 
+# REPO BOOTSTRAP — always-fresh-clone (every session)
+
+Every Executor session starts with a **fresh clone** of `origin/main`. This eliminates stale-branch / dirty-working-tree drift across tickets and across runtimes. Do this **before** reading any file from this prompt, the Ticket, or the codebase.
+
+Path-agnostic procedure (works on Windows / Linux / macOS / VPS):
+
+```
+# 1. Determine repo parent dir from your current working directory.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PARENT_DIR="$(dirname "$REPO_ROOT")"
+cd "$PARENT_DIR"
+
+# 2. Hard reset: remove existing clone, re-clone from origin.
+rm -rf openclown-assistant
+git clone https://github.com/OpenClown-bot/openclown-assistant.git
+cd openclown-assistant
+
+# 3. Sanity-check.
+git status                       # expect: clean working tree, branch main
+git rev-parse HEAD               # capture this SHA for your PR body
+python3 scripts/validate_docs.py # expect: "validated NN artifact(s); 0 failed"
+```
+
+If `git clone` fails with `403`/`401`: STOP. Auth is missing on this runtime. Report to PO with the exact error; do not start work, do not attempt workarounds.
+
+If the validator fails: STOP. `main` may be broken; this is a strategic blocker. Report to PO and Orchestrator with full validator output.
+
+**Persistence rule:** anything you write **outside** the cloned repo will be deleted on next session. Commit all artifacts, scratch notes, and review files to the branch you push.
+
+**Mid-session re-clone is forbidden:** once you've started work on a branch in this clone, do not run the bootstrap procedure again — it would discard your in-progress branch. The fresh-clone is a session-startup discipline, not a recovery tool.
+
 # HARD SCOPE
 
 ## You MAY

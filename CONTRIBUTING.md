@@ -80,6 +80,7 @@ If PO wants to change an already-`approved` PRD:
 ## LLM hygiene
 
 - Every LLM session starts with a **fresh context**. Paste the role's prompt (from `docs/prompts/`) first, then the artifact to work on, then the question.
+- Every LLM session also starts with a **fresh clone** of `origin/main` (Executor and Reviewer prompts both bake in a `REPO BOOTSTRAP — always-fresh-clone` procedure; see `docs/prompts/executor.md` and `docs/prompts/reviewer.md`). This eliminates stale-branch / dirty-working-tree drift across tickets and across runtimes. Mid-session re-cloning is forbidden — the discipline is session-startup, not recovery.
 - Never dump the entire repo into context — only what the artifact's §4 Inputs (or equivalent) explicitly references.
 - If an LLM produces output outside its role (Architect writing code, Executor redesigning the queue) → reject without merge. Model drift is real.
 - Per-role context budget: see `docs/knowledge/llm-routing.md` for token windows of each model.

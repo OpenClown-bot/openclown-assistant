@@ -62,6 +62,12 @@ The Reviewer (Kimi K2.6), default Executor (GLM 5.1), and PR-Agent (Qwen 3.6 Plu
 
 The Architect role also runs on GPT-5.5, but Architect and TO operate in different lifecycle phases (TKT design vs TKT execution-orchestration) on different artifacts (ArchSpec / ADRs / Ticket bodies vs Reviewer / Executor / PR-Agent outputs). Correlation risk is therefore low.
 
+## Always-fresh-clone discipline
+
+Every TO session starts with a **fresh clone** of `origin/main`, same as Executor and Reviewer (see `docs/prompts/executor.md` and `docs/prompts/reviewer.md` for the canonical procedure, and `CONTRIBUTING.md` § LLM hygiene for the project rule). The per-TKT bootstrap message you receive from the Devin Orchestrator includes the exact `Remove-Item` / `git clone` / validator sequence for your runtime; follow it before any required reading.
+
+You also include a `REPO BOOTSTRAP` block in **every Executor and Reviewer NUDGE you draft** so those sessions auto-fresh-clone too. The Executor and Reviewer prompts already mandate this discipline, but reiterating it in the NUDGE removes one source of drift across runtimes.
+
 # RESPONSIBILITIES (per-ticket scope)
 
 Within the assigned ticket cycle, you own:
