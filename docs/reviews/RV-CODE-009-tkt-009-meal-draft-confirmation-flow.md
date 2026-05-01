@@ -7,7 +7,7 @@ status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-05-01
 updated: 2026-05-01
-version: "0.4.0"
+version: "0.5.0"
 ---
 
 # Code Review — PR #59 (TKT-009@0.1.0: Meal Draft Confirmation Flow)
@@ -192,3 +192,36 @@ One-sentence justification: F-H2 (HTML-escape gap in `buildDraftMessage` → `bu
 
 ### Recommendation to PO
 **Dispatch GLM-A iter-4 (Executor) to implement F-H2 fix per the contract above.** After Executor pushes a new commit on the `tkt/TKT-009@0.1.0` branch, dispatch Kimi iter-4 verify (CODE mode) on the new head to confirm F-H2 RESOLVED. Then PO merges PR #59 followed by PR #60.
+
+### iter-4 verify (commit c4fb9f2)
+
+#### F-H2 RESOLVED
+
+- **`src/shared/escapeHtml.ts:1-6`** — Named exported function `escapeHtml(input: string): string` correctly maps `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;` via ordered `.replace()` chain. No other transformations.
+- **`src/meals/messages.ts:2,40-41`** — `buildDraftMessage` imports `escapeHtml` and applies it to `item.itemNameRu` and `item.portionTextRu` before passing to `MSG_DRAFT_ITEM_LINE`. Numeric parameters (`kcal`, `p`, `f`, `c`) remain unescaped — correct, as they are known-safe.
+- **No inline `.replace()` chains** — `grep` of `src/meals/*.ts` confirms only `manualEntry.ts:20` contains `.replace(",", ".")` (number parsing, unrelated to HTML). The utility is the single source of truth for HTML escaping.
+- **`tests/meals/messages.test.ts:23-47`** — Test (a) constructs `MealDraftView` with `itemNameRu: "Бургер & картошка <по краю>"` and `portionTextRu: "200г >минимум"`; asserts rendered text contains `&amp;`, `&lt;`, `&gt;` and does NOT contain raw ` & ` or `<по краю>`. **PASS**.
+- **`tests/meals/messages.test.ts:49-73`** — Test (b) constructs manual-entry view via `buildManualDraftItems` defaults; asserts rendered text contains literal `"Ручной ввод"` and `"весь приём"` without entity mangling. **PASS**.
+- **Full suite:** `npx vitest run` — 420/420 passed (up from 418 in iter-3, +2 new tests). No regressions.
+- **Lint / typecheck:** both zero errors on commit `c4fb9f2`.
+
+#### PR-Agent cross-reviewer findings on c4fb9f2 — rulings
+
+| Finding | PR-Agent label | Reviewer ruling | Rationale |
+|---|---|---|---|
+| **A** — `src/shared/escapeHtml.ts` not listed in TKT-009@0.1.0 §5 Outputs | 🎫 partially compliant | **In-scope per active review contract** — non-substantive | Iter-4 review section (commit `3caaa49`) explicitly authorized: "Locate the utility under `src/shared/` or `src/meals/` at Executor's discretion." Executor chose `src/shared/`. The authorization predates the file creation and is part of the active review record. No additional scope justification required. |
+| **B** — `escapeHtml` omits `"` and `'` escaping | 🔒 Security concerns | **Non-substantive for current usage** — no iter-5 required | Telegram HTML `parseMode` (https://core.telegram.org/bots/api#html-style) treats `<`, `>`, `&` as reserved in plain text content. `"` and `'` are reserved ONLY inside attribute values (e.g. `<a href="...">`). `buildDraftMessage` produces plain text content with zero HTML tags and zero attributes. Missing `"`/`'` escapes cannot break the current message pipeline. Defensive depth is cheap, but requiring an iter-5 for speculative future usage would be scope creep. **BACKLOG-005 note:** "If future messaging features add HTML attributes (e.g. `<a>` tags in draft replies), expand `escapeHtml` to cover `&quot;` and `&#39;` and add regression tests for `"` and `'` characters." |
+
+#### Carry-forward
+- TKT-009@0.1.0 §10 Execution Log remains **empty** — same PARTIAL status from iter-3 claim (d). DoD gap still owed to closure-PR. No new functional defect.
+
+#### Iter-4 verify verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-H2 fully resolved with correct `escapeHtml` utility, single-source-of-truth application in `buildDraftMessage`, honest test coverage for unsafe-character and manual-entry paths, and zero regressions; PR-Agent findings A and B are both ruled non-substantive.
+
+#### Recommendation to PO
+**Approve for merge.** All iter-1 through iter-4 findings are resolved or ruled non-substantive. §10 Execution Log gap remains procedural; resolve in closure-PR. Merge PR #59, then merge PR #60 (review closure).
