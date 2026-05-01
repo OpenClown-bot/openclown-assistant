@@ -13,9 +13,6 @@ export const MSG_HISTORY_ITEM_LINE = (
   c: number
 ) => `• ${date} — ${kcal} ккал, Б:${p} Ж:${f} У:${c}`;
 export const MSG_HISTORY_ITEM_DELETED = "(удалено)";
-export const MSG_HISTORY_NEXT_BUTTON = "Ещё →";
-export const MSG_HISTORY_EDIT_BUTTON = "✏️ Изменить";
-export const MSG_HISTORY_DELETE_BUTTON = "🗑 Удалить";
 export const MSG_MEAL_NOT_FOUND = "Приём пищи не найден.";
 export const MSG_MEAL_EDITED = "Приём пищи изменён.";
 export const MSG_MEAL_DELETED = "Приём пищи удалён.";

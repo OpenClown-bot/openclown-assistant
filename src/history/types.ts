@@ -74,7 +74,17 @@ export interface AuditSnapshot {
   items: MealItemView[];
 }
 
-export interface HistoryDeps {
+export class HistoryMutationConflictError extends Error {
+  constructor(
+    public readonly entityTag: string,
+    public readonly expectedVersion: number
+  ) {
+    super(`history mutation conflict: ${entityTag} expected version ${expectedVersion}`);
+    this.name = "HistoryMutationConflictError";
+  }
+}
+
+export interface HistoryTransactionalDeps {
   getConfirmedMeal(userId: string, mealId: string): Promise<ConfirmedMealView | null>;
   listMealItems(userId: string, mealId: string): Promise<MealItemView[]>;
   listConfirmedMealsPage(
@@ -83,7 +93,6 @@ export interface HistoryDeps {
     limit: number,
     includeDeleted: boolean
   ): Promise<ConfirmedMealView[]>;
-  countConfirmedMeals(userId: string, includeDeleted: boolean): Promise<number>;
   updateConfirmedMealWithVersion(
     userId: string,
     mealId: string,
@@ -110,6 +119,10 @@ export interface HistoryDeps {
     afterSnapshot: JsonObject | null,
     reason?: string
   ): Promise<string>;
+}
+
+export interface HistoryDeps extends HistoryTransactionalDeps {
+  withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T>;
 }
 
 export function computeCorrectionDelta(

@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HistoryService } from "../../src/history/historyService.js";
+import {
+  HistoryMutationConflictError,
+} from "../../src/history/types.js";
 import type {
   HistoryDeps,
+  HistoryTransactionalDeps,
   ConfirmedMealView,
   MealItemView,
-  HistoryPage,
   EditMealInput,
   DeleteMealInput,
-} from "../../src/history/types.ts";
+} from "../../src/history/types.js";
 import type { KBJUValues, MealItemCandidate } from "../../src/shared/types.js";
 import type { JsonObject } from "../../src/store/types.js";
 
@@ -71,6 +74,19 @@ function makeMeal(overrides: Partial<ConfirmedMealView> = {}): ConfirmedMealView
   };
 }
 
+interface SummaryRecordFixture {
+  id: string;
+  userId: string;
+  periodType: string;
+  periodStart: string;
+  periodEnd: string;
+  deliveredAt: string;
+  totalCaloriesKcal: number;
+  totalProteinG: number;
+  totalFatG: number;
+  totalCarbsG: number;
+}
+
 interface FakeStore {
   meals: Map<string, ConfirmedMealView>;
   mealItems: Map<string, MealItemView[]>;
@@ -83,22 +99,24 @@ interface FakeStore {
     beforeSnapshot: JsonObject | null;
     afterSnapshot: JsonObject | null;
   }>;
+  summaryRecords: SummaryRecordFixture[];
+  transactionLog: Array<"begin" | "commit" | "rollback">;
 }
 
-function createFakeDeps(store: FakeStore): HistoryDeps {
+function createFakeTransactionalOps(store: FakeStore): HistoryTransactionalDeps {
   let auditCounter = 0;
 
   return {
     async getConfirmedMeal(userId: string, mealId: string): Promise<ConfirmedMealView | null> {
       const meal = store.meals.get(mealId);
       if (!meal || meal.userId !== userId) return null;
-      return meal;
+      return { ...meal, items: store.mealItems.get(mealId) ?? [] };
     },
 
     async listMealItems(userId: string, mealId: string): Promise<MealItemView[]> {
       const meal = store.meals.get(mealId);
       if (!meal || meal.userId !== userId) return [];
-      return store.mealItems.get(mealId) ?? [];
+      return [...(store.mealItems.get(mealId) ?? [])];
     },
 
     async listConfirmedMealsPage(
@@ -109,20 +127,8 @@ function createFakeDeps(store: FakeStore): HistoryDeps {
     ): Promise<ConfirmedMealView[]> {
       const all = Array.from(store.meals.values())
         .filter((m) => m.userId === userId)
-        .filter((m) => includeDeleted || m.deletedAt === null)
-        .sort((a, b) => {
-          const dateCompare = b.mealLoggedAt.localeCompare(a.mealLoggedAt);
-          if (dateCompare !== 0) return dateCompare;
-          return b.id.localeCompare(a.id);
-        });
+        .filter((m) => includeDeleted || m.deletedAt === null);
       return all.slice(offset, offset + limit);
-    },
-
-    async countConfirmedMeals(userId: string, includeDeleted: boolean): Promise<number> {
-      return Array.from(store.meals.values())
-        .filter((m) => m.userId === userId)
-        .filter((m) => includeDeleted || m.deletedAt === null)
-        .length;
     },
 
     async updateConfirmedMealWithVersion(
@@ -133,7 +139,7 @@ function createFakeDeps(store: FakeStore): HistoryDeps {
     ): Promise<ConfirmedMealView> {
       const meal = store.meals.get(mealId);
       if (!meal || meal.userId !== userId || meal.version !== expectedVersion) {
-        throw new Error("version mismatch");
+        throw new HistoryMutationConflictError("confirmed_meal", expectedVersion);
       }
       meal.version = expectedVersion + 1;
       meal.totalKBJU = totals;
@@ -146,7 +152,9 @@ function createFakeDeps(store: FakeStore): HistoryDeps {
       items: MealItemCandidate[]
     ): Promise<MealItemView[]> {
       const meal = store.meals.get(mealId);
-      if (!meal || meal.userId !== userId) return [];
+      if (!meal || meal.userId !== userId) {
+        throw new HistoryMutationConflictError("confirmed_meal", 0);
+      }
       const newItems: MealItemView[] = items.map((item, i) => ({
         id: `item-new-${i}`,
         itemNameRu: item.itemNameRu,
@@ -171,7 +179,7 @@ function createFakeDeps(store: FakeStore): HistoryDeps {
     ): Promise<ConfirmedMealView> {
       const meal = store.meals.get(mealId);
       if (!meal || meal.userId !== userId || meal.version !== expectedVersion) {
-        throw new Error("version mismatch");
+        throw new HistoryMutationConflictError("confirmed_meal", expectedVersion);
       }
       meal.version = expectedVersion + 1;
       meal.deletedAt = deletedAt;
@@ -203,6 +211,43 @@ function createFakeDeps(store: FakeStore): HistoryDeps {
   };
 }
 
+function snapshotStore(store: FakeStore) {
+  return {
+    meals: new Map(Array.from(store.meals.entries()).map(([k, v]) => [k, { ...v, totalKBJU: { ...v.totalKBJU }, items: [...v.items] }])),
+    mealItems: new Map(Array.from(store.mealItems.entries()).map(([k, v]) => [k, [...v]])),
+    auditEvents: [...store.auditEvents],
+    summaryRecords: store.summaryRecords.map((r) => ({ ...r })),
+  };
+}
+
+function restoreStore(store: FakeStore, snapshot: ReturnType<typeof snapshotStore>) {
+  store.meals = snapshot.meals;
+  store.mealItems = snapshot.mealItems;
+  store.auditEvents = snapshot.auditEvents;
+  store.summaryRecords = snapshot.summaryRecords;
+}
+
+function createFakeDeps(store: FakeStore): HistoryDeps {
+  const ops = createFakeTransactionalOps(store);
+
+  return {
+    ...ops,
+    async withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T> {
+      const snapshot = snapshotStore(store);
+      store.transactionLog.push("begin");
+      try {
+        const result = await action(ops);
+        store.transactionLog.push("commit");
+        return result;
+      } catch (err) {
+        restoreStore(store, snapshot);
+        store.transactionLog.push("rollback");
+        throw err;
+      }
+    },
+  };
+}
+
 function seedMeals(store: FakeStore, userId: string, count: number): ConfirmedMealView[] {
   const meals: ConfirmedMealView[] = [];
   for (let i = 0; i < count; i++) {
@@ -223,13 +268,36 @@ function seedMeals(store: FakeStore, userId: string, count: number): ConfirmedMe
   return meals;
 }
 
+function seedSummaryRecord(store: FakeStore, userId: string): SummaryRecordFixture {
+  const record: SummaryRecordFixture = {
+    id: "summary-001",
+    userId,
+    periodType: "daily",
+    periodStart: "2026-04-29",
+    periodEnd: "2026-04-29",
+    deliveredAt: "2026-04-30T08:00:00Z",
+    totalCaloriesKcal: 500,
+    totalProteinG: 30,
+    totalFatG: 20,
+    totalCarbsG: 40,
+  };
+  store.summaryRecords.push(record);
+  return record;
+}
+
 describe("HistoryService", () => {
   let store: FakeStore;
   let deps: HistoryDeps;
   let service: HistoryService;
 
   beforeEach(() => {
-    store = { meals: new Map(), mealItems: new Map(), auditEvents: [] };
+    store = {
+      meals: new Map(),
+      mealItems: new Map(),
+      auditEvents: [],
+      summaryRecords: [],
+      transactionLog: [],
+    };
     deps = createFakeDeps(store);
     service = new HistoryService(deps);
   });
@@ -302,6 +370,30 @@ describe("HistoryService", () => {
       expect(pageB.meals).toHaveLength(2);
       expect(pageA.meals.every((m) => m.userId === USER_A)).toBe(true);
       expect(pageB.meals.every((m) => m.userId === USER_B)).toBe(true);
+    });
+
+    it("enforces newest-first even when dependency returns unsorted meals", async () => {
+      const mealNew = makeMeal({ id: "meal-new", mealLoggedAt: "2026-04-30T12:00:00Z", userId: USER_A });
+      const mealOld = makeMeal({ id: "meal-old", mealLoggedAt: "2026-04-28T12:00:00Z", userId: USER_A });
+      const mealMid = makeMeal({ id: "meal-mid", mealLoggedAt: "2026-04-29T12:00:00Z", userId: USER_A });
+      store.meals.set("meal-old", mealOld);
+      store.meals.set("meal-new", mealNew);
+      store.meals.set("meal-mid", mealMid);
+
+      const overrideDeps: HistoryDeps = {
+        ...deps,
+        async listConfirmedMealsPage(userId: string, offset: number, limit: number, includeDeleted: boolean) {
+          const result = await deps.listConfirmedMealsPage(userId, offset, limit, includeDeleted);
+          return [...result].reverse();
+        },
+      };
+      const svc = new HistoryService(overrideDeps);
+
+      const page = await svc.listHistory(USER_A);
+      expect(page.meals).toHaveLength(3);
+      expect(page.meals[0].id).toBe("meal-new");
+      expect(page.meals[1].id).toBe("meal-mid");
+      expect(page.meals[2].id).toBe("meal-old");
     });
   });
 
@@ -421,6 +513,86 @@ describe("HistoryService", () => {
       });
       expect(result.kind).toBe("not_found");
     });
+
+    it("catches HistoryMutationConflictError from dependency version mismatch and returns not_found", async () => {
+      seedMeals(store, USER_A, 1);
+
+      const overrideDeps: HistoryDeps = {
+        ...deps,
+        async withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T> {
+          return deps.withTransaction(async (tx) => {
+            const origUpdate = tx.updateConfirmedMealWithVersion.bind(tx);
+            const patchedTx: HistoryTransactionalDeps = {
+              ...tx,
+              async updateConfirmedMealWithVersion() {
+                throw new HistoryMutationConflictError("confirmed_meal", 1);
+              },
+            };
+            return action(patchedTx);
+          });
+        },
+      };
+      const svc = new HistoryService(overrideDeps);
+
+      const result = await svc.editMeal(USER_A, {
+        mealId: "meal-user-001-0",
+        expectedVersion: 1,
+        correctedItems: [makeMealItemCandidate()],
+        correctedKBJU: makeKBJU(),
+      });
+
+      expect(result.kind).toBe("not_found");
+    });
+
+    it("rolls back edit transaction when audit event fails after meal update", async () => {
+      const meals = seedMeals(store, USER_A, 1);
+      const meal = meals[0];
+      const originalVersion = meal.version;
+      const originalKBJU = { ...meal.totalKBJU };
+
+      const overrideDeps: HistoryDeps = {
+        ...deps,
+        async withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T> {
+          return deps.withTransaction(async (tx) => {
+            const patchedTx: HistoryTransactionalDeps = {
+              ...tx,
+              async createAuditEvent() {
+                throw new Error("audit write failed");
+              },
+            };
+            return action(patchedTx);
+          });
+        },
+      };
+      const svc = new HistoryService(overrideDeps);
+
+      await expect(
+        svc.editMeal(USER_A, {
+          mealId: meal.id,
+          expectedVersion: 1,
+          correctedItems: [makeMealItemCandidate()],
+          correctedKBJU: makeKBJU({ caloriesKcal: 999 }),
+        })
+      ).rejects.toThrow("audit write failed");
+
+      expect(store.meals.get(meal.id)!.version).toBe(originalVersion);
+      expect(store.meals.get(meal.id)!.totalKBJU.caloriesKcal).toBe(originalKBJU.caloriesKcal);
+      expect(store.auditEvents).toHaveLength(0);
+      expect(store.transactionLog).toContain("rollback");
+    });
+
+    it("successful edit runs inside transaction with commit", async () => {
+      const meals = seedMeals(store, USER_A, 1);
+
+      await service.editMeal(USER_A, {
+        mealId: meals[0].id,
+        expectedVersion: 1,
+        correctedItems: [makeMealItemCandidate()],
+        correctedKBJU: makeKBJU({ caloriesKcal: 600 }),
+      });
+
+      expect(store.transactionLog).toEqual(["begin", "commit"]);
+    });
   });
 
   describe("deleteMeal", () => {
@@ -518,27 +690,106 @@ describe("HistoryService", () => {
       expect(store.auditEvents).toHaveLength(0);
     });
 
-    it("correction delta for delete reflects full meal removal", async () => {
-      const meals = seedMeals(store, USER_A, 1);
+    it("correction delta for delete uses beforeItems.length not meal.items.length", async () => {
+      const meal = makeMeal({
+        id: "meal-stale-items",
+        userId: USER_A,
+        items: [],
+        version: 1,
+      });
+      store.meals.set(meal.id, { ...meal });
+      store.mealItems.set(meal.id, [
+        makeMealItem({ id: "real-item-1" }),
+        makeMealItem({ id: "real-item-2", itemNameRu: "салат" }),
+      ]);
 
       const result = await service.deleteMeal(USER_A, {
-        mealId: meals[0].id,
+        mealId: meal.id,
         expectedVersion: 1,
       });
 
       expect(result.kind).toBe("success");
       if (result.kind !== "success") return;
 
-      expect(result.correctionDelta!.caloriesKcalDelta).toBe(-500);
-      expect(result.correctionDelta!.itemChanges.removedCount).toBe(1);
-      expect(result.correctionDelta!.itemChanges.addedCount).toBe(0);
-      expect(result.correctionDelta!.itemChanges.modifiedCount).toBe(0);
+      expect(result.correctionDelta!.itemChanges.removedCount).toBe(2);
+    });
+
+    it("catches HistoryMutationConflictError from dependency during delete and returns not_found", async () => {
+      seedMeals(store, USER_A, 1);
+
+      const overrideDeps: HistoryDeps = {
+        ...deps,
+        async withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T> {
+          return deps.withTransaction(async (tx) => {
+            const patchedTx: HistoryTransactionalDeps = {
+              ...tx,
+              async softDeleteMeal() {
+                throw new HistoryMutationConflictError("confirmed_meal", 1);
+              },
+            };
+            return action(patchedTx);
+          });
+        },
+      };
+      const svc = new HistoryService(overrideDeps);
+
+      const result = await svc.deleteMeal(USER_A, {
+        mealId: "meal-user-001-0",
+        expectedVersion: 1,
+      });
+
+      expect(result.kind).toBe("not_found");
+    });
+
+    it("rolls back delete transaction when audit event fails after soft-delete", async () => {
+      const meals = seedMeals(store, USER_A, 1);
+      const meal = meals[0];
+
+      const overrideDeps: HistoryDeps = {
+        ...deps,
+        async withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T> {
+          return deps.withTransaction(async (tx) => {
+            const patchedTx: HistoryTransactionalDeps = {
+              ...tx,
+              async createAuditEvent() {
+                throw new Error("audit write failed");
+              },
+            };
+            return action(patchedTx);
+          });
+        },
+      };
+      const svc = new HistoryService(overrideDeps);
+
+      await expect(
+        svc.deleteMeal(USER_A, {
+          mealId: meal.id,
+          expectedVersion: 1,
+        })
+      ).rejects.toThrow("audit write failed");
+
+      expect(store.meals.get(meal.id)!.deletedAt).toBeNull();
+      expect(store.meals.get(meal.id)!.version).toBe(1);
+      expect(store.auditEvents).toHaveLength(0);
+      expect(store.transactionLog).toContain("rollback");
+    });
+
+    it("successful delete runs inside transaction with commit", async () => {
+      const meals = seedMeals(store, USER_A, 1);
+
+      await service.deleteMeal(USER_A, {
+        mealId: meals[0].id,
+        expectedVersion: 1,
+      });
+
+      expect(store.transactionLog).toEqual(["begin", "commit"]);
     });
   });
 
   describe("already delivered summary records immutability", () => {
     it("delivered summary records are not modified by edit", async () => {
       const meals = seedMeals(store, USER_A, 1);
+      seedSummaryRecord(store, USER_A);
 
       const correctedKBJU = makeKBJU({ caloriesKcal: 700 });
       const correctedItems = [makeMealItemCandidate({ caloriesKcal: 700 })];
@@ -552,12 +803,17 @@ describe("HistoryService", () => {
 
       expect(result.kind).toBe("success");
 
-      expect(store.auditEvents.length).toBe(1);
-      expect(store.auditEvents[0].eventType).toBe("meal_edited");
+      expect(store.summaryRecords).toHaveLength(1);
+      expect(store.summaryRecords[0].totalCaloriesKcal).toBe(500);
+      expect(store.summaryRecords[0].totalProteinG).toBe(30);
+      expect(store.summaryRecords[0].totalFatG).toBe(20);
+      expect(store.summaryRecords[0].totalCarbsG).toBe(40);
+      expect(store.summaryRecords[0].deliveredAt).toBe("2026-04-30T08:00:00Z");
     });
 
     it("delivered summary records are not modified by delete", async () => {
       const meals = seedMeals(store, USER_A, 1);
+      seedSummaryRecord(store, USER_A);
 
       const result = await service.deleteMeal(USER_A, {
         mealId: meals[0].id,
@@ -566,11 +822,12 @@ describe("HistoryService", () => {
 
       expect(result.kind).toBe("success");
 
-      expect(store.auditEvents.length).toBe(1);
-      expect(store.auditEvents[0].eventType).toBe("meal_deleted");
-
-      const deletedMeal = store.meals.get(meals[0].id)!;
-      expect(deletedMeal.deletedAt).toBeTruthy();
+      expect(store.summaryRecords).toHaveLength(1);
+      expect(store.summaryRecords[0].totalCaloriesKcal).toBe(500);
+      expect(store.summaryRecords[0].totalProteinG).toBe(30);
+      expect(store.summaryRecords[0].totalFatG).toBe(20);
+      expect(store.summaryRecords[0].totalCarbsG).toBe(40);
+      expect(store.summaryRecords[0].deliveredAt).toBe("2026-04-30T08:00:00Z");
     });
   });
 
