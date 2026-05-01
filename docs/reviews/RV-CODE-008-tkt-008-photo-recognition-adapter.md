@@ -3,9 +3,15 @@ id: RV-CODE-008
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/51"
 ticket_ref: TKT-008@0.1.0
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-05-01
+updated: 2026-05-01
+approved_at: 2026-05-01
+approved_after_iters: 2
+approved_by: "yourmomsenpai (PO)"
+approved_note: "RV-CODE-008 reached verdict `pass` on iter-2 (Executor commit bb40216, Reviewer commit 52eee7f). Reviewer iter-1 verdict was `fail` blocked on F-H1 (unresolved Git merge-conflict markers in `docs/tickets/TKT-008-photo-recognition-adapter.md:84-90`) with 2 medium + 3 low supplementary findings. All 7 findings RESOLVED in iter-2: F-H1 markers removed (verified via `git diff` grep for conflict-marker patterns → clean), F-M1 HTTP-status-gated retry (`transientFailure` field for 5xx/429 only; 400/401/403 no-retry tests asserting `fetchSpy.toHaveBeenCalledTimes(1)`), F-M2 negative `portion_grams` rejection with boundary tests (`-1` rejected / `0` accepted / `null` accepted), F-M3 retry-success-path test (5xx → retry → 200 success, asserting `outcome === \"success\"`, `fetchSpy.toHaveBeenCalledTimes(2)`), F-L1 per-attempt timeout cap (`Math.min(VISION_TIMEOUT_MS, Math.max(0, maxLatencyMs - elapsedMs))` with caller-passed `startTime`), F-L2 budget_blocked path captures `safeDeletePhoto` deletion result (no longer hardcoded `true`), F-L3 unused `portion_text` and `uncertainty_reasons` removed from interface and JSON schema. Both branches merged: PR #51 (squash commit de6799e) Executor implementation, PR #54 (squash commit 8a786bb) review artifact. PR-Agent supplementary review on PR #51: iter-1 independently identified F-H1 and F-M3 (both promoted into Kimi iter-2 scope); iter-2 `/improve` discovered 3 additional `photoDeleted: true` hardcodes on non-budget-blocked paths (lines 403/444/484, importance 8 each) plus iter-1 NaN/Infinity validation gap (line 104, importance 7); all 4 distinct findings DEFERRED to BACKLOG-004@0.1.0 §TKT-NEW-M/N. Reviewer Kimi K2.6 remains the load-bearing CODE-mode reviewer."
+superseded_by: null
 ---
 
 # Code Review — PR #51 (TKT-008@0.1.0)
