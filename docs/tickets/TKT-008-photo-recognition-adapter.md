@@ -1,7 +1,7 @@
 ---
 id: TKT-008
 title: "Photo Recognition Adapter"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C7 Photo Recognition Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-006@0.1.0"]
@@ -9,7 +9,7 @@ blocks: ["TKT-009@0.1.0", "TKT-014@0.1.0"]
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-05-01
 ---
 
 # TKT-008: Photo Recognition Adapter
@@ -81,9 +81,9 @@ Implement the OmniRoute vision adapter for meal photo candidates.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-008-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
-
+<!-- 2026-05-01 00:15 glm-5.1: started -->
+<!-- 2026-05-01 00:30 glm-5.1: opened PR #51 -->
+<!-- 2026-05-01 00:45 glm-5.1: iter-2 fixes pushed -->
 ---
 
 ## Handoff Checklist
