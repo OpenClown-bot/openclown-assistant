@@ -120,3 +120,40 @@ All prior high-severity findings (F-H1, F-H2) are resolved. All prior medium fin
 
 One-sentence justification: All blocking transactionality and existence-leakage defects are resolved with proven rollback/commit semantics and uniform `not_found` mapping; one non-blocking audit-data-loss medium finding (`sourceRef` omission in snapshots) remains.
 Recommendation to PO: Approve after Executor adds `source_ref: item.sourceRef` to `snapshotToJson` item mapping, or accept as a known medium for a follow-up patch.
+
+---
+
+### iter-3 narrow verify (2026-05-01, kimi-k2.6)
+
+Executor iter-3 HEAD: `5127bf11b817ed1c91dacd5a62ebfc14729b33e8`
+Previous iter-2 reviewed HEAD: `a6b2aac8e62551ab210946e77c950c179446a8d6`
+Review branch HEAD at verify start: `237da8c40e7b5adaaaa8f824eb96fc0f7f0312ed`
+
+#### Narrow verify scope
+Only the remaining `pass_with_changes` medium finding from iter-2: `snapshotToJson` omitted `sourceRef` from audit snapshot item serialization.
+
+#### Verification results
+
+| Finding | Resolution | Evidence |
+|---|---|---|
+| **PR-Agent/Kimi `sourceRef` audit data-loss** (`snapshotToJson` omission) | **RESOLVED** | `snapshotToJson` now includes `source_ref: item.sourceRef` at line 193 (`src/history/types.ts:183-194`). Audit snapshot item mapping now serializes both `source` (line 192) and `source_ref` (line 193). Test `editMeal → writes before/after audit snapshots and increments meal version` asserts `beforeItems[0].source_ref` equals `"123456"` and `afterItems[0].source_ref` is defined (`tests/history/historyService.test.ts:483-486`). |
+| **Prior F-H1** (transaction primitive) | **RESOLVED** (unchanged from iter-2) | `withTransaction` primitive present; edit/delete atomic. |
+| **Prior F-H2** (uniform `not_found`) | **RESOLVED** (unchanged from iter-2) | `HistoryMutationConflictError` catch-and-map present. |
+| **Prior F-M1** (summary immutability) | **RESOLVED** (unchanged from iter-2) | Seeded fixtures + assertions present. |
+| **Prior F-M2** (`removedCount`) | **RESOLVED** (unchanged from iter-2) | `beforeItems.length` used. |
+| **Prior F-M3** (newest-first sort) | **RESOLVED** (unchanged from iter-2) | Service-level sort + test present. |
+| **Prior F-M4** (dead `countConfirmedMeals`) | **RESOLVED** (unchanged from iter-2) | Removed from interfaces. |
+| **Prior F-L1** (offset cursor fragility) | **DEFERRED** (unchanged from iter-2) | Low severity; acceptable defer. |
+| **Prior F-L2** (unused exports) | **RESOLVED** (unchanged from iter-2) | Dead exports removed. |
+| **PR-Agent status** | **STALE** — persistent review comment still references iter-2 HEAD `a6b2aac8e62551ab210946e77c950c179446a8d6`. No updated persistent review available for iter-3 at time of verify. | No new high or medium findings from PR-Agent at current HEAD; stale comment alone does not block. |
+
+#### Verdict for iter-3 verify
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+All remaining iter-2 `pass_with_changes` findings are resolved. No new high or medium findings from Kimi or PR-Agent at current HEAD. F-L1 offset cursor remains a low-severity deferred item.
+
+One-sentence justification: The remaining medium `sourceRef` audit-data-loss finding is resolved with `source_ref` now serialized in `snapshotToJson` and asserted in audit snapshot tests; all prior high and medium findings remain resolved; no new blocking issues.
+Recommendation to PO: Approve for merge.
