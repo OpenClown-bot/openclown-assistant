@@ -1,4 +1,5 @@
 import type { MealDraftView, MealOrchestratorSource } from "./types.js";
+import { escapeHtml } from "../shared/escapeHtml.js";
 import type { KBJUValues, RussianReplyEnvelope, TelegramInlineKeyboardMarkup, TelegramInlineKeyboardButton } from "../shared/types.js";
 
 export const MSG_DRAFT_HEADER = "Черновик приёма пищи:";
@@ -36,8 +37,8 @@ export function buildDraftMessage(view: MealDraftView): string {
   for (const item of view.items) {
     lines.push(
       MSG_DRAFT_ITEM_LINE(
-        item.itemNameRu,
-        item.portionTextRu,
+        escapeHtml(item.itemNameRu),
+        escapeHtml(item.portionTextRu),
         item.caloriesKcal,
         item.proteinG,
         item.fatG,
