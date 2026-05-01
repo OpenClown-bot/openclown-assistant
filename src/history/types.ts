@@ -190,6 +190,7 @@ export function snapshotToJson(snapshot: AuditSnapshot): JsonObject {
       fat_g: item.fatG,
       carbs_g: item.carbsG,
       source: item.source,
+      source_ref: item.sourceRef,
     })),
   };
 }

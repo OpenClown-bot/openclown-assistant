@@ -477,6 +477,13 @@ describe("HistoryService", () => {
       expect(beforeSnap.calories_kcal).toBe(500);
       expect(afterSnap.calories_kcal).toBe(600);
       expect(afterSnap.correction_delta).toBeDefined();
+
+      const beforeItems = beforeSnap.items as Array<Record<string, unknown>>;
+      const afterItems = afterSnap.items as Array<Record<string, unknown>>;
+      expect(beforeItems[0].source).toBe("open_food_facts");
+      expect(beforeItems[0].source_ref).toBe("123456");
+      expect(afterItems[0].source).toBeDefined();
+      expect(afterItems[0].source_ref).toBeDefined();
     });
 
     it("computes correction delta in after snapshot for future summary use", async () => {
