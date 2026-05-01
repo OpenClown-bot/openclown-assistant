@@ -98,3 +98,43 @@ git checkout main && git revert -m 1 <merge-commit-sha>
 ```
 
 (Replace `<merge-commit-sha>` with the actual merge commit SHA after merge.)
+
+---
+
+## Iter-2 review (head: fb4e7ba)
+
+### Per-finding outcomes
+
+- **F-M1**: **RESOLVED** — Test renamed to `"core keys pass through verbatim even if directly mutated (F-M1 rename)"` at `events.test.ts:196`; new test added at lines 206-217 `"emitLog forces LOG_FORBIDDEN_FIELDS to [REDACTED] when injected into event (F-M1 fix)"` injects `raw_transcript` directly into event object (bypassing `buildRedactedEvent` allowlist) and asserts `meta.raw_transcript === "[REDACTED]"`. The `emitLog` implementation was also hardened: the force-redaction loop now checks `forbidden in meta` (the original, unfiltered event copy) rather than `forbidden in redactedMeta`, so keys dropped by the allowlist are still caught and coerced to `[REDACTED]`. Verified: no overlap exists between `LOG_FORBIDDEN_FIELDS` and `CORE_EVENT_KEYS`, so core keys cannot be accidentally redacted. The test would **fail** if the force-redaction loop were removed, proving it exercises the security boundary.
+
+- **F-M2**: **RESOLVED** — `MetricsRegistry` wired into `C1Deps` at `src/telegram/types.ts:94`; mock registry added to `makeDeps` in `tests/telegram/entrypoint.test.ts:35-41`; `deps.metricsRegistry.increment(PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count, { component: "C1", source: update.messageSubtype ?? "unknown" })` added in `src/telegram/entrypoint.ts` at the `"unsupported"` switch case (line 266-269), ensuring the metric is incremented **in the routing path**, not merely in a logging path. New test at `entrypoint.test.ts:725-738` asserts `metricsRegistry.increment` was called with `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` and `expect.objectContaining({ component: "C1", source: "sticker" })`.
+
+- **F-L1**: **RESOLVED automatically** — `PROMETHEUS_METRIC_NAMES` import at `src/telegram/entrypoint.ts:3` is now consumed by the F-M2 metric increment call, so the unused-import warning is eliminated.
+
+- **F-L2**: **RESOLVED** — Bind guard extended with `|| host === "::ffff:0.0.0.0"` at `src/observability/metricsEndpoint.ts:206`; error message updated to include `::ffff:0.0.0.0`. New test added at `tests/observability/metricsEndpoint.test.ts:264-269` asserting `createMetricsServer("::ffff:0.0.0.0", 9464)` throws.
+
+### Iter-2 metrics
+
+- `npm test -- tests/telegram/entrypoint.test.ts tests/observability/events.test.ts tests/observability/metricsEndpoint.test.ts`: **106/106 pass** (up from 104/104 — 2 new tests added for F-M2 metric increment + F-L2 IPv4-mapped wildcard rejection).
+- `npm run lint`: zero errors.
+- `npm run typecheck`: zero errors.
+- `python3 scripts/validate_docs.py`: **39/39 artifacts pass**.
+
+### Iter-2 verdict
+
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: Both medium findings (F-M1 broken security test, F-M2 missing metric increment) are fully resolved with correct implementation, proper test coverage, and no regressions; low findings resolved as collateral.
+
+Recommendation to PO: **Approve for merge** — all iter-1 blockers addressed, all 106 targeted tests pass, lint/typecheck/docs clean. Low findings resolved, no additional iterations required.
+
+### Iter-2 hostil-reader probe (delta)
+
+- **(d) `createMetricsServer` with `"::ffff:0.0.0.0"`:** Now correctly rejected with the same error constructor as `"0.0.0.0"` rejection. Verified by test `metricsEndpoint.test.ts:264-269` and confirmed by reading `metricsEndpoint.ts:206`.
+
+### No new findings in iter-2
+
+All changed codepaths were already within the TKT-015@0.1.0 scope. No new runtime dependencies, no TODOs/FIXMEs, no scope creep.
+
