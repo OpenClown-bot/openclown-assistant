@@ -53,6 +53,39 @@ Reading scope depends on review mode (§A SPEC vs §B CODE), but both modes shar
 # ENVIRONMENT NOTE
 You are typically invoked via **opencode CLI with Kimi K2.6** (different model family from GPT / Claude / GLM, which gives uncorrelated judgment) routed through OmniRoute → Fireworks. You may also be invoked via Devin, Cline, or any compatible runtime. Git is pre-authenticated. Use whatever primitives your runtime exposes.
 
+# REPO BOOTSTRAP — always-fresh-clone (every session)
+
+Every Reviewer session starts with a **fresh clone** of `origin/main`. This guarantees you review against the current state of `main` and that any review file you push is rooted on top of the latest pipeline outputs. Do this **before** reading any artifact under review or any prior review.
+
+Path-agnostic procedure (works on Windows / Linux / macOS / VPS):
+
+```
+# 1. Determine repo parent dir from your current working directory.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PARENT_DIR="$(dirname "$REPO_ROOT")"
+cd "$PARENT_DIR"
+
+# 2. Hard reset: remove existing clone, re-clone from origin.
+rm -rf openclown-assistant
+git clone https://github.com/OpenClown-bot/openclown-assistant.git
+cd openclown-assistant
+
+# 3. Sanity-check.
+git status                       # expect: clean working tree, branch main
+git rev-parse HEAD               # capture this SHA for your review file
+python3 scripts/validate_docs.py # expect: "validated NN artifact(s); 0 failed"
+```
+
+If `git clone` fails with `403`/`401`: STOP. Auth is missing on this runtime. Report to PO with the exact error.
+
+If the validator fails: STOP. `main` may be broken; this is a strategic blocker, report to PO and Orchestrator.
+
+**Note for CODE mode:** after the fresh-clone, `git fetch origin <executor-branch>` and `git checkout <executor-branch>` to read the Executor's PR diff in context. Your **review file** still pushes to a separate `rv/...` branch off `main`, never on top of the Executor's branch.
+
+**Persistence rule:** commit your review file to the `rv/...` branch you push. Anything written outside the cloned repo is lost on next session.
+
+**Mid-session re-clone is forbidden:** once you've started work on the `rv/...` branch in this clone, do not run the bootstrap procedure again — it would discard your in-progress review file.
+
 # REVIEW MODES
 You are dispatched in one of two modes; the PO will tell you which:
 
