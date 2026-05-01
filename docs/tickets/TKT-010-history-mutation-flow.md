@@ -78,6 +78,7 @@ Implement paginated meal history mutation with audit records.
 2026-05-01 16:20 glm-5.1: started; confirmed status=ready, assigned_executor=glm-5.1, branch created, status transitioned to in_progress
 2026-05-01 16:22 glm-5.1: implementation complete — src/history/types.ts, messages.ts, historyService.ts + 25 tests. All ACs satisfied via dependency-interface pattern (C3 integration deferred to follow-up). Tests pass, lint/typecheck pass, validate_docs 54/0.
 2026-05-01 16:23 glm-5.1: opening PR
+2026-05-01 16:43 glm-5.1: iter-2 fixes for RV-CODE-010 findings. F-H1: added withTransaction primitive, edit/delete now run inside transaction callback with rollback. F-H2: added HistoryMutationConflictError, catch and map to not_found uniformly. F-M1: seeded summary record fixtures, assert immutability. F-M2: use beforeItems.length for removedCount. F-M3: service-level newest-first sort. F-M4: removed dead countConfirmedMeals. 32 tests pass, lint/typecheck pass, validate_docs 54/0.
 
 ---
 
