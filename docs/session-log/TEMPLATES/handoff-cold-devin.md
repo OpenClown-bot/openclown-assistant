@@ -130,8 +130,10 @@ PRD (Business Planner)
        └→ ArchSpec + ADRs + Tickets (Architect)
             └→ Reviewer #2 (RV-SPEC, Kimi K2.6, ≠ Architect family)
                  └→ Code (Executor; one Ticket per session; GLM/Qwen/Codex)
-                      └→ Reviewer #3 (RV-CODE, Kimi K2.6) + Devin Review bot
-                           └→ PO merges
+                      └→ Reviewer #3 (RV-CODE, Kimi K2.6) + Qodo PR-Agent bot
+                           └→ Ticket Orchestrator first cross-reviewer audit
+                                └→ Devin Orchestrator ratification audit
+                                     └→ PO merges
 ```
 
 ---
@@ -145,8 +147,9 @@ PRD (Business Planner)
 | Architect | GPT-5.5 xhigh / thinking | Codex CLI / opencode | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/`, `tests/`, `infra/`, repo root |
 | Executor | GLM 5.1 / Qwen 3.6 Plus / Codex GPT-5.5 | opencode + OmniRoute / Codex CLI | `src/`, `tests/`, append-only `docs/tickets/<id>.md#10 Execution Log`, ticket `status` field (4 specific transitions only), files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other ticket field, anything outside ticket §5 Outputs |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else, **NEVER `status: approved`** (PO sets that based on Reviewer verdict) |
-| Reviewer (auto bot) | Devin Review | GitHub bot | inline PR comments | files in repo |
-| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits / new entries) + ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body during promotion | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
+| Reviewer (auto bot) | Qodo PR-Agent (Qwen 3.6 Plus via OmniRoute) | GitHub Actions | inline PR comments + persistent review blocks | files in repo |
+| Ticket Orchestrator | GPT-5.5 thinking / Codex CLI + ChatGPT Plus | opencode (PO's Windows PC) / Codex CLI | per-TKT clerical sub-PRs scoped to one TKT, frontmatter promotion of that TKT, BACKLOG entries scoped to that TKT, NUDGE files for Executor / Reviewer dispatch | code, formal artifact bodies, substantive ticket body edits, `docs/prompts/`, anything outside its TKT scope, repo-wide config |
+| **Devin Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits / new entries) + ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body during promotion + closure-PRs after Reviewer verdict + cross-TKT shared-interface conflict resolution + ratification audit + final merge-safe sign-off | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 
 ---
 
@@ -160,7 +163,7 @@ PRD (Business Planner)
 
 | PR | Branch | What | CI | Waiting on |
 |---|---|---|---|---|
-| `<#N>` | `<branch>` | `<one-line>` | `<pass/fail/pending>` | `<PO ack / Reviewer / Devin Review / Architect>` |
+| `<#N>` | `<branch>` | `<one-line>` | `<pass/fail/pending>` | `<PO ack / Reviewer / PR-Agent / Architect / Ticket Orchestrator>` |
 
 ### Last action taken (by previous orchestrator)
 
@@ -179,6 +182,7 @@ PRD (Business Planner)
 - Architect: `<runtime + model>`
 - Executor: `<runtime + model>`
 - Reviewer: `<runtime + model>`
+- Ticket Orchestrator: `<runtime + model — typically opencode + GPT-5.5 thinking on PO's Windows PC; default until PO overrides>`
 - VPS: `<address / status>`
 - Repo path on VPS: `<path>`
 
@@ -189,7 +193,7 @@ PRD (Business Planner)
 Reply to the PO with:
 
 1. **5-line state summary** in your own words (proves you read this file + the current ArchSpec + open Tickets)
-2. **Role-confirmation:** "I am the orchestrator. I will not write code, will not edit PRDs/ArchSpecs/ADRs, and will only modify `docs/session-log/`, `docs/backlog/` (lightly), and ticket frontmatter promotion fields. Other CONTRIBUTING.md edits require explicit PO authorisation, recorded in the PR body."
+2. **Role-confirmation:** "I am the Devin Orchestrator. My responsibilities include cross-TKT coordination, ratification audit on Ticket Orchestrator hand-backs, and final merge-safe sign-off. I will not write code, will not edit PRDs/ArchSpecs/ADRs/role prompts, and will only modify `docs/session-log/`, `docs/backlog/` (lightly), and ticket frontmatter promotion fields. Other CONTRIBUTING.md edits require explicit PO authorisation, recorded in the PR body."
 3. **One concrete proposed next action** with reasoning ("do X *because* Y trade-off"), citing the artifact / ADR / ticket that motivates it.
 4. **Wait for the PO to say "go"** before executing.
 

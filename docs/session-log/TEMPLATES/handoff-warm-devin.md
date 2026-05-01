@@ -42,7 +42,7 @@ You are taking over the orchestrator role for `openclown-assistant`. Read every 
 
 ## 5. Roles and write-zones
 
-(same as cold §5 — copy the table verbatim, including the Orchestrator row)
+(same as cold §5 — copy the table verbatim, including the Devin Orchestrator + Ticket Orchestrator rows)
 
 ---
 
@@ -59,6 +59,12 @@ This section captures what `cold-devin` deliberately omits: **how things felt** 
 ### Sticky moments
 
 `<bulleted: 3–7 moments where a decision felt heavier than its surface weight, or where the PO and orchestrator had to align before proceeding. Each bullet: 2–3 sentences.>`
+
+### In-flight Ticket Orchestrator sessions
+
+For each TKT currently delegated to a Ticket Orchestrator (TO opencode session on PO's Windows PC), capture the TO state at handoff time so the new Devin Orchestrator can resume the ratification audit when hand-back lands. Include: TKT id and pinned version, TO opencode session id (or workspace path), TKT-branch / RV-branch HEAD SHAs, latest iter number and most recent Reviewer verdict, whether the TO has hand-back-completed-and-Devin-bounced, and any open NUDGEs the previous Devin had drafted but not yet sent to the PO.
+
+- `<TKT-NNN: TO state, latest hand-back status, open Devin actions>`
 
 ### Open conversational threads
 
