@@ -260,6 +260,12 @@ describe("metricsEndpoint server factory", () => {
     const server = createMetricsServer("::1", 9464);
     expect(server).toBeDefined();
   });
+
+  it("rejects ::ffff:0.0.0.0 (IPv4-mapped IPv6 wildcard) as host (F-L2)", () => {
+    expect(() => createMetricsServer("::ffff:0.0.0.0", 9464)).toThrow(
+      /::ffff:0\.0\.0\.0.*forbidden/
+    );
+  });
 });
 
 describe("metricsEndpoint forbidden labels list", () => {

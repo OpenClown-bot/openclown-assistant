@@ -263,6 +263,10 @@ export async function routeMessage(
       );
       break;
     case "unsupported":
+      deps.metricsRegistry.increment(
+        PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count,
+        { component: "C1", source: update.messageSubtype ?? "unknown" }
+      );
       await sendWithRetry(
         deps,
         {

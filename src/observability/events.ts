@@ -172,7 +172,7 @@ export function emitLog(
   }
 
   for (const forbidden of LOG_FORBIDDEN_FIELDS) {
-    if (forbidden in redactedMeta && redactedMeta[forbidden] !== "[REDACTED]") {
+    if (forbidden in meta) {
       redactedMeta[forbidden] = "[REDACTED]";
     }
   }

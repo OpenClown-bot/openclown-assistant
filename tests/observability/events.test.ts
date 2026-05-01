@@ -196,9 +196,9 @@ describe("emitLog emit-boundary redaction (D-I9 / TKT-015 AC-2)", () => {
     expect(meta.username).toBeUndefined();
   });
 
-  it("emitLog forces LOG_FORBIDDEN_FIELDS to [REDACTED] if present in core keys", () => {
+  it("core keys pass through verbatim even if directly mutated (F-M1 rename)", () => {
     const event = makeEventWithBypassedExtra({});
-    (event as Record<string, unknown>).user_id = "raw_transcript_leaked_value";
+    (event as Record<string, unknown>).user_id = "mutated_user_id";
     const logger = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -207,10 +207,10 @@ describe("emitLog emit-boundary redaction (D-I9 / TKT-015 AC-2)", () => {
     };
     emitLog(logger, event);
     const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
-    expect(meta.user_id).toBe("raw_transcript_leaked_value");
+    expect(meta.user_id).toBe("mutated_user_id");
   });
 
-  it("emitLog drops non-allowlisted forbidden fields even when directly injected into event", () => {
+  it("emitLog forces LOG_FORBIDDEN_FIELDS to [REDACTED] when injected into event (F-M1 fix)", () => {
     const event = makeEventWithBypassedExtra({});
     (event as Record<string, unknown>).raw_transcript = "sneaky transcript";
     const logger = {
@@ -221,7 +221,7 @@ describe("emitLog emit-boundary redaction (D-I9 / TKT-015 AC-2)", () => {
     };
     emitLog(logger, event);
     const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
-    expect(meta.raw_transcript).toBeUndefined();
+    expect(meta.raw_transcript).toBe("[REDACTED]");
   });
 
   it("emitLog preserves core event keys through allowlist boundary", () => {

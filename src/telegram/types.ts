@@ -91,6 +91,7 @@ export interface C1Deps {
   sendChatAction: SendChatAction;
   logger: import("../shared/types.js").OpenClawLogger;
   pilotUserIds: readonly string[];
+  metricsRegistry: import("../observability/metricsEndpoint.js").MetricsRegistry;
 }
 
 export class C1MalformedUpdateError extends Error {

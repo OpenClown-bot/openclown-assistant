@@ -4,7 +4,8 @@ import type { C1Deps, NormalizedTelegramUpdate, TelegramHandlers } from "../../s
 import { C1MalformedUpdateError } from "../../src/telegram/types.js";
 import type { RussianReplyEnvelope, TelegramMessage, TelegramCallbackQuery, TelegramSticker } from "../../src/shared/types.js";
 import { MSG_VOICE_TOO_LONG, MSG_GENERIC_RECOVERY } from "../../src/telegram/messages.js";
-import { KPI_EVENT_NAMES } from "../../src/observability/kpiEvents.js";
+import { KPI_EVENT_NAMES, PROMETHEUS_METRIC_NAMES } from "../../src/observability/kpiEvents.js";
+import type { MetricsRegistry } from "../../src/observability/metricsEndpoint.js";
 
 function makeHandlers(): TelegramHandlers {
   return {
@@ -31,6 +32,13 @@ function makeDeps(overrides?: Partial<C1Deps>): C1Deps {
       critical: vi.fn(),
     },
     pilotUserIds: ["111", "222"],
+    metricsRegistry: {
+      increment: vi.fn(),
+      set: vi.fn(),
+      observe: vi.fn(),
+      getSamples: vi.fn().mockReturnValue([]),
+      render: vi.fn().mockReturnValue(""),
+    } as unknown as MetricsRegistry,
     ...overrides,
   };
 }
@@ -715,6 +723,21 @@ describe("sticker message routes to unsupported (D-I5 / TKT-015 AC-1)", () => {
         && meta?.message_subtype === "sticker";
     });
     expect(found).toBe(true);
+  });
+
+  it("increments kbju_route_unmatched_count Prometheus metric for sticker (F-M2)", async () => {
+    const sticker: TelegramSticker = {
+      fileId: "sticker_file_1",
+      fileUniqueId: "sticker_unique_1",
+      width: 512,
+      height: 512,
+    };
+    const msg = makeMessage({ text: undefined, sticker });
+    await routeMessage(deps, "req-sticker-5", msg);
+    expect(deps.metricsRegistry.increment).toHaveBeenCalledWith(
+      PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count,
+      expect.objectContaining({ component: "C1", source: "sticker" })
+    );
   });
 });
 

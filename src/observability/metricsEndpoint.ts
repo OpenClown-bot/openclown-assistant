@@ -203,9 +203,9 @@ export function createMetricsServer(
   host: string,
   port: number
 ): MetricsServer {
-  if (!host || host === "0.0.0.0" || host === "::" || host === "[::]") {
+  if (!host || host === "0.0.0.0" || host === "::" || host === "[::]" || host === "::ffff:0.0.0.0") {
     throw new Error(
-      "Metrics server must bind to an explicit loopback or internal host; wildcard addresses (0.0.0.0, ::, [::]) are forbidden per ARCH-001@0.3.0 §8.2"
+      "Metrics server must bind to an explicit loopback or internal host; wildcard addresses (0.0.0.0, ::, [::], ::ffff:0.0.0.0) are forbidden per ARCH-001@0.3.0 §8.2"
     );
   }
 
