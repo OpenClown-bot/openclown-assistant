@@ -3,6 +3,7 @@ import type {
   TelegramCallbackQuery,
   TelegramVoice,
   TelegramPhotoSize,
+  TelegramSticker,
   RussianReplyEnvelope,
 } from "../shared/types.js";
 
@@ -14,7 +15,8 @@ export type RouteKind =
   | "photo_meal"
   | "history"
   | "callback"
-  | "summary_delivery";
+  | "summary_delivery"
+  | "unsupported";
 
 export interface NormalizedTelegramUpdate {
   requestId: string;
@@ -24,10 +26,12 @@ export interface NormalizedTelegramUpdate {
   text?: string;
   voice?: TelegramVoice;
   photo?: TelegramPhotoSize[];
+  sticker?: TelegramSticker;
   callbackQueryId?: string;
   callbackData?: string;
   cronTriggerType?: string;
   sourceLabel: string;
+  messageSubtype?: string;
 }
 
 export interface StartHandler {
@@ -96,6 +100,8 @@ export class C1MalformedUpdateError extends Error {
   }
 }
 
+const ROUTING_LOWERCASE_CAP = 256;
+
 export function normalizeMessage(
   requestId: string,
   message: TelegramMessage
@@ -113,6 +119,7 @@ export function normalizeMessage(
 
   let routeKind: RouteKind;
   let sourceLabel: string;
+  let messageSubtype: string | undefined;
 
   if (text.startsWith("/start")) {
     routeKind = "start";
@@ -120,7 +127,9 @@ export function normalizeMessage(
   } else if (text.startsWith("/forget_me")) {
     routeKind = "forget_me";
     sourceLabel = "command:/forget_me";
-  } else if (text.toLowerCase().startsWith("/история") || text.toLowerCase().startsWith("/history")) {
+  } else if (text.length <= ROUTING_LOWERCASE_CAP
+      ? text.toLowerCase().startsWith("/история") || text.toLowerCase().startsWith("/history")
+      : text.slice(0, ROUTING_LOWERCASE_CAP).toLowerCase().startsWith("/история") || text.slice(0, ROUTING_LOWERCASE_CAP).toLowerCase().startsWith("/history")) {
     routeKind = "history";
     sourceLabel = "command:history";
   } else if (message.voice) {
@@ -129,9 +138,17 @@ export function normalizeMessage(
   } else if (message.photo && message.photo.length > 0) {
     routeKind = "photo_meal";
     sourceLabel = "photo";
-  } else {
+  } else if (message.sticker) {
+    routeKind = "unsupported";
+    sourceLabel = "sticker";
+    messageSubtype = "sticker";
+  } else if (text) {
     routeKind = "text_meal";
     sourceLabel = "text";
+  } else {
+    routeKind = "unsupported";
+    sourceLabel = "unknown";
+    messageSubtype = "empty";
   }
 
   return {
@@ -142,7 +159,9 @@ export function normalizeMessage(
     text: text || undefined,
     voice: message.voice,
     photo: message.photo,
+    sticker: message.sticker,
     sourceLabel,
+    messageSubtype,
   };
 }
 

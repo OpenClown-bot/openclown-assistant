@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { routeMessage, routeCallbackQuery, routeCronEvent, MAX_VOICE_DURATION_SECONDS } from "../../src/telegram/entrypoint.js";
 import type { C1Deps, NormalizedTelegramUpdate, TelegramHandlers } from "../../src/telegram/types.js";
 import { C1MalformedUpdateError } from "../../src/telegram/types.js";
-import type { RussianReplyEnvelope, TelegramMessage, TelegramCallbackQuery } from "../../src/shared/types.js";
+import type { RussianReplyEnvelope, TelegramMessage, TelegramCallbackQuery, TelegramSticker } from "../../src/shared/types.js";
 import { MSG_VOICE_TOO_LONG, MSG_GENERIC_RECOVERY } from "../../src/telegram/messages.js";
 import { KPI_EVENT_NAMES } from "../../src/observability/kpiEvents.js";
 
@@ -51,6 +51,7 @@ function makeMessage(overrides: Partial<TelegramMessage>): TelegramMessage {
     text: undefined,
     voice: undefined,
     photo: undefined,
+    sticker: undefined,
     ...overrides,
   };
 }
@@ -639,6 +640,139 @@ describe("callback data truncation (F-L1)", () => {
     await routeCallbackQuery(deps, "req-trunc-cb", query);
     expect(deps.handlers.callback).toHaveBeenCalledWith(
       expect.objectContaining({ callbackData: "a".repeat(256) })
+    );
+  });
+});
+
+describe("sticker message routes to unsupported (D-I5 / TKT-015 AC-1)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  it("sends MSG_GENERIC_RECOVERY for sticker message", async () => {
+    const sticker: TelegramSticker = {
+      fileId: "sticker_file_1",
+      fileUniqueId: "sticker_unique_1",
+      width: 512,
+      height: 512,
+      emoji: "😊",
+    };
+    const msg = makeMessage({ text: undefined, sticker });
+    await routeMessage(deps, "req-sticker-1", msg);
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: MSG_GENERIC_RECOVERY })
+    );
+  });
+
+  it("no handler is invoked for sticker message", async () => {
+    const sticker: TelegramSticker = {
+      fileId: "sticker_file_1",
+      fileUniqueId: "sticker_unique_1",
+      width: 512,
+      height: 512,
+    };
+    const msg = makeMessage({ text: undefined, sticker });
+    await routeMessage(deps, "req-sticker-2", msg);
+    const allHandlers = Object.values(deps.handlers);
+    for (const handler of allHandlers) {
+      expect(handler).not.toHaveBeenCalled();
+    }
+  });
+
+  it("emits route_unmatched telemetry for sticker", async () => {
+    const sticker: TelegramSticker = {
+      fileId: "sticker_file_1",
+      fileUniqueId: "sticker_unique_1",
+      width: 512,
+      height: 512,
+      emoji: "🎉",
+    };
+    const msg = makeMessage({ text: undefined, sticker });
+    await routeMessage(deps, "req-sticker-3", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.route_unmatched;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("route_unmatched event includes message_subtype=sticker", async () => {
+    const sticker: TelegramSticker = {
+      fileId: "sticker_file_1",
+      fileUniqueId: "sticker_unique_1",
+      width: 512,
+      height: 512,
+    };
+    const msg = makeMessage({ text: undefined, sticker });
+    await routeMessage(deps, "req-sticker-4", msg);
+    const infoCalls = (deps.logger.info as ReturnType<typeof vi.fn>).mock.calls;
+    const found = infoCalls.some((call: unknown[]) => {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      return meta?.event_name === KPI_EVENT_NAMES.route_unmatched
+        && meta?.message_subtype === "sticker";
+    });
+    expect(found).toBe(true);
+  });
+});
+
+describe("history routing lowercase cap at 256 chars (F-L2 / TKT-015 AC-3)", () => {
+  let deps: C1Deps;
+
+  beforeEach(() => {
+    deps = makeDeps();
+  });
+
+  it("routes /history within 256 chars to history handler", async () => {
+    const msg = makeMessage({ text: "/history" });
+    await routeMessage(deps, "req-cap-1", msg);
+    expect(deps.handlers.history).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes text starting with /история within 256 chars to history handler", async () => {
+    const msg = makeMessage({ text: "/история" });
+    await routeMessage(deps, "req-cap-2", msg);
+    expect(deps.handlers.history).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps lowercase to first 256 chars for routing but preserves original text", async () => {
+    const prefix = "x".repeat(250);
+    const text = prefix + "/history_EXTRA";
+    const msg = makeMessage({ text });
+    await routeMessage(deps, "req-cap-3", msg);
+    expect(deps.handlers.textMeal).toHaveBeenCalledTimes(1);
+    expect(deps.handlers.textMeal).toHaveBeenCalledWith(
+      expect.objectContaining({ text })
+    );
+  });
+
+  it("/history starting after 256 chars is NOT matched as history", async () => {
+    const longPrefix = "а".repeat(257);
+    const text = longPrefix + "/history";
+    const msg = makeMessage({ text });
+    await routeMessage(deps, "req-cap-4", msg);
+    expect(deps.handlers.history).not.toHaveBeenCalled();
+    expect(deps.handlers.textMeal).toHaveBeenCalledTimes(1);
+  });
+
+  it("4096-char Cyrillic text does not undergo toLowerCase on more than 256 chars (F-L2 / TKT-015 AC-9)", async () => {
+    const text = "б".repeat(4096);
+    const msg = makeMessage({ text });
+    await routeMessage(deps, "req-cap-5", msg);
+    expect(deps.handlers.textMeal).toHaveBeenCalledTimes(1);
+    expect(deps.handlers.textMeal).toHaveBeenCalledWith(
+      expect.objectContaining({ routeKind: "text_meal" })
+    );
+  });
+
+  it("original 4096-char text is passed unchanged to textMeal handler (TKT-015 AC-10)", async () => {
+    const text = "б".repeat(4096);
+    const msg = makeMessage({ text });
+    await routeMessage(deps, "req-cap-6", msg);
+    expect(deps.handlers.textMeal).toHaveBeenCalledWith(
+      expect.objectContaining({ text })
     );
   });
 });

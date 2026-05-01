@@ -55,6 +55,7 @@ const ALLOWED_EXTRA_KEYS: readonly string[] = [
   "latency_ms",
   "telegram_message_id_hash",
   "degrade_mode_enabled",
+  "message_subtype",
 ];
 
 const CORE_EVENT_KEYS: readonly string[] = [
@@ -157,18 +158,37 @@ export function emitLog(
   const meta: Record<string, unknown> = { ...event };
   delete (meta as Record<string, unknown>).level;
 
+  const redactedMeta: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(meta)) {
+    if ((CORE_EVENT_KEYS as readonly string[]).includes(key)) {
+      redactedMeta[key] = value;
+    } else if ((ALLOWED_EXTRA_KEYS as readonly string[]).includes(key)) {
+      if (typeof value === "string") {
+        redactedMeta[key] = redactStringValues(value);
+      } else {
+        redactedMeta[key] = value;
+      }
+    }
+  }
+
+  for (const forbidden of LOG_FORBIDDEN_FIELDS) {
+    if (forbidden in redactedMeta && redactedMeta[forbidden] !== "[REDACTED]") {
+      redactedMeta[forbidden] = "[REDACTED]";
+    }
+  }
+
   switch (level) {
     case "critical":
-      logger.critical(message, meta);
+      logger.critical(message, redactedMeta);
       break;
     case "error":
-      logger.error(message, meta);
+      logger.error(message, redactedMeta);
       break;
     case "warn":
-      logger.warn(message, meta);
+      logger.warn(message, redactedMeta);
       break;
     default:
-      logger.info(message, meta);
+      logger.info(message, redactedMeta);
   }
 }
 

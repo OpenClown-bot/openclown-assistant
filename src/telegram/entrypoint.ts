@@ -1,6 +1,6 @@
 import type { TelegramMessage, TelegramCallbackQuery, RussianReplyEnvelope } from "../shared/types.js";
 import { buildRedactedEvent, emitLog } from "../observability/events.js";
-import { KPI_EVENT_NAMES } from "../observability/kpiEvents.js";
+import { KPI_EVENT_NAMES, PROMETHEUS_METRIC_NAMES } from "../observability/kpiEvents.js";
 import {
   type C1Deps,
   type NormalizedTelegramUpdate,
@@ -29,6 +29,7 @@ const ROUTE_KIND_EVENT_NAME: Record<RouteKind, string> = {
   history: KPI_EVENT_NAMES.history_query,
   callback: KPI_EVENT_NAMES.callback_received,
   summary_delivery: KPI_EVENT_NAMES.summary_delivered,
+  unsupported: KPI_EVENT_NAMES.route_unmatched,
 };
 
 function isAllowlisted(telegramUserId: number, pilotUserIds: readonly string[]): boolean {
@@ -260,6 +261,21 @@ export async function routeMessage(
       await invokeWithTyping(deps, update, () =>
         deps.handlers.history(update)
       );
+      break;
+    case "unsupported":
+      await sendWithRetry(
+        deps,
+        {
+          chatId: update.telegramChatId,
+          text: MSG_GENERIC_RECOVERY,
+          typingRenewalRequired: false,
+        },
+        update.requestId,
+        update.telegramUserId
+      );
+      logRouteOutcome(deps, update, "unsupported_message_type", {
+        message_subtype: update.messageSubtype,
+      });
       break;
     default:
       break;

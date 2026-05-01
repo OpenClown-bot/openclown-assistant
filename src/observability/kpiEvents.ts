@@ -24,6 +24,7 @@ export const KPI_EVENT_NAMES = {
   forget_me_requested: "forget_me_requested",
   history_query: "history_query",
   callback_received: "callback_received",
+  route_unmatched: "route_unmatched",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];
@@ -57,6 +58,7 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_right_to_delete_total: "kbju_right_to_delete_total",
   kbju_raw_media_delete_failures_total: "kbju_raw_media_delete_failures_total",
   kbju_tenant_audit_cross_user_references: "kbju_tenant_audit_cross_user_references",
+  kbju_route_unmatched_count: "kbju_route_unmatched_count",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
