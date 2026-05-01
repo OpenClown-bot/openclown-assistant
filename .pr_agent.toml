@@ -1,7 +1,14 @@
 [config]
 # Model: Qwen 3.6 Plus through OmniRoute (Fireworks endpoint).
 # Plus is the latest flagship; matches our GLM/Kimi tier and is OmniRoute-billed.
-model = "fireworks/accounts/fireworks/models/qwen3p6-plus"
+# `openai/` prefix is required by LiteLLM (PR-Agent's underlying client) to route
+# this call through the OpenAI-compatible custom endpoint defined by `OPENAI.API_BASE`
+# (set in .github/workflows/pr_agent.yml). Without `openai/`, LiteLLM tries to
+# parse the first path segment as a provider (e.g. `fireworks` → fails as "LLM Provider
+# NOT provided" because the canonical Fireworks provider in LiteLLM is `fireworks_ai`,
+# and even that bypasses our OmniRoute proxy). Ref:
+# https://litellm.vercel.app/docs/providers/openai_compatible
+model = "openai/accounts/fireworks/models/qwen3p6-plus"
 # 128k context window — Qwen Plus's native limit.
 custom_model_max_tokens = 131072
 # 3 minutes — Qwen on OmniRoute can be slower than gpt-5.4 family.
