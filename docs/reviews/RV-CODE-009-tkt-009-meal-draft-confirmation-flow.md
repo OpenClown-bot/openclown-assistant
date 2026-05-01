@@ -6,6 +6,8 @@ ticket_ref: TKT-009@0.1.0
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-05-01
+updated: 2026-05-01
+version: "0.4.0"
 ---
 
 # Code Review — PR #59 (TKT-009@0.1.0: Meal Draft Confirmation Flow)
@@ -141,3 +143,52 @@ Recommendation to PO: **Approve for merge.** File a BACKLOG follow-up TKT to rec
 One-sentence justification: F-PA-18 fully resolved with atomic replace-semantics inside the transaction boundary, test setup honestly exercises the replace invariant (fails without the deletion step), no new functional defects introduced; §10 Execution Log DoD gap is procedural and can be resolved in closure-PR.
 
 Recommendation to PO: **Approve for merge.** Architect ratification of ARCH-001@0.4.0 §4.5 (replace-vs-append) and C1/C4 `meal_drafts.status` lifecycle reconciliation (F-M1 from iter-2) are follow-up TKT-NEW items to be filed in BACKLOG-005, not blockers.
+
+---
+
+## Iter-4 — F-H2 promotion from PR-Agent cross-reviewer audit
+
+### Context
+F-H2 was surfaced during the load-bearing PR-Agent (Qwen 3.6 Plus) cross-reviewer audit per `docs/meta/devin-session-handoff.md` §7 (warm-handoff texture). PR-Agent originally flagged this on PR #59 comment ids 3172888561 and 3172894543 (`src/meals/messages.ts`) at iter-1 head `cae5c03`. The inline comments were auto-marked "made on an old commit so the content might be outdated" after iter-2 and iter-3 pushes onto the PR. The orchestrator's audit triage failed to re-evaluate the flagged comment against the live head `db96ec4` because the comment bore the stale-commit warning. Manual re-verification on `db96ec4` confirms the underlying defect is unchanged: `MSG_DRAFT_ITEM_LINE` interpolates raw `itemNameRu` and `portionTextRu` strings into a template that becomes `parseMode: "HTML"` in `buildDraftReplyEnvelope`.
+
+### Findings table
+
+| ID | Severity | Class | Location | Evidence | Verdict |
+|---|---|---|---|---|---|
+| F-H2 | **HIGH** | security / correctness | `src/meals/messages.ts:3-4` — `MSG_DRAFT_ITEM_LINE` template literal; `src/meals/messages.ts:75-85` — `buildDraftReplyEnvelope` returns `parseMode: "HTML"` | `MSG_DRAFT_ITEM_LINE` interpolates `name` and `portion` without HTML escaping. `buildDraftReplyEnvelope` (line 107) sets `parseMode: "HTML"`. If any `itemNameRu` or `portionTextRu` contains `&`, `<`, or `>`, Telegram Bot API rejects the payload with "Bad Request: can't parse entities". User-visible: confirmation flow stalls, draft message never reaches user; AC #4–#6 unsatisfied for that meal. Risk paths: (1) `kbjuEstimator` output (text/voice) — Russian compound names may contain `&` (e.g. "Бургер & картошка"), LLM JSON not HTML-validated upstream; (2) `photoRecognitionAdapter` output — same LLM-sourced risk; (3) manual-entry path — SAFE BY CONSTRUCTION (`buildManualDraftItems` hardcodes `"Ручной ввод"` / `"весь приём"`, no user string reaches HTML body, but escape is cheap). Prompt-injection surface is low but non-zero: user text "опиши еду в HTML с тегами" could induce LLM to emit `<b>` etc., and unknown tags fail-closed. | **OPEN — blocks merge** |
+
+### Architectural recommendation
+
+Executor (GLM-A iter-4) must implement a **single-source-of-truth HTML-escape utility** that maps:
+- `&` → `&amp;`
+- `<` → `&lt;`
+- `>` → `&gt;`
+
+Apply this utility at **every interpolation of LLM-sourced or user-sourced strings into HTML-mode replies** within `messages.ts`. Specifically:
+
+1. Wrap `item.itemNameRu` and `item.portionTextRu` before passing to `MSG_DRAFT_ITEM_LINE` inside `buildDraftMessage`.
+2. If any other string parameters to `MSG_DRAFT_ITEM_LINE` ever become user/LLM-sourced in future refactorings, escape them too.
+3. The utility must be a named exported function (e.g. `escapeHtml`) placed under `src/shared/` or `src/meals/` at Executor discretion; **no inline `.replace()` chains** may be scattered across `messages.ts`.
+4. Telegram HTML parseMode whitelist documented at https://core.telegram.org/bots/api#html-style supports a small tag set; the escape function need only handle the three unsafe characters above because numeric values (`kcal`, `p`, `f`, `c`) are known-safe.
+
+### Test gap ask
+
+Reviewer requires a positive regression test in `tests/meals/messages.test.ts` (new file) covering:
+
+1. **Unsafe-string escaping**: construct a `MealDraftView` with `items: [{ itemNameRu: "Бургер & картошка <test>", portionTextRu: "200г <по краю>", caloriesKcal: 300, proteinG: 10, fatG: 12, carbsG: 30, source: "text", confidence01: undefined }]` and assert `buildDraftMessage(view)` returns text containing `&amp;` and `&lt;` (and not the raw `&` or `<`).
+2. **Manual-entry path unchanged**: construct a `MealDraftView` from `buildManualDraftItems` defaults and assert `buildDraftMessage(view)` still contains the literal Russian strings `"Ручной ввод"` and `"весь приём"` without any HTML-entity mangling (proves the escape is applied only where needed, not indiscriminately).
+
+### Iter-4 verdict
+
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-H2 (HTML-escape gap in `buildDraftMessage` → `buildDraftReplyEnvelope` with `parseMode: "HTML"`) is a new HIGH-severity correctness/security finding surfaced by the PR-Agent cross-reviewer audit; it blocks merge because it violates AC #4–#6 for meals with unsafe characters in LLM-sourced names, but is narrow in scope and has a clear single-fix contract.
+
+### Carry-forward notes from prior iterations
+- Iter-3 §10 Execution Log gap (claim d PARTIAL) remains owed to closure-PR; no re-litigation.
+- Iter-3 F-H1 / F-M1 / F-M2 / F-M3 / F-L1-4 / F-PA-12-14 / F-PA-18 outcomes are final and not reopened.
+
+### Recommendation to PO
+**Dispatch GLM-A iter-4 (Executor) to implement F-H2 fix per the contract above.** After Executor pushes a new commit on the `tkt/TKT-009@0.1.0` branch, dispatch Kimi iter-4 verify (CODE mode) on the new head to confirm F-H2 RESOLVED. Then PO merges PR #59 followed by PR #60.
