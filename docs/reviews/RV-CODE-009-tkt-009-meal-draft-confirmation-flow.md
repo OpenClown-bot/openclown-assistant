@@ -112,3 +112,32 @@ Recommendation to PO: request changes from Executor (fix F-H1; triage F-M1 / F-M
 One-sentence justification: F-H1 (blocking concurrency defect) is fully resolved with defensive try/catch, race-condition envelope routing, and concurrent-race unit tests; all Medium and Low findings from iter-1 are resolved except F-M1 which is deferred with commit-message documentation and requires a BACKLOG TKT for C1/C4 state reconciliation before the next integration milestone.
 
 Recommendation to PO: **Approve for merge.** File a BACKLOG follow-up TKT to reconcile C1/C4 `meal_drafts.status` lifecycle (C1 creates `estimating` → C4 updates to `awaiting_confirmation` per ARCH-001@0.2.0 §4.2 / §4.4). No additional code iteration required.
+
+---
+
+## Iter-3 review (head: db96ec4)
+
+### Per-finding outcomes
+- **F-PA-18 (PR-Agent, importance 8 — promoted to iter-3 by orchestrator):** **RESOLVED** — `applyCorrection` now calls `await repo.deleteMealDraftItemsByDraftId(userId, correction.draftId)` (`src/meals/mealOrchestrator.ts:362`) before the insert loop, inside the same `withTransaction(...)` callback (atomic replace-semantics). New repo method `deleteMealDraftItemsByDraftId(userId, draftId): Promise<number>` added to `TenantScopedRepository` interface (`src/store/types.ts:522`) with proxy (`src/store/tenantStore.ts:212-214`) and implementation (`src/store/tenantStore.ts:580-587`) using `DELETE FROM meal_draft_items WHERE user_id = $1 AND draft_id = $2`. Test rewritten at `tests/meals/mealOrchestrator.test.ts:705-762`: setup now creates 3 `preExistingItems` for `DRAFT_ID` before calling `applyCorrection` with 2 corrected items; assertion `expect(repo.deleteMealDraftItemsByDraftId).toHaveBeenCalledWith(USER_ID, DRAFT_ID)` (line 761) verifies the deletion was actually invoked; the post-correction `createdDraftItems.filter(...).length === 2` exercises the replace invariant — without the deletion step the count would be `5 ≠ 2` and the test would fail.
+
+- **Iter-2 F-L1 retraction:** the iter-2 RESOLVED status was incorrect — the test setup omitted pre-existing items and the assertion passed by coincidence. Iter-3 corrects this. CONTEXT-FINDING for Architect: ARCH-001@0.4.0 §4.5 should be amended in @0.5.0 to make replace-semantics explicit (per Executor's §10 ratification ask).
+
+- **Tenant-store contract test (`tests/store/tenantStore.test.ts:47`):** `expectedTenantStoreMethods` array updated to include `"deleteMealDraftItemsByDraftId"`; this is a contract-completeness check that prevents future regressions if the method is removed from the proxy.
+
+- **Claim (d) note — TKT-009@0.1.0 §10 Execution Log:** **PARTIAL** — §5 Outputs correctly expanded to list `src/store/types.ts` and `src/store/tenantStore.ts` (lines 52-53), but §10 Execution Log remains empty. The "Architect ratification ask" for ARCH-001@0.4.0 §4.5 (replace-vs-append) exists in the commit message (`db96ec4`) but was not written into the TKT file's §10. This is a Definition of Done gap (TKT-009@0.1.0 §8 item 4). Executor should append the iter-3 entry to §10 before closure-PR merge.
+
+### Iter-3 metrics
+- `npm test -- tests/meals/`: 44/44 passed (no net delta; F-L1 test rewritten in place)
+- `npm test` (full): 418/418 passed (no net delta; existing tests preserved)
+- `npm run lint`: zero errors
+- `npm run typecheck`: zero errors
+- `python3 scripts/validate_docs.py`: 50/0 on tkt branch (51/0 with rv-branch review file)
+
+### Iter-3 verdict
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-PA-18 fully resolved with atomic replace-semantics inside the transaction boundary, test setup honestly exercises the replace invariant (fails without the deletion step), no new functional defects introduced; §10 Execution Log DoD gap is procedural and can be resolved in closure-PR.
+
+Recommendation to PO: **Approve for merge.** Architect ratification of ARCH-001@0.4.0 §4.5 (replace-vs-append) and C1/C4 `meal_drafts.status` lifecycle reconciliation (F-M1 from iter-2) are follow-up TKT-NEW items to be filed in BACKLOG-005, not blockers.
