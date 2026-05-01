@@ -1,7 +1,7 @@
 ---
 id: TKT-007
 title: "Voice Transcription Adapter"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "C5 Voice Transcription Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0"]
@@ -9,7 +9,10 @@ blocks: ["TKT-009@0.1.0", "TKT-014@0.1.0"]
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-05-01
+completed_at: 2026-05-01
+completed_by: "yourmomsenpai (PO)"
+completed_note: "TKT-007 closed following RV-CODE-007 iter-1 verdict pass_with_changes (no re-review required per Reviewer carve-out). Implementation merged via PR #50 (squash commit b3e9ed5) covering all 8 ACs (npm test 321/321, lint clean, typecheck clean, Whisper V3 Turbo through OmniRoute audio path with configured runtime fallback, ≤15-second voice duration enforcement, transcript-store-on-success only, audio deletion on success or terminal failure, first-failure text fallback and second-consecutive-failure manual-entry signal). Review trail: iter-1 (commit 4ba7c3b, pass_with_changes 2M/2L) → iter-2 (commit dd780d2, no re-review per Kimi recommendation; F-M1 providerAlias from `TranscriptionConfig` and F-M2 PR body Rollback line and F-L2 dead `WHISPER_MODEL_ALIAS` export RESOLVED). One low finding F-L1 (Architect-deferred LOG_FORBIDDEN_FIELDS allowlist for `transcriptText` defense-in-depth) plus 4 PR-Agent supplementary findings (Missing Error Path on `readAudio` throws, Unvalidated JSON Response shape, Latency Budget Drift on retry scheduling, Cost-tracking inconsistency on `recordCostAndCheckBudget` throw) DEFERRED to BACKLOG-003@0.1.0 §TKT-NEW-H/I/J/K/L per PO decision on 2026-05-01 (fix M, defer L). PR-Agent supplementary review on PR #50: 285-line `/review` block with 3 findings + 2 inline `/improve` suggestions on iter-2 commit; informational only, all 5 PR-Agent findings catalogued in BACKLOG-003."
 ---
 
 # TKT-007: Voice Transcription Adapter
