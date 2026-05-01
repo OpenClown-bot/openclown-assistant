@@ -8,10 +8,23 @@ on:
   issue_comment:
   workflow_dispatch:
 
+# When a new push lands on a PR, cancel any still-running PR-Agent run on the
+# previous HEAD. This avoids stale runs sitting in IN_PROGRESS for 20+ min
+# after the PR has already moved on, and frees the runner pool.
+concurrency:
+  group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pr_agent_job:
     if: ${{ github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    # Hard cap on a single PR-Agent run. Normal runtime is 3–9 min; tail
+    # latency can hit 20+ min on OmniRoute / Fireworks congestion. Capping at
+    # 12 min prevents runaway runs from blocking the cycle indefinitely. If
+    # a run hits this timeout, that's a signal to Devin Orchestrator to
+    # investigate provider health rather than wait silently.
+    timeout-minutes: 12
     permissions:
       issues: write
       pull-requests: write

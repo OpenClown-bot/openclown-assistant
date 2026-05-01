@@ -278,6 +278,7 @@ The TO will hand back via the PO's chat with a structured message of the form do
 
 - PR(s) and HEAD SHAs.
 - Final iter number and Reviewer verdict.
+- **PR-Agent state on final Executor HEAD**: workflow run id + `conclusion: success` + persistent-review `updated_until_commit` matches final Executor HEAD + classified findings list. If the PR-Agent state is `IN_PROGRESS`, `failure`, `cancelled`, or stale on a prior HEAD → the hand-back is incomplete; bounce. The TO is required to wait for PR-Agent settlement before handing back (see `docs/prompts/ticket-orchestrator.md` § PR-Agent settle-on-final-HEAD requirement).
 - Cross-reviewer audit pass-1 list — every PR-Agent finding by id with classification (RESOLVED / promoted-to-iter-N+1 / deferred-to-BACKLOG-X TKT-NEW-Y) and one-line rationale.
 - Strategic blockers (none, or list).
 - Pending closure-PR scope.
@@ -291,10 +292,11 @@ Independently re-run the cross-reviewer audit on the same evidence the TO audite
 1. Re-read every Reviewer finding in the latest `RV-CODE-<NNN>` iter section.
 2. Re-read every PR-Agent inline `/improve` comment on the PR — including comments marked "old commit". Use the `git_view_pr` tool (or `gh pr view --comments`) to fetch all comments.
 3. Re-read every PR-Agent persistent-review block on the PR.
-4. Compare the TO's classifications to your independent re-classifications. If any disagree on a finding with importance ≥ 7 OR security / correctness / data-integrity class, bounce back to the TO with a Reviewer iter-N+1 NUDGE for that finding.
-5. If all classifications agree and the cycle is closure-ready, sign off with merge-safe and the merge order to the PO.
+4. **Verify PR-Agent has settled on the final Executor HEAD.** Even if the TO hand-back claims `conclusion: success`, re-check independently — `gh api "repos/<owner>/<repo>/actions/workflows/pr_agent.yml/runs?per_page=10" --jq '.workflow_runs[] | select(.head_sha == "<final-head>")'` and confirm `status: completed`, `conclusion: success`. Re-fetch the persistent-review comment and confirm `Review updated until commit https://...commit/<final-head>` matches the current Executor HEAD. If PR-Agent is still `IN_PROGRESS` or stale, **wait** before signing off — do not give the PO "merge safe" with PR-Agent state unresolved.
+5. Compare the TO's classifications to your independent re-classifications. If any disagree on a finding with importance ≥ 7 OR security / correctness / data-integrity class, bounce back to the TO with a Reviewer iter-N+1 NUDGE for that finding.
+6. If all classifications agree, PR-Agent on final HEAD shows no major issues, and the cycle is closure-ready, sign off with merge-safe and the merge order to the PO.
 
-The two-phase rule originates from the F-PA-17 miss (`docs/session-log/2026-05-01-session-3.md` §6.7). One audit pass is not enough; two independent passes by uncorrelated reasoners (TO on GPT-5.5 thinking, Devin on Devin's own model) is the structural fix.
+The two-phase rule originates from the F-PA-17 miss (`docs/session-log/2026-05-01-session-3.md` §6.7). One audit pass is not enough; two independent passes by uncorrelated reasoners (TO on GPT-5.5 thinking, Devin on Devin's own model) is the structural fix. The PR-Agent settle-on-final-HEAD step (#4) was added in 2026-05-01-session-3 part-2 after the TKT-010 first-TO-pilot hand-back came in with PR-Agent on final HEAD still `IN_PROGRESS`; that hand-back ratified clean only because the run completed during Devin's audit (~22 min total run time on that one push), but the same scenario could trivially have hidden a substantive new finding.
 
 ### 11.5 Multi-TKT parallelism
 
