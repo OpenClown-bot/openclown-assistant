@@ -9,11 +9,10 @@ export const TRANSCRIPTION_TIMEOUT_MS = 7000;
 
 export const TRANSCRIPTION_RETRY_DELAY_MS = 500;
 
-export const WHISPER_MODEL_ALIAS = "whisper-v3-turbo";
-
 export interface TranscriptionConfig {
   baseUrl: string;
   apiKey: string;
+  providerAlias: ProviderAlias;
   modelAlias: string;
   languageHint: string;
   maxLatencyMs: number;

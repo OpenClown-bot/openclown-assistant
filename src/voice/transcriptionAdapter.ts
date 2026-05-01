@@ -56,16 +56,16 @@ export async function transcribeVoice(
         "user_fallback",
         request.degradeModeEnabled,
         {
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: config.providerAlias,
           duration_seconds: request.durationSeconds,
         }
       )
     );
 
-    await safeDeleteAudio(request);
+    await safeDeleteAudio(request, config.providerAlias);
 
     return {
-      providerAlias: "omniroute",
+      providerAlias: config.providerAlias,
       modelAlias: config.modelAlias,
       transcriptText: MSG_VOICE_TOO_LONG,
       confidence: null,
@@ -91,15 +91,15 @@ export async function transcribeVoice(
         {
           call_type: "transcription",
           estimated_cost_usd: preflight.estimatedCallCostUsd,
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: config.providerAlias,
         }
       )
     );
 
-    await safeDeleteAudio(request);
+    await safeDeleteAudio(request, config.providerAlias);
 
     return {
-      providerAlias: "omniroute",
+      providerAlias: config.providerAlias,
       modelAlias: config.modelAlias,
       transcriptText: "",
       confidence: null,
@@ -122,7 +122,7 @@ export async function transcribeVoice(
       request.degradeModeEnabled,
       {
         call_type: "transcription",
-        provider_alias: "omniroute" as ProviderAlias,
+        provider_alias: config.providerAlias,
         model_alias: config.modelAlias,
       }
     )
@@ -149,7 +149,7 @@ export async function transcribeVoice(
     );
 
     if (!isWithinLatencyBudget(startTime, config.maxLatencyMs)) {
-      await safeDeleteAudio(request);
+      await safeDeleteAudio(request, config.providerAlias);
       return stripRetryable(firstAttempt, true);
     }
 
@@ -165,7 +165,7 @@ export async function transcribeVoice(
     }
   }
 
-  await safeDeleteAudio(request);
+  await safeDeleteAudio(request, config.providerAlias);
   return stripRetryable(firstAttempt, true);
 }
 
@@ -241,7 +241,7 @@ async function attemptTranscription(
           request.degradeModeEnabled,
           {
             call_type: "transcription",
-            provider_alias: "omniroute" as ProviderAlias,
+            provider_alias: config.providerAlias,
             model_alias: config.modelAlias,
             error_code: `http_${httpResponse.status}`,
           }
@@ -249,7 +249,7 @@ async function attemptTranscription(
       );
 
       return {
-        providerAlias: "omniroute",
+        providerAlias: config.providerAlias,
         modelAlias: config.modelAlias,
         transcriptText: "",
         confidence: null,
@@ -269,7 +269,7 @@ async function attemptTranscription(
     const confidence =
       typeof json.confidence === "number" ? json.confidence : null;
 
-    const deletionOk = await safeDeleteAudio(request);
+    const deletionOk = await safeDeleteAudio(request, config.providerAlias);
 
     await request.spendTracker.recordCostAndCheckBudget(
       preflight.estimatedCallCostUsd,
@@ -291,7 +291,7 @@ async function attemptTranscription(
         request.degradeModeEnabled,
         {
           call_type: "transcription",
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: config.providerAlias,
           model_alias: config.modelAlias,
           estimated_cost_usd: preflight.estimatedCallCostUsd,
           latency_ms: latencyMs,
@@ -300,7 +300,7 @@ async function attemptTranscription(
     );
 
     return {
-      providerAlias: "omniroute",
+      providerAlias: config.providerAlias,
       modelAlias: config.modelAlias,
       transcriptText,
       confidence,
@@ -328,7 +328,7 @@ async function attemptTranscription(
         request.degradeModeEnabled,
         {
           call_type: "transcription",
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: config.providerAlias,
           model_alias: config.modelAlias,
           error_code: errorCode,
         }
@@ -336,7 +336,7 @@ async function attemptTranscription(
     );
 
     return {
-      providerAlias: "omniroute",
+      providerAlias: config.providerAlias,
       modelAlias: config.modelAlias,
       transcriptText: "",
       confidence: null,
@@ -356,7 +356,8 @@ function isWithinLatencyBudget(
 }
 
 async function safeDeleteAudio(
-  request: TranscriptionRequest
+  request: TranscriptionRequest,
+  providerAlias: ProviderAlias
 ): Promise<boolean> {
   try {
     await request.deleteAudioFile();
@@ -375,7 +376,7 @@ async function safeDeleteAudio(
         request.degradeModeEnabled,
         {
           call_type: "transcription",
-          provider_alias: "omniroute" as ProviderAlias,
+          provider_alias: providerAlias,
         }
       )
     );

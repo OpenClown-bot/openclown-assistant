@@ -9,6 +9,7 @@ import { MSG_VOICE_TOO_LONG } from "../../src/telegram/messages.js";
 const mockConfig: TranscriptionConfig = {
   baseUrl: "https://omniroute.example.com",
   apiKey: "test-key",
+  providerAlias: "omniroute",
   modelAlias: "whisper-v3-turbo",
   languageHint: "ru",
   maxLatencyMs: 8000,
@@ -310,7 +311,35 @@ describe("transcribeVoice", () => {
       expect(JSON.stringify(meta)).not.toContain("гречка");
     }
   });
+
+  it("uses config.providerAlias in results and logs when set to fireworks (F-M1)", async () => {
+    const fireworksConfig: TranscriptionConfig = {
+      ...mockConfig,
+      providerAlias: "fireworks",
+    };
+    const logger = makeMockLogger();
+    const request = makeRequest({ logger });
+    fetchSpy.mockResolvedValue(mockFetchSuccess());
+
+    const result = await transcribeVoice(fireworksConfig, request);
+    expect(result.providerAlias).toBe("fireworks");
+
+    const allCalls = [
+      ...vi.mocked(logger.info).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
+      ...vi.mocked(logger.error).mock.calls,
+      ...vi.mocked(logger.critical).mock.calls,
+    ];
+    for (const call of allCalls) {
+      const meta = call[1] as Record<string, unknown> | undefined;
+      if (!meta) continue;
+      if (meta.provider_alias !== undefined) {
+        expect(meta.provider_alias).toBe("fireworks");
+      }
+    }
+  });
 });
+
 
 describe("DurationExceededError", () => {
   it("carries duration metadata", () => {
