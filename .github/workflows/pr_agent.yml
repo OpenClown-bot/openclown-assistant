@@ -26,7 +26,7 @@ jobs:
           OPENAI.API_BASE: "https://omniroute.infinitycore.space:8443/v1"
           OPENAI.API_TYPE: "openai"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          config.model: "fireworks/accounts/fireworks/models/qwen3p6-plus"
+          config.model: "openai/accounts/fireworks/models/qwen3p6-plus"
           config.custom_model_max_tokens: "131072"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
