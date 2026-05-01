@@ -1,7 +1,7 @@
 ---
 id: TKT-010
 title: "History Mutation Flow"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C8 History Mutation Service"
 depends_on: ["TKT-002@0.1.0", "TKT-004@0.1.0", "TKT-009@0.1.0"]
@@ -75,8 +75,11 @@ Implement paginated meal history mutation with audit records.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-010-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+2026-05-01 16:20 glm-5.1: started; confirmed status=ready, assigned_executor=glm-5.1, branch created, status transitioned to in_progress
+2026-05-01 16:22 glm-5.1: implementation complete — src/history/types.ts, messages.ts, historyService.ts + 25 tests. All ACs satisfied via dependency-interface pattern (C3 integration deferred to follow-up). Tests pass, lint/typecheck pass, validate_docs 54/0.
+2026-05-01 16:23 glm-5.1: opening PR
+2026-05-01 16:43 glm-5.1: iter-2 fixes for RV-CODE-010 findings. F-H1: added withTransaction primitive, edit/delete now run inside transaction callback with rollback. F-H2: added HistoryMutationConflictError, catch and map to not_found uniformly. F-M1: seeded summary record fixtures, assert immutability. F-M2: use beforeItems.length for removedCount. F-M3: service-level newest-first sort. F-M4: removed dead countConfirmedMeals. 32 tests pass, lint/typecheck pass, validate_docs 54/0.
+2026-05-01 16:53 glm-5.1: iter-3 nudge — added source_ref to snapshotToJson item serialization; added audit snapshot assertion proving source_ref present in before/after items. 32 tests pass, lint/typecheck pass, validate_docs 54/0.
 
 ---
 
