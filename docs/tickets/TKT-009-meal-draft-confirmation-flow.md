@@ -1,7 +1,7 @@
 ---
 id: TKT-009
 title: "Meal Draft Confirmation Flow"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C4 Meal Logging Orchestrator"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-005@0.1.0", "TKT-006@0.1.0", "TKT-007@0.1.0", "TKT-008@0.1.0"]
@@ -49,6 +49,8 @@ Implement the meal draft confirmation orchestration for text, voice, photo, manu
 - `src/observability/events.ts`
 
 ## 5. Outputs (deliverables — Executor's diff MUST match this list exactly)
+- [ ] `src/store/types.ts` — `deleteMealDraftItemsByDraftId` added to `TenantScopedRepository` interface (iter-3 scope expansion)
+- [ ] `src/store/tenantStore.ts` — proxy + impl for `deleteMealDraftItemsByDraftId` (iter-3 scope expansion)
 - [ ] `src/meals/types.ts` exporting draft, confirmation, correction, and manual-entry types
 - [ ] `src/meals/messages.ts` exporting Russian meal draft/fallback copy
 - [ ] `src/meals/manualEntry.ts` exporting guided manual KBJU parsing
