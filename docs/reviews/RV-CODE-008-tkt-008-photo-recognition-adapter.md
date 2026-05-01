@@ -62,3 +62,30 @@ Recommendation to PO: request changes from Executor (fix F-H1 and F-M1; F-M2 sho
 4. F-L1, F-L2, F-L3 are low-severity nits and can be fixed in the same patch or deferred.
 
 Once F-H1 and F-M1 are resolved, re-request review from Kimi K2.6 (iter-2).
+
+---
+ 
+## Iter-2 (post-fix re-review on commit bb40216)
+ 
+**Local validation results:**
+- npm test: 344 passed (344) — change vs iter-1: +0 net (iter-1 had 364 across 18 files; iter-2 has 344 across 16 files; photo-specific tests increased from 44 to 48 with 4 new tests for F-M1 ×3 + F-M3 ×1)
+- npm run lint: PASS
+- npm run typecheck: PASS
+- validate_docs.py: 46/0
+ 
+**Re-evaluation:**
+- F-H1 (merge-conflict markers): **RESOLVED** — `git diff origin/main..HEAD -- 'docs/tickets/TKT-008@0.1.0-photo-recognition-adapter.md'` shows zero `<<<<<<< / ======= / >>>>>>>` lines. Lines 83–86 of the Ticket file now contain clean HTML-comment Execution Log entries (`<!-- 2026-05-01 00:15 glm-5.1: started -->`, `<!-- 2026-05-01 00:30 glm-5.1: opened PR #51 -->`, `<!-- 2026-05-01 00:45 glm-5.1: iter-2 fixes pushed -->`) with no conflict markers. Frontmatter `status: in_review` is present and correct.
+- F-M1 (HTTP-status-gated retry): **RESOLVED** — `attemptVisionCall` (lines 321–357) now computes `isTransient = httpResponse.status >= 500 || httpResponse.status === 429` and returns it in `transientFailure` field. The retry branch in `recognizePhoto` (lines 235–238) gates on `firstAttempt.outcome === "provider_failure" && firstAttempt.transientFailure && isWithinLatencyBudget(...)`. Tests at lines 442–470 assert `fetchSpy.toHaveBeenCalledTimes(1)` for 400, 401, and 403 — no retry fired. The existing 429 test (line 472–488) still passes with 2 calls.
+- F-M2 (negative portion_grams): **RESOLVED** — `validateVisionOutput` line 99 now contains `|| (item.portion_grams !== null && typeof item.portion_grams === "number" && item.portion_grams < 0)` with error string `item_${i}_negative_portion_grams`. Tests at lines 145–165 cover boundary cases: `-1` → rejected, `0` → accepted, `null` → accepted.
+- F-M3 (retry-success-path test): **RESOLVED** — New test at lines 490–509 (`"retries on 5xx and succeeds on second attempt"`) chains `mockFetchError(500)` then `mockFetchSuccess(...)`, asserts `outcome === "success"`, `photoDeleted === true`, `deletePhotoFile` called once, `fetchSpy.toHaveBeenCalledTimes(2)`, and `items.length === 1`. All pass.
+- F-L1 (per-attempt timeout cap): **RESOLVED** — `attemptVisionCall` line 277–281 computes `perAttemptTimeout = Math.min(VISION_TIMEOUT_MS, Math.max(0, config.maxLatencyMs - elapsedMs))` where `elapsedMs = Date.now() - startTime` (startTime is passed from the caller, not a fresh `Date.now()` inside the function). Both `body.timeout_ms` and `AbortController` setTimeout use this value.
+- F-L2 (budget_blocked deletion result): **RESOLVED** — `budget_blocked` path (line 188) now stores `const deletionOk = await safeDeletePhoto(request)` and returns `photoDeleted: deletionOk` (line 200) instead of hardcoded `true`. Test at lines 245–258 verifies `photoDeleted === false` when deletion fails on this path.
+- F-L3 (unused interface fields): **RESOLVED** — `VisionStructuredResponse` interface in `src/photo/types.ts` (lines 73–77) now contains only `items`, `confidence_0_1`, `needs_user_confirmation`. The JSON schema string in `buildVisionSystemPrompt` (line 41) no longer references `portion_text` or `uncertainty_reasons`. `makeValidVisionResponse` test helper also no longer emits these fields.
+ 
+**Iter-2 verdict:**
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification for the verdict: all seven findings from iter-1 are substantively resolved; F-H1 is cleaned, F-M1/M2/M3 are correctly implemented with tests, and F-L1/L2/L3 nits are fixed. The `transientFailure` field added to `PhotoRecognitionResult` is a reasonable internal-state carrier required for F-M1's HTTP-status-gated retry logic and does not leak to the Telegram layer.
+Top-level recommendation: approve for merge. No further Executor work required.
