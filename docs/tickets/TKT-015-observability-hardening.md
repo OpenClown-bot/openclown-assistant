@@ -1,7 +1,7 @@
 ---
 id: TKT-015
 title: "Observability Hardening"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.3.0
 component: "C1 Access-Controlled Telegram Entrypoint; C10 Cost, Degrade, and Observability Service"
 depends_on: ["TKT-003@0.1.0", "TKT-004@0.1.0"]
