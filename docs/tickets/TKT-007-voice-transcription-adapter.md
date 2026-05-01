@@ -1,7 +1,7 @@
 ---
 id: TKT-007
 title: "Voice Transcription Adapter"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.2.0
 component: "C5 Voice Transcription Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0"]
