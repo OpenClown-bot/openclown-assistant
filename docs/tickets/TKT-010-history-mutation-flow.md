@@ -1,7 +1,7 @@
 ---
 id: TKT-010
 title: "History Mutation Flow"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.2.0
 component: "C8 History Mutation Service"
 depends_on: ["TKT-002@0.1.0", "TKT-004@0.1.0", "TKT-009@0.1.0"]
