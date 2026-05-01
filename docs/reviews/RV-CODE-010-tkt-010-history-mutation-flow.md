@@ -85,3 +85,38 @@ Recommendation to PO: Request changes from Executor — add a transaction primit
 ## Notes
 - Executor AC table claims all ACs pass. This review disagrees on AC #8 (summary immutability tests are insufficient per F-M1) and notes weaknesses in AC #4 proof (F-M3) and AC #5 existence-leakage coverage (F-H2 lacks concurrent-race test).
 - The Executor's follow-up framing (TKT-FOLLOWUP-1 through TKT-FOLLOWUP-3) is appropriate for production wiring and Telegram routing, but it cannot defer the transactionality constraint (TKT-010@0.1.0 §7) or the atomic-edit contract (ArchSpec §4.5) to a later ticket.
+
+---
+
+### iter-2 verify (2026-05-01, kimi-k2.6)
+
+Executor iter-2 HEAD: `a6b2aac8e62551ab210946e77c950c179446a8d6`
+Previous reviewed Executor HEAD: `1df2bd8caa6c3901ddc168dfff3fb2e5f2df1b71`
+Review branch HEAD at verify start: `a93a3e07a94240625e5b9581c74a2c5c36f28ed5`
+
+#### Verification results
+
+| Finding | Resolution | Evidence |
+|---|---|---|
+| **F-H1** (transaction primitive / atomic edit-delete) | **RESOLVED** | `HistoryDeps` now declares `withTransaction<T>(action: (tx: HistoryTransactionalDeps) => Promise<T>): Promise<T>` (`src/history/types.ts:124-126`). Both `editMeal` and `deleteMeal` execute all reads and writes inside a single `withTransaction` callback (`historyService.ts:42-102`, `104-167`). Fake dependency implements snapshot/rollback semantics verified by tests: "editMeal → rolls back store on transaction failure" and "deleteMeal → rolls back store on transaction failure" assert `transactionLog` contains `"rollback"` and store state is restored to pre-mutation values. "successful edit/delete runs inside transaction with commit" assert `transactionLog` equals `["begin", "commit"]`. |
+| **F-H2** (uniform `not_found` for version-conflict errors) | **RESOLVED** | `HistoryMutationConflictError` added (`types.ts:77-85`). Both `editMeal` and `deleteMeal` wrap the `withTransaction` call in `try/catch` and map `HistoryMutationConflictError` to `{ kind: "not_found" }` (`historyService.ts:96-101`, `161-166`). Tests explicitly verify: "catches HistoryMutationConflictError from dependency version mismatch and returns not_found" for both edit and delete paths. No unhandled exceptions leak existence. |
+| **F-M1** (summary_records immutability tests) | **RESOLVED** | `FakeStore` now includes `summaryRecords: SummaryRecordFixture[]` array and `seedSummaryRecord` helper (`tests/history/historyService.test.ts:77-88`, `271-286`). Tests "delivered summary records are not modified by edit" and "delivered summary records are not modified by delete" seed a fixture, perform the mutation, and assert `store.summaryRecords` length remains 1 and all original fields (`totalCaloriesKcal`, `totalProteinG`, `totalFatG`, `totalCarbsG`, `deliveredAt`) are unchanged. |
+| **F-M2** (`deleteMeal` removedCount uses `beforeItems.length`) | **RESOLVED** | `deleteMeal` now computes `removedCount: beforeItems.length` (`historyService.ts:155`). |
+| **F-M3** (newest-first pagination proof/enforcement) | **RESOLVED** | `sortMealsNewestFirst` added at service level (`historyService.ts:19-25`) sorting by `mealLoggedAt` descending with `id` tie-breaker. Test "enforces newest-first even when dependency returns unsorted meals" explicitly reverses the fake dependency output and asserts the service re-sorts to `meal-new` → `meal-mid` → `meal-old`. |
+| **F-M4** (dead `countConfirmedMeals`) | **RESOLVED** | `countConfirmedMeals` removed from `HistoryDeps`/`HistoryTransactionalDeps` interfaces. |
+| **F-L1** (offset cursor fragility) | **NOT RESOLVED** — acceptable defer | `HistoryCursor` still uses integer `offset`. No TODO or note added. Low severity; acceptable for a 2-user pilot but should be addressed in a future pagination robustness ticket (e.g., keyset cursor). |
+| **F-L2** (unused message exports) | **RESOLVED** | Unused `MSG_HISTORY_NEXT_BUTTON`, `MSG_HISTORY_EDIT_BUTTON`, `MSG_HISTORY_DELETE_BUTTON` removed from `messages.ts`. |
+| **PR-Agent pre-iter-2 "Transactional Consistency Gap"** | **RESOLVED** | Same issue as F-H1; resolved by `withTransaction` primitive and transaction-scoped mutation. |
+| **PR-Agent pre-iter-2 "Missing Failure-Path Coverage"** | **RESOLVED** | Same issue as F-H2; resolved by `HistoryMutationConflictError` catch-and-map plus explicit tests. |
+| **PR-Agent current-head "Data Loss in Audit" (`snapshotToJson` omits `sourceRef`)** | **VALID — Medium** | `snapshotToJson` (`types.ts:177-195`) serializes `source: item.source` but omits `source_ref: item.sourceRef`. `MealItemView` includes `sourceRef: string | null` which carries the original data-source identifier (e.g., OpenFoodFacts barcode). Losing this in audit snapshots breaks item-level traceability for corrected items. This is a data-loss concern in audit fidelity but not explicitly required by TKT-010@0.1.0 §6 ACs or ArchSpec §4.5 step 3, which only mandate "before/after KBJU totals" snapshots. Verdict impact: non-blocking medium; recommend adding `source_ref: item.sourceRef` to the item mapping in a follow-up patch or next iteration. |
+
+#### Verdict for iter-2 verify
+
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+All prior high-severity findings (F-H1, F-H2) are resolved. All prior medium findings (F-M1–F-M4) are resolved. Low F-L2 resolved; F-L1 deferred. A new medium finding from PR-Agent cross-check (`snapshotToJson` `sourceRef` omission) remains non-blocking. No new high-severity issues.
+
+One-sentence justification: All blocking transactionality and existence-leakage defects are resolved with proven rollback/commit semantics and uniform `not_found` mapping; one non-blocking audit-data-loss medium finding (`sourceRef` omission in snapshots) remains.
+Recommendation to PO: Approve after Executor adds `source_ref: item.sourceRef` to `snapshotToJson` item mapping, or accept as a known medium for a follow-up patch.
