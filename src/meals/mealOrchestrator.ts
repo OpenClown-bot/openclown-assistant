@@ -359,6 +359,7 @@ export class MealOrchestrator {
             lowConfidenceLabelShown: draftRow.low_confidence_label_shown,
           });
 
+          await repo.deleteMealDraftItemsByDraftId(userId, correction.draftId);
           for (const candidate of correction.correctedItems) {
             await repo.createMealDraftItem(userId, {
               draftId: correction.draftId,

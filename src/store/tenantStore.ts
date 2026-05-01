@@ -209,6 +209,10 @@ export class TenantPostgresStore implements TenantStore {
     return this.withTransaction(userId, (repository) => repository.createMealDraftItem(userId, request));
   }
 
+  public async deleteMealDraftItemsByDraftId(userId: string, draftId: string): Promise<number> {
+    return this.withTransaction(userId, (repository) => repository.deleteMealDraftItemsByDraftId(userId, draftId));
+  }
+
   public async createConfirmedMeal(userId: string, request: CreateConfirmedMealRequest): Promise<ConfirmedMealRow> {
     return this.withTransaction(userId, (repository) => repository.createConfirmedMeal(userId, request));
   }
@@ -571,6 +575,14 @@ class TenantScopedRepositoryImpl implements TenantScopedRepository {
       ]
     );
     return expectOne(result, "meal_draft_items");
+  }
+
+  public async deleteMealDraftItemsByDraftId(userId: string, draftId: string): Promise<number> {
+    const result = await this.db.query<{ id: string }>(
+      `DELETE FROM meal_draft_items WHERE user_id = $1 AND draft_id = $2 RETURNING id`,
+      [userId, draftId]
+    );
+    return result.rowCount ?? result.rows.length;
   }
 
   public async createConfirmedMeal(userId: string, request: CreateConfirmedMealRequest): Promise<ConfirmedMealRow> {

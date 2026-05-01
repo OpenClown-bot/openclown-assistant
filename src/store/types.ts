@@ -519,6 +519,7 @@ export interface TenantScopedRepository {
   createMealDraft(userId: string, request: CreateMealDraftRequest): Promise<MealDraftRow>;
   updateMealDraftWithVersion(userId: string, request: UpdateMealDraftWithVersionRequest): Promise<MealDraftRow>;
   createMealDraftItem(userId: string, request: CreateMealDraftItemRequest): Promise<MealDraftItemRow>;
+  deleteMealDraftItemsByDraftId(userId: string, draftId: string): Promise<number>;
   createConfirmedMeal(userId: string, request: CreateConfirmedMealRequest): Promise<ConfirmedMealRow>;
   listConfirmedMeals(userId: string, request: ListConfirmedMealsRequest): Promise<ConfirmedMealRow[]>;
   softDeleteConfirmedMealWithVersion(userId: string, request: SoftDeleteConfirmedMealWithVersionRequest): Promise<ConfirmedMealRow>;

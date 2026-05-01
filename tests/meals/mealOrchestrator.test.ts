@@ -280,6 +280,15 @@ function makeMockRepository() {
         created_at: new Date().toISOString(),
       } as MetricEventRow;
     }),
+    deleteMealDraftItemsByDraftId: vi.fn(async (_userId: string, draftId: string) => {
+      const before = createdDraftItems.filter((i) => i.draft_id === draftId).length;
+      for (let i = createdDraftItems.length - 1; i >= 0; i--) {
+        if (createdDraftItems[i].draft_id === draftId) {
+          createdDraftItems.splice(i, 1);
+        }
+      }
+      return before;
+    }),
   };
 }
 
@@ -693,11 +702,18 @@ describe("MealOrchestrator", () => {
     });
   });
 
-  describe("F-L1: applyCorrection item count after correction", () => {
-    it("returns exactly correctedItems.length draft items after correction", async () => {
+  describe("F-L1: applyCorrection replace-semantics (F-PA-18)", () => {
+    it("replaces pre-existing draft items with corrected set (not append)", async () => {
       const repo = makeMockRepository();
       const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
-      const { orchestrator, draftLookup } = makeOrchestrator(repo, [draft], []);
+
+      const preExistingItems = [
+        makeDraftItemRow({ id: "old-1", draft_id: DRAFT_ID, item_name_ru: "старый_1", calories_kcal: 100, protein_g: 5, fat_g: 3, carbs_g: 10 }),
+        makeDraftItemRow({ id: "old-2", draft_id: DRAFT_ID, item_name_ru: "старый_2", calories_kcal: 200, protein_g: 10, fat_g: 6, carbs_g: 20 }),
+        makeDraftItemRow({ id: "old-3", draft_id: DRAFT_ID, item_name_ru: "старый_3", calories_kcal: 300, protein_g: 15, fat_g: 9, carbs_g: 30 }),
+      ];
+
+      const { orchestrator, draftLookup } = makeOrchestrator(repo, [draft], preExistingItems);
 
       const correctedItems: MealItemCandidate[] = [
         {
@@ -741,6 +757,8 @@ describe("MealOrchestrator", () => {
 
       const postCorrectionItems = repo.createdDraftItems.filter((i) => i.draft_id === DRAFT_ID);
       expect(postCorrectionItems.length).toBe(correctedItems.length);
+      expect(postCorrectionItems.every((item) => !item.item_name_ru.startsWith("старый"))).toBe(true);
+      expect(repo.deleteMealDraftItemsByDraftId).toHaveBeenCalledWith(USER_ID, DRAFT_ID);
     });
   });
 

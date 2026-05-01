@@ -44,6 +44,7 @@ const expectedTenantStoreMethods = [
   "createMealDraft",
   "updateMealDraftWithVersion",
   "createMealDraftItem",
+  "deleteMealDraftItemsByDraftId",
   "createConfirmedMeal",
   "listConfirmedMeals",
   "softDeleteConfirmedMealWithVersion",
