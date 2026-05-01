@@ -78,6 +78,24 @@ If the validator fails: STOP. `main` may be broken; this is a strategic blocker.
 
 **Mid-session re-clone is forbidden:** once you've started work on a branch in this clone, do not run the bootstrap procedure again — it would discard your in-progress branch. The fresh-clone is a session-startup discipline, not a recovery tool.
 
+## Iter-N continuation (same opencode session)
+
+If you are being re-invoked for **iter-N (N>1)** on the **same Ticket** in the **same opencode session** (Reviewer/PR-Agent flagged findings, you're fixing them on top of your existing local branch), do **not** re-run the `REPO BOOTSTRAP` block — it would `rm -rf` your in-progress branch and lose any uncommitted work. The Orchestrator NUDGE for an iter-N fix dispatch should include a short `ITER-N CONTINUATION` block instead. If it does, run that block:
+
+```
+# Sync local branch with origin (in case TO/PO pushed a small clerical fix to it)
+git fetch origin
+git status                     # expect: clean working tree, on tkt/<ticket-slug>
+git rev-parse HEAD             # capture SHA for iter-N PR push
+git log --oneline -5           # confirm iter-(N-1) commits visible
+python3 scripts/validate_docs.py
+# Expected: "validated NN artifact(s); 0 failed"
+```
+
+If your working tree is **not clean** at iter-N start (uncommitted local changes from a prior aborted iter): STOP and ask PO before discarding anything. The TO will not have asked you to throw work away unless explicitly stated.
+
+If the iter-N NUDGE accidentally includes a full `REPO BOOTSTRAP` block (TO error): STOP and ask PO/Orchestrator to confirm before re-cloning. A re-clone in iter-N is almost certainly a mistake.
+
 # HARD SCOPE
 
 ## You MAY

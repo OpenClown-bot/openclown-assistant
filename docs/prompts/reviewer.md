@@ -86,6 +86,29 @@ If the validator fails: STOP. `main` may be broken; this is a strategic blocker,
 
 **Mid-session re-clone is forbidden:** once you've started work on the `rv/...` branch in this clone, do not run the bootstrap procedure again — it would discard your in-progress review file.
 
+## Iter-N continuation (same opencode session)
+
+If you are being re-invoked for **iter-N (N>1) verify** on the **same Ticket review** in the **same opencode session** (Executor pushed a fix in response to your prior findings, you're now verifying), do **not** re-run the `REPO BOOTSTRAP` block — it would `rm -rf` your in-progress `rv/...` branch with the unfinished review file. Run a short `ITER-N CONTINUATION` block instead:
+
+```
+# Sync rv branch + fetch latest Executor branch
+git fetch origin
+git status                                # expect: clean working tree, on rv/<rv-slug>
+git rev-parse HEAD                        # capture SHA for iter-N review push
+git log --oneline -5                      # confirm iter-(N-1) review commits visible
+python3 scripts/validate_docs.py
+# Expected: "validated NN artifact(s); 0 failed"
+
+# Read the new Executor HEAD into your worktree for diff inspection.
+git fetch origin tkt/<executor-branch>
+git log origin/tkt/<executor-branch> --oneline -10  # see iter-N commits
+# Note: do NOT checkout the Executor branch — your review file lives on rv/...
+# Use `git diff origin/tkt/<executor-branch>~N..origin/tkt/<executor-branch>`
+# to read the iter-N delta if needed, or `gh pr diff <pr#>` for the cumulative diff.
+```
+
+If the iter-N NUDGE accidentally includes a full `REPO BOOTSTRAP` block (TO error): STOP and ask PO/Orchestrator to confirm before re-cloning. A re-clone in iter-N is almost certainly a mistake.
+
 # REVIEW MODES
 You are dispatched in one of two modes; the PO will tell you which:
 

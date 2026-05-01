@@ -96,8 +96,14 @@ description markers when present, and keep it collapsed by default.
 # Inline suggestions become committable directly from the GitHub UI.
 commitable_code_suggestions = true
 focus_only_on_problems = true
-num_code_suggestions_per_chunk = 4
-max_number_of_calls = 4
+# Reduced from 4→2 (per-chunk) and 4→2 (calls) on 2026-05-01 after observing
+# that with `focus_only_on_problems = true`, the suggestions step almost
+# always returns "No code suggestions found for the PR" while consuming
+# ~3–4 minutes of runtime. The persistent review (auto_review) is the load-
+# bearing PR-Agent output for the cross-reviewer audit; suggestions are
+# supplementary. Keeping suggestions enabled but cheaper.
+num_code_suggestions_per_chunk = 2
+max_number_of_calls = 2
 parallel_calls = true
 new_score_mechanism = true
 new_score_mechanism_th_high = 9
