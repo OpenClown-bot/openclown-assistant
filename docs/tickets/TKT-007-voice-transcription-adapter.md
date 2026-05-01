@@ -1,7 +1,7 @@
 ---
 id: TKT-007
 title: "Voice Transcription Adapter"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.2.0
 component: "C5 Voice Transcription Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0"]
@@ -80,7 +80,7 @@ Implement the Fireworks Whisper transcription adapter for short Russian voice cl
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-007-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
+<!-- 2026-05-01 00:00 glm-5.1: started -->
 <!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
 
 ---
