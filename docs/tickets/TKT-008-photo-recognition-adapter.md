@@ -1,7 +1,7 @@
 ---
 id: TKT-008
 title: "Photo Recognition Adapter"
-status: in_review
+status: done
 arch_ref: ARCH-001@0.2.0
 component: "C7 Photo Recognition Provider"
 depends_on: ["TKT-001@0.1.0", "TKT-003@0.1.0", "TKT-006@0.1.0"]
@@ -10,6 +10,9 @@ estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-26
 updated: 2026-05-01
+completed_at: 2026-05-01
+completed_by: "yourmomsenpai (PO)"
+completed_note: "TKT-008 closed following RV-CODE-008 iter-2 verdict pass (Kimi K2.6 commit 52eee7f, all 7 findings RESOLVED). Implementation merged via PR #51 (squash commit de6799e) covering all 8 ACs (npm test 344/344, lint clean, typecheck clean, Fireworks Qwen3 VL 30B A3B Instruct through OmniRoute, downscale-or-passthrough via testable image-preparation interface, candidate items + portion text + per-item confidence + draft confidence return shape, low-confidence flag below 0.70 with Russian label, raw-photo deletion on success or terminal failure). Review trail: iter-1 (commit 4ba7c3b, fail blocked on F-H1 merge-conflict markers + 2M + 3L) → iter-2 (commit bb40216, pass after F-H1 markers removed, F-M1 HTTP-status-gated retry, F-M2 negative `portion_grams` rejection, F-M3 retry-success-path test added per PR-Agent finding, F-L1 per-attempt timeout cap, F-L2 budget_blocked path captures `safeDeletePhoto` deletion result, F-L3 unused interface fields removed). Four PR-Agent supplementary findings (F-PA-8 NaN/Infinity validation in `validateVisionOutput`, F-PA-9/10/11 `photoDeleted: true` hardcoded on three additional outcome paths — suspicious output, JSON parse error, schema validation failure — same pattern as Kimi F-L2 was applied only to budget_blocked) DEFERRED to BACKLOG-004@0.1.0 §TKT-NEW-M/N per PO decision on 2026-05-01. PR-Agent supplementary review on PR #51: 55-line iter-1 `/review` block (independently identified F-H1 merge conflict and F-M3 retry test gap, both promoted into Kimi iter-2 scope) + 1 iter-1 `/improve` inline (line 104 NaN/Infinity, importance 7) + 3 iter-2 `/improve` inlines (lines 403/444/484 photoDeleted hardcoding, importance 8 each); informational only, all 4 distinct findings catalogued in BACKLOG-004."
 ---
 
 # TKT-008: Photo Recognition Adapter
