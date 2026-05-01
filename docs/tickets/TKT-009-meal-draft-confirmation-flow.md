@@ -49,6 +49,8 @@ Implement the meal draft confirmation orchestration for text, voice, photo, manu
 - `src/observability/events.ts`
 
 ## 5. Outputs (deliverables — Executor's diff MUST match this list exactly)
+- [ ] `src/store/types.ts` — `deleteMealDraftItemsByDraftId` added to `TenantScopedRepository` interface (iter-3 scope expansion)
+- [ ] `src/store/tenantStore.ts` — proxy + impl for `deleteMealDraftItemsByDraftId` (iter-3 scope expansion)
 - [ ] `src/meals/types.ts` exporting draft, confirmation, correction, and manual-entry types
 - [ ] `src/meals/messages.ts` exporting Russian meal draft/fallback copy
 - [ ] `src/meals/manualEntry.ts` exporting guided manual KBJU parsing
