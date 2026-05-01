@@ -83,3 +83,32 @@ Recommendation to PO: request changes from Executor (fix F-H1; triage F-M1 / F-M
 - **Verdict:** `fail`
 - **Justification:** F-H1 (unhandled `OptimisticVersionError` in `confirmDraft` under concurrent duplicate confirms) is a blocking correctness defect that violates AC #7 idempotency.
 - **PO recommendation:** Request changes from Executor. Fix F-H1 in iter-2; triage F-M1 and F-M2 as either iter-2 fixes or BACKLOG follow-up TKTs. F-L1 through F-L4 can be deferred to BACKLOG if bandwidth is constrained, but must be documented in the review closure PR.
+
+---
+
+## Iter-2 review (head: 1b0d553)
+
+### Per-finding outcomes
+- **F-H1**: **RESOLVED** — `confirmDraft` now wraps `this.deps.store.withTransaction(...)` in a `try/catch` block (`src/meals/mealOrchestrator.ts:241-278`). On `OptimisticVersionError`, it re-fetches the draft to distinguish "already confirmed by concurrent caller" (`reason: "already_confirmed"`) from "stale version" (`reason: "stale_version"`), returning the appropriate envelope in both cases. Two new unit tests simulate concurrent-race scenarios and assert correct envelope text (`tests/meals/mealOrchestrator.test.ts:569-621`).
+- **F-M1**: **RESOLVED-AS-DEFERRED** — Executor explicitly deferred in commit message ("defer F-M1"). Functional behavior is correct; the `estimating` intermediate state is skipped. A follow-up BACKLOG TKT must be filed for C1/C4 draft-state reconciliation per ARCH-001@0.2.0 §4.2 / §4.4. No new functional defect introduced.
+- **F-M2**: **RESOLVED** — `todayLocalDate()` replaced with `localDateInZone(timeZone)` using `Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })` (`src/meals/mealOrchestrator.ts:100-105`). `TimezoneResolver` dependency injected into `MealOrchestratorDeps` (`src/meals/mealOrchestrator.ts:53-58`). `confirmDraft` calls `await this.todayLocalDate(userId)` which resolves timezone via `deps.timezoneResolver.getTimezone(userId)` with graceful UTC fallback on failure (`src/meals/mealOrchestrator.ts:511-516`). New tests verify Moscow timezone local date and fallback behavior (`tests/meals/mealOrchestrator.test.ts:636-681`).
+- **F-M3**: **RESOLVED** — `emitK1K2` and `emitK1K5` calls are now wrapped in `try/catch` with `logger.error` logging, ensuring the confirmation envelope is always returned even when metric emission fails (`src/meals/mealOrchestrator.ts:284-292`, `src/meals/mealOrchestrator.ts:126-130`). New tests assert confirmation envelope returned despite `emitMetric` rejection (`tests/meals/mealOrchestrator.test.ts:662-692`).
+- **F-L1**: **RESOLVED** — `applyCorrection` test now asserts `postCorrectionItems.length === correctedItems.length` (`tests/meals/mealOrchestrator.test.ts:739`). The test verifies that the new draft contains exactly the corrected items. Architect follow-up for replace-vs-append semantics remains a CONTEXT-FINDING.
+- **F-L2**: **RESOLVED** — Dead `transcriptId` assignment removed from `handleMealInput` (`src/meals/mealOrchestrator.ts` diff; lines 124-126 from iter-1 removed).
+- **F-L3**: **RESOLVED** — Four new direct unit tests added for `handleManualEntry`: missing `mealText` returns prompt, invalid format returns invalid envelope, valid format creates draft with correct KBJU totals, and zero-values edge case (`tests/meals/mealOrchestrator.test.ts:747-812`).
+- **F-L4**: **RESOLVED** — PR #59 body now contains "## Rollback Instructions" section with `git revert <merge-sha>` command and note that no DB migration is involved (`src/meals/` and `tests/meals/` are pure code additions).
+
+### Iter-2 metrics
+- `npm test -- tests/meals/manualEntry.test.ts tests/meals/mealOrchestrator.test.ts`: **44/44 passed** (11 manualEntry + 33 mealOrchestrator; up from 33 in iter-1)
+- `npm run lint`: zero errors
+- `npm run typecheck`: zero errors
+- `python3 scripts/validate_docs.py`: 51 artifact(s), 0 failed
+
+### Iter-2 verdict
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: F-H1 (blocking concurrency defect) is fully resolved with defensive try/catch, race-condition envelope routing, and concurrent-race unit tests; all Medium and Low findings from iter-1 are resolved except F-M1 which is deferred with commit-message documentation and requires a BACKLOG TKT for C1/C4 state reconciliation before the next integration milestone.
+
+Recommendation to PO: **Approve for merge.** File a BACKLOG follow-up TKT to reconcile C1/C4 `meal_drafts.status` lifecycle (C1 creates `estimating` → C4 updates to `awaiting_confirmation` per ARCH-001@0.2.0 §4.2 / §4.4). No additional code iteration required.
