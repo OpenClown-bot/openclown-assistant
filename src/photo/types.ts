@@ -59,6 +59,7 @@ export interface PhotoRecognitionResult {
   estimatedCostUsd: number;
   outcome: PhotoRecognitionOutcome;
   photoDeleted: boolean;
+  transientFailure: boolean;
 }
 
 export type PhotoRecognitionOutcome =
@@ -71,9 +72,7 @@ export type PhotoRecognitionOutcome =
 
 export interface VisionStructuredResponse {
   items: VisionResponseItem[];
-  portion_text: string;
   confidence_0_1: number;
-  uncertainty_reasons: string[];
   needs_user_confirmation: boolean;
 }
 

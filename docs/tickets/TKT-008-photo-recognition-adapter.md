@@ -81,14 +81,9 @@ Implement the OmniRoute vision adapter for meal photo candidates.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-008-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<<<<<<< HEAD
-<!-- 2026-05-01 00:00 glm-5.1: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
-=======
 <!-- 2026-05-01 00:15 glm-5.1: started -->
-<!-- 2026-05-01 00:30 glm-5.1: opened PR #NN -->
->>>>>>> 74f30cd (TKT-008: flip status in_review)
-
+<!-- 2026-05-01 00:30 glm-5.1: opened PR #51 -->
+<!-- 2026-05-01 00:45 glm-5.1: iter-2 fixes pushed -->
 ---
 
 ## Handoff Checklist
