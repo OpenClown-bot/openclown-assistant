@@ -3,9 +3,15 @@ id: RV-CODE-015
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/58"
 ticket_ref: TKT-015@0.1.0
-status: changes_requested
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-05-01
+updated: 2026-05-01
+approved_at: 2026-05-01
+approved_after_iters: 2
+approved_by: "yourmomsenpai (PO)"
+approved_note: "RV-CODE-015 reached effective verdict pass on iter-2 (Executor commit fb4e7ba, Reviewer commit on rv-branch). Reviewer iter-1 verdict was pass_with_changes blocked on F-M1 (broken security-invariant test in events.test.ts:199-211 — title claimed forbidden-field redaction but mutated user_id which is core, not forbidden; would pass even if force-redaction loop were deleted) and F-M2 (AC #6 partially unverified — PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count constant existed but was never incremented in C1 and no test asserted increment) plus 2 low findings (F-L1 unused PROMETHEUS_METRIC_NAMES import collateral on F-M2; F-L2 IPv4-mapped IPv6 wildcard bypass in metricsEndpoint bind guard). Iter-2 fixes RESOLVED all four: F-M1 test rename to 'core keys pass through verbatim even if directly mutated' + new test injecting raw_transcript directly into event object asserting [REDACTED] coercion + emitLog implementation hardened to check forbidden-field membership against unfiltered original event copy rather than allowlist-filtered redactedMeta; F-M2 metricsRegistry wired into C1Deps in src/telegram/types.ts:94 + mock in tests/telegram/entrypoint.test.ts:35-41 + increment call inside the unsupported switch case in src/telegram/entrypoint.ts:266-269 ensuring metric is incremented in the routing path not merely a logging path + new test at entrypoint.test.ts:725-738 asserts metricsRegistry.increment called with kbju_route_unmatched_count and objectContaining({ component: 'C1', source: 'sticker' }); F-L1 RESOLVED automatically by F-M2 wiring; F-L2 bind guard extended with || host === '::ffff:0.0.0.0' at src/observability/metricsEndpoint.ts:206 + new rejection test. Iter-2 metrics: 106/106 targeted tests pass (up from 104/104, +2 new tests for F-M2 metric increment and F-L2 IPv4-mapped wildcard rejection), lint zero errors, typecheck zero errors, validate_docs 39/39 on rv-branch. One PR-Agent finding F-PA-15 was VALID and independently identified F-M1; promoted into Kimi iter-2 scope and RESOLVED. One PR-Agent finding F-PA-16 (metric/log emission ordering on send failure — synchronous deps.metricsRegistry.increment() before await sendWithRetry() creates metric/log mismatch when send throws) DEFERRED to BACKLOG-006@0.1.0 §TKT-NEW-P per PO decision on 2026-05-01 (importance 7, observability class, non-blocking for AC verification because tests assert success path and Telegram sendMessage rarely throws). Both branches merged: PR #58 (squash commit on main 2026-05-01) Executor implementation, PR #62 (squash commit on main 2026-05-01) clerical-renamed review artifact (replacing closed PR #61 due to original RV-CODE-009 id-clash with parallel TKT-009 review). PR-Agent supplementary review on PR #58: 2 distinct findings (F-PA-15 promoted, F-PA-16 deferred); cosmetic Operator Precedence Clarity nit on ternary || chain skipped as non-substantive. Reviewer Kimi K2.6 remains the load-bearing CODE-mode reviewer."
+superseded_by: null
 ---
 
 <!--
