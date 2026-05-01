@@ -153,6 +153,7 @@ describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
     expect(PROMETHEUS_METRIC_NAMES.kbju_right_to_delete_total).toBe("kbju_right_to_delete_total");
     expect(PROMETHEUS_METRIC_NAMES.kbju_raw_media_delete_failures_total).toBe("kbju_raw_media_delete_failures_total");
     expect(PROMETHEUS_METRIC_NAMES.kbju_tenant_audit_cross_user_references).toBe("kbju_tenant_audit_cross_user_references");
+    expect(PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count).toBe("kbju_route_unmatched_count");
   });
 
   it("renders counter metrics in Prometheus text format", () => {
@@ -224,7 +225,7 @@ describe("metricsEndpoint metric names per ARCH-001 §8.2", () => {
 describe("metricsEndpoint server factory", () => {
   it("rejects 0.0.0.0 as host per ARCH-001 §8.2 and §7", () => {
     expect(() => createMetricsServer("0.0.0.0", 9464)).toThrow(
-      /0\.0\.0\.0 is forbidden/
+      /0\.0\.0\.0.*forbidden/
     );
   });
 
@@ -241,6 +242,29 @@ describe("metricsEndpoint server factory", () => {
   it("accepts Docker-internal hostnames", () => {
     const server = createMetricsServer("kbju-metrics-internal", 9464);
     expect(server).toBeDefined();
+  });
+
+  it("rejects :: (IPv6 unspecified) as host per ARCH-001 §8.2 (TKT-015 AC-4)", () => {
+    expect(() => createMetricsServer("::", 9464)).toThrow(
+      /::.*forbidden/
+    );
+  });
+
+  it("rejects [::] (IPv6 unspecified bracketed) as host per ARCH-001 §8.2 (TKT-015 AC-4)", () => {
+    expect(() => createMetricsServer("[::]", 9464)).toThrow(
+      /\[::\].*forbidden/
+    );
+  });
+
+  it("accepts ::1 (IPv6 loopback) as host", () => {
+    const server = createMetricsServer("::1", 9464);
+    expect(server).toBeDefined();
+  });
+
+  it("rejects ::ffff:0.0.0.0 (IPv4-mapped IPv6 wildcard) as host (F-L2)", () => {
+    expect(() => createMetricsServer("::ffff:0.0.0.0", 9464)).toThrow(
+      /::ffff:0\.0\.0\.0.*forbidden/
+    );
   });
 });
 

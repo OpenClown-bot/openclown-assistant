@@ -63,6 +63,14 @@ export interface TelegramUser {
   languageCode?: string;
 }
 
+export interface TelegramSticker {
+  fileId: string;
+  fileUniqueId: string;
+  width: number;
+  height: number;
+  emoji?: string;
+}
+
 export interface TelegramMessage {
   messageId: number;
   from: TelegramUser;
@@ -71,6 +79,7 @@ export interface TelegramMessage {
   text?: string;
   voice?: TelegramVoice;
   photo?: TelegramPhotoSize[];
+  sticker?: TelegramSticker;
 }
 
 export interface TelegramChat {

@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildRedactedEvent,
+  emitLog,
   redactPii,
   type ObservabilityEvent,
 } from "../../src/observability/events.js";
@@ -149,5 +150,104 @@ describe("events redaction", () => {
 
   it("preserves all LOG_FORBIDDEN_FIELDS as a safety net", () => {
     expect(LOG_FORBIDDEN_FIELDS.length).toBeGreaterThan(0);
+  });
+});
+
+describe("emitLog emit-boundary redaction (D-I9 / TKT-015 AC-2)", () => {
+  function makeEventWithBypassedExtra(extra: Record<string, unknown>): ObservabilityEvent {
+    const event = buildRedactedEvent(
+      "info",
+      "kbju-telegram-entrypoint",
+      "C1" as ComponentId,
+      KPI_EVENT_NAMES.route_unmatched,
+      "req-redact-1",
+      "user-001",
+      "unsupported_message_type" as MetricOutcome,
+      false,
+      extra
+    );
+    return event;
+  }
+
+  it("emitLog drops non-allowlisted keys even if producer bypasses buildRedactedEvent", () => {
+    const event = makeEventWithBypassedExtra({ raw_prompt: "secret prompt" });
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.raw_prompt).toBeUndefined();
+  });
+
+  it("emitLog drops non-allowlisted meal_text and username from metadata (D-I9 / TKT-015 AC-7)", () => {
+    const event = makeEventWithBypassedExtra({ meal_text: "пирог", username: "pilot" });
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.meal_text).toBeUndefined();
+    expect(meta.username).toBeUndefined();
+  });
+
+  it("core keys pass through verbatim even if directly mutated (F-M1 rename)", () => {
+    const event = makeEventWithBypassedExtra({});
+    (event as Record<string, unknown>).user_id = "mutated_user_id";
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.user_id).toBe("mutated_user_id");
+  });
+
+  it("emitLog forces LOG_FORBIDDEN_FIELDS to [REDACTED] when injected into event (F-M1 fix)", () => {
+    const event = makeEventWithBypassedExtra({});
+    (event as Record<string, unknown>).raw_transcript = "sneaky transcript";
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.raw_transcript).toBe("[REDACTED]");
+  });
+
+  it("emitLog preserves core event keys through allowlist boundary", () => {
+    const event = makeEventWithBypassedExtra({ call_type: "text_llm" });
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.request_id).toBe("req-redact-1");
+    expect(meta.call_type).toBe("text_llm");
+  });
+
+  it("emitLog allows message_subtype through allowlist boundary", () => {
+    const event = makeEventWithBypassedExtra({ message_subtype: "sticker" });
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      critical: vi.fn(),
+    };
+    emitLog(logger, event);
+    const meta = logger.info.mock.calls[0][1] as Record<string, unknown>;
+    expect(meta.message_subtype).toBe("sticker");
   });
 });
