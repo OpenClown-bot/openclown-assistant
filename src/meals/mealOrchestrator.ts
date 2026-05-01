@@ -50,8 +50,13 @@ export interface DraftLookup {
   listMealDraftItems(draftId: string): Promise<MealDraftItemRow[]>;
 }
 
+export interface TimezoneResolver {
+  getTimezone(userId: string): Promise<string>;
+}
+
 export interface MealOrchestratorDeps extends C4Deps {
   draftLookup: DraftLookup;
+  timezoneResolver: TimezoneResolver;
 }
 
 function estimatorItemsToCandidates(estimatorResult: EstimatorResult): MealItemCandidate[] {
@@ -92,8 +97,13 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function todayLocalDate(): string {
-  return new Date().toISOString().slice(0, 10);
+function localDateInZone(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export class MealOrchestrator {
@@ -115,15 +125,16 @@ export class MealOrchestrator {
     const estimatorResult = request.estimatorResult;
 
     if (isManualEntryFailure(estimatorResult)) {
-      await this.emitK1K5(requestId, userId, true);
+      try {
+        await this.emitK1K5(requestId, userId, true);
+      } catch (err) {
+        this.deps.logger.error("K5 metric emission failed during KBJU failure fallback", { error: err });
+      }
       return buildKbjuFailureEnvelope(chatId);
     }
 
     const draftSource: MealDraftSource = this.mapSourceToDraftSource(source);
     const normalizedInputText = request.mealText ?? null;
-    const transcriptId = source === "voice" && request.transcriptResult
-      ? undefined
-      : undefined;
 
     let candidates: MealItemCandidate[];
     let totalKBJU: KBJUValues;
@@ -226,7 +237,9 @@ export class MealOrchestrator {
       | "photo"
       | "manual";
 
-    const meal = await this.deps.store.withTransaction(userId, async (repo) => {
+    let meal: ConfirmedMealRow;
+    try {
+      meal = await this.deps.store.withTransaction(userId, async (repo) => {
       const updatedDraft = await repo.updateMealDraftWithVersion(userId, {
         id: draftId,
         expectedVersion,
@@ -242,7 +255,7 @@ export class MealOrchestrator {
       const confirmedMeal = await repo.createConfirmedMeal(userId, {
         source: mealSource as "text" | "voice" | "photo" | "manual",
         draftId,
-        mealLocalDate: todayLocalDate(),
+        mealLocalDate: await this.todayLocalDate(userId),
         mealLoggedAt: nowIso(),
         totalCaloriesKcal: updatedDraft.total_calories_kcal ?? 0,
         totalProteinG: updatedDraft.total_protein_g ?? 0,
@@ -281,9 +294,31 @@ export class MealOrchestrator {
       });
 
       return confirmedMeal;
-    });
+      });
+    } catch (err) {
+      if (err instanceof OptimisticVersionError) {
+        const refreshedDraft = await this.deps.draftLookup.getMealDraft(draftId);
+        if (refreshedDraft && isAlreadyConfirmed(refreshedDraft.status)) {
+          return {
+            confirmed: false,
+            reason: "already_confirmed",
+            envelope: buildAlreadyConfirmedEnvelope(chatId),
+          };
+        }
+        return {
+          confirmed: false,
+          reason: "stale_version",
+          envelope: buildStaleDraftRejectedEnvelope(chatId),
+        };
+      }
+      throw err;
+    }
 
-    await this.emitK1K2(requestId, userId, isManual);
+    try {
+      await this.emitK1K2(requestId, userId, isManual);
+    } catch (err) {
+      this.deps.logger.error("K1/K2 metric emission failed after confirm", { error: err });
+    }
 
     return {
       confirmed: true,
@@ -470,6 +505,15 @@ export class MealOrchestrator {
         "success",
         {}
       );
+    }
+  }
+
+  private async todayLocalDate(userId: string): Promise<string> {
+    try {
+      const tz = await this.deps.timezoneResolver.getTimezone(userId);
+      return localDateInZone(tz);
+    } catch {
+      return new Date().toISOString().slice(0, 10);
     }
   }
 }

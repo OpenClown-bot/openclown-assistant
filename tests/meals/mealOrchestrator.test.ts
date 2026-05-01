@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MealOrchestrator } from "../../src/meals/mealOrchestrator.js";
-import type { MealOrchestratorDeps, DraftLookup } from "../../src/meals/mealOrchestrator.js";
+import type { MealOrchestratorDeps, DraftLookup, TimezoneResolver } from "../../src/meals/mealOrchestrator.js";
 import type { C4Deps, EmitMetricFn } from "../../src/meals/types.js";
 import type {
   TenantStore,
@@ -24,7 +24,7 @@ import type { EstimatorResult } from "../../src/kbju/types.js";
 import { MANUAL_ENTRY_FAILURE_RESULT } from "../../src/kbju/types.js";
 import type { PhotoRecognitionResult } from "../../src/photo/types.js";
 import type { TranscriptionResult } from "../../src/voice/types.js";
-import type { OpenClawLogger, MealDraftStatus, KBJUValues } from "../../src/shared/types.js";
+import type { OpenClawLogger, MealDraftStatus, KBJUValues, MealItemCandidate } from "../../src/shared/types.js";
 import {
   MSG_DRAFT_CONFIRMED,
   MSG_STALE_DRAFT_REJECTED,
@@ -327,16 +327,20 @@ function makeOrchestrator(repo: MockRepo, drafts: MealDraftRow[], items: MealDra
   };
   const emitMetric = vi.fn(async () => {});
   const logger = makeMockLogger();
+  const timezoneResolver: TimezoneResolver = {
+    getTimezone: vi.fn(async () => "UTC"),
+  };
 
   const deps: MealOrchestratorDeps = {
     store,
     logger,
     emitMetric: emitMetric as EmitMetricFn,
     draftLookup,
+    timezoneResolver,
   };
 
   const orchestrator = new MealOrchestrator(deps);
-  return { orchestrator, emitMetric, repo, draftLookup };
+  return { orchestrator, emitMetric, repo, draftLookup, timezoneResolver };
 }
 
 describe("MealOrchestrator", () => {
@@ -559,6 +563,260 @@ describe("MealOrchestrator", () => {
 
       expect(envelope.text).toContain(MSG_MANUAL_ENTRY_INVALID);
       expect(repo.createMealDraft).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("F-H1: confirmDraft catches OptimisticVersionError under race (AC#7)", () => {
+    it("returns already_confirmed envelope when concurrent confirm races", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const item = makeDraftItemRow();
+      const { orchestrator, draftLookup } = makeOrchestrator(repo, [draft], [item]);
+
+      repo.updateMealDraftWithVersion.mockImplementation(async (_userId: string, request: UpdateMealDraftWithVersionRequest) => {
+        const existing = repo.createdDrafts.find((d) => d.id === request.id);
+        if (!existing) throw new OptimisticVersionError("meal_draft", request.expectedVersion);
+        if (request.expectedVersion !== existing.version) {
+          throw new OptimisticVersionError("meal_draft", request.expectedVersion);
+        }
+        existing.status = request.status;
+        existing.version += 1;
+        return { ...existing };
+      });
+
+      (draftLookup.getMealDraft as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...draft,
+        status: "confirmed",
+        version: 2,
+      });
+
+      const result = await orchestrator.confirmDraft(USER_ID, REQUEST_ID, CHAT_ID, DRAFT_ID, 1);
+
+      expect(result.confirmed).toBe(false);
+      expect(result.reason).toBe("already_confirmed");
+      expect(result.envelope.text).toContain(MSG_ALREADY_CONFIRMED);
+    });
+
+    it("returns stale_version envelope when OptimisticVersionError and draft is NOT confirmed", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const item = makeDraftItemRow();
+      const { orchestrator, draftLookup } = makeOrchestrator(repo, [draft], [item]);
+
+      repo.updateMealDraftWithVersion.mockImplementation(async (_userId: string, request: UpdateMealDraftWithVersionRequest) => {
+        throw new OptimisticVersionError("meal_draft", request.expectedVersion);
+      });
+
+      (draftLookup.getMealDraft as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...draft,
+        status: "awaiting_confirmation",
+        version: 2,
+      });
+
+      const result = await orchestrator.confirmDraft(USER_ID, REQUEST_ID, CHAT_ID, DRAFT_ID, 1);
+
+      expect(result.confirmed).toBe(false);
+      expect(result.reason).toBe("stale_version");
+      expect(result.envelope.text).toContain(MSG_STALE_DRAFT_REJECTED);
+    });
+  });
+
+  describe("F-M2: meal_local_date respects user timezone", () => {
+    it("computes meal_local_date in Europe/Moscow timezone", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const item = makeDraftItemRow();
+      const { orchestrator, timezoneResolver } = makeOrchestrator(repo, [draft], [item]);
+
+      (timezoneResolver.getTimezone as ReturnType<typeof vi.fn>).mockResolvedValue("Europe/Moscow");
+
+      const result = await orchestrator.confirmDraft(USER_ID, REQUEST_ID, CHAT_ID, DRAFT_ID, 1);
+
+      expect(result.confirmed).toBe(true);
+      const mealCall = repo.createConfirmedMeal.mock.calls[0][1] as CreateConfirmedMealRequest;
+      const expectedDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Moscow",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      expect(mealCall.mealLocalDate).toBe(expectedDate);
+    });
+
+    it("falls back to UTC date when timezone resolver fails", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const item = makeDraftItemRow();
+      const { orchestrator, timezoneResolver } = makeOrchestrator(repo, [draft], [item]);
+
+      (timezoneResolver.getTimezone as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("DB down"));
+
+      const result = await orchestrator.confirmDraft(USER_ID, REQUEST_ID, CHAT_ID, DRAFT_ID, 1);
+
+      expect(result.confirmed).toBe(true);
+      const mealCall = repo.createConfirmedMeal.mock.calls[0][1] as CreateConfirmedMealRequest;
+      expect(mealCall.mealLocalDate).toBe(new Date().toISOString().slice(0, 10));
+    });
+  });
+
+  describe("F-M3: metric emission failure does not crash confirm", () => {
+    it("returns confirmation envelope even when emitMetric rejects", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const item = makeDraftItemRow();
+      const { orchestrator, emitMetric } = makeOrchestrator(repo, [draft], [item]);
+
+      emitMetric.mockRejectedValue(new Error("C10 DB failure"));
+
+      const result = await orchestrator.confirmDraft(USER_ID, REQUEST_ID, CHAT_ID, DRAFT_ID, 1);
+
+      expect(result.confirmed).toBe(true);
+      expect(result.envelope.text).toContain(MSG_DRAFT_CONFIRMED);
+    });
+
+    it("returns KBJU failure envelope even when K5 metric rejects", async () => {
+      const repo = makeMockRepository();
+      const { orchestrator, emitMetric } = makeOrchestrator(repo, [], []);
+
+      emitMetric.mockRejectedValue(new Error("C10 DB failure"));
+
+      const envelope = await orchestrator.handleMealInput({
+        userId: USER_ID,
+        requestId: REQUEST_ID,
+        chatId: CHAT_ID,
+        source: "text",
+        estimatorResult: MANUAL_ENTRY_FAILURE_RESULT,
+        degradeModeEnabled: false,
+      });
+
+      expect(envelope.text).toContain(MSG_KBJU_FAILURE_FALLBACK);
+    });
+  });
+
+  describe("F-L1: applyCorrection item count after correction", () => {
+    it("returns exactly correctedItems.length draft items after correction", async () => {
+      const repo = makeMockRepository();
+      const draft = makeDraftRow({ status: "awaiting_confirmation", version: 1 });
+      const { orchestrator, draftLookup } = makeOrchestrator(repo, [draft], []);
+
+      const correctedItems: MealItemCandidate[] = [
+        {
+          itemNameRu: "рис",
+          portionTextRu: "150г",
+          portionGrams: 150,
+          caloriesKcal: 180,
+          proteinG: 4,
+          fatG: 1,
+          carbsG: 40,
+          source: "manual",
+          sourceRef: undefined,
+          confidence01: undefined,
+        },
+        {
+          itemNameRu: "курица",
+          portionTextRu: "100г",
+          portionGrams: 100,
+          caloriesKcal: 165,
+          proteinG: 31,
+          fatG: 3.6,
+          carbsG: 0,
+          source: "manual",
+          sourceRef: undefined,
+          confidence01: undefined,
+        },
+      ];
+
+      const correctedKBJU = { caloriesKcal: 345, proteinG: 35, fatG: 4.6, carbsG: 40 };
+
+      (draftLookup.listMealDraftItems as ReturnType<typeof vi.fn>).mockResolvedValue(
+        repo.createdDraftItems.filter((i) => i.draft_id === DRAFT_ID)
+      );
+
+      const envelope = await orchestrator.applyCorrection(USER_ID, REQUEST_ID, CHAT_ID, {
+        draftId: DRAFT_ID,
+        expectedVersion: 1,
+        correctedItems,
+        correctedKBJU,
+      });
+
+      const postCorrectionItems = repo.createdDraftItems.filter((i) => i.draft_id === DRAFT_ID);
+      expect(postCorrectionItems.length).toBe(correctedItems.length);
+    });
+  });
+
+  describe("F-L3: handleManualEntry direct tests", () => {
+    it("returns prompt when mealText is missing", async () => {
+      const repo = makeMockRepository();
+      const { orchestrator } = makeOrchestrator(repo, [], []);
+
+      const envelope = await orchestrator.handleManualEntry({
+        userId: USER_ID,
+        requestId: REQUEST_ID,
+        chatId: CHAT_ID,
+        source: "manual",
+        degradeModeEnabled: false,
+      });
+
+      expect(envelope.text).toContain(MSG_MANUAL_ENTRY_PROMPT);
+      expect(repo.createMealDraft).not.toHaveBeenCalled();
+    });
+
+    it("returns invalid format envelope for bad input", async () => {
+      const repo = makeMockRepository();
+      const { orchestrator } = makeOrchestrator(repo, [], []);
+
+      const envelope = await orchestrator.handleManualEntry({
+        userId: USER_ID,
+        requestId: REQUEST_ID,
+        chatId: CHAT_ID,
+        source: "manual",
+        mealText: "abc",
+        degradeModeEnabled: false,
+      });
+
+      expect(envelope.text).toContain(MSG_MANUAL_ENTRY_INVALID);
+      expect(repo.createMealDraft).not.toHaveBeenCalled();
+    });
+
+    it("creates manual draft with correct KBJU totals", async () => {
+      const repo = makeMockRepository();
+      const { orchestrator } = makeOrchestrator(repo, [], []);
+
+      const envelope = await orchestrator.handleManualEntry({
+        userId: USER_ID,
+        requestId: REQUEST_ID,
+        chatId: CHAT_ID,
+        source: "manual",
+        mealText: "450 30 15 50",
+        degradeModeEnabled: false,
+      });
+
+      expect(repo.createMealDraft).toHaveBeenCalledTimes(1);
+      const createCall = repo.createMealDraft.mock.calls[0][1] as CreateMealDraftRequest;
+      expect(createCall.source).toBe("manual");
+      expect(createCall.totalCaloriesKcal).toBe(450);
+      expect(createCall.totalProteinG).toBe(30);
+      expect(createCall.totalFatG).toBe(15);
+      expect(createCall.totalCarbsG).toBe(50);
+    });
+
+    it("handles zero-values edge case", async () => {
+      const repo = makeMockRepository();
+      const { orchestrator } = makeOrchestrator(repo, [], []);
+
+      const envelope = await orchestrator.handleManualEntry({
+        userId: USER_ID,
+        requestId: REQUEST_ID,
+        chatId: CHAT_ID,
+        source: "manual",
+        mealText: "0 0 0 0",
+        degradeModeEnabled: false,
+      });
+
+      expect(repo.createMealDraft).toHaveBeenCalledTimes(1);
+      const createCall = repo.createMealDraft.mock.calls[0][1] as CreateMealDraftRequest;
+      expect(createCall.totalCaloriesKcal).toBe(0);
+      expect(createCall.totalProteinG).toBe(0);
     });
   });
 
