@@ -3,11 +3,16 @@ id: RV-CODE-009
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/59"
 ticket_ref: TKT-009@0.1.0
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-05-01
 updated: 2026-05-01
 version: "0.5.0"
+approved_at: 2026-05-01
+approved_after_iters: 4
+approved_by: "yourmomsenpai (PO)"
+approved_note: "RV-CODE-009 reached effective verdict pass on iter-4 verify (Executor commit c4fb9f2, Reviewer commit 8815fef on rv-branch). Reviewer iter-1 verdict was fail blocked on F-H1 (unhandled OptimisticVersionError under concurrent confirms) plus 2 medium + 4 low findings. Iter-2 (Executor commit 5e3edb3) RESOLVED F-H1 (try/catch around withTransaction returning idempotent stale_version envelope), F-M1 ratified as Architect-responsibility CONTEXT-FINDING (deferred to BACKLOG-005 §TKT-NEW-O), F-M2 (timezone-aware meal_local_date via injected resolver), F-M3 (metric-emission failure isolated via try/catch + logger.error). Iter-3 (Executor commit db96ec4) RESOLVED F-PA-18 (atomic append-vs-replace defect promoted from PR-Agent — added TenantScopedRepository.deleteMealDraftItemsByDraftId method called inside withTransaction before insert loop in applyCorrection) and F-L1 test integrity (assertion that listMealDraftItems returns exactly correction.correctedItems.length rows after a correction). Iter-3 verdict pass with one PARTIAL claim (d) — TKT-009 §10 Execution Log empty; resolved in this closure-PR. Iter-4 (Reviewer commit 3caaa49) added a pass_with_changes verdict promoting PR-Agent finding F-PA-17 to F-H2 (HTML-escape gap in buildDraftMessage causing AC #4-#6 violation under unsafe characters in LLM-sourced item names) — surfaced by cross-reviewer audit in continuation session after outgoing-Devin orchestrator missed it on iter-1 stale-marked inline comment ids 3172888561 / 3172894543. Iter-4 fix (Executor commit c4fb9f2) added src/shared/escapeHtml.ts mapping & / < / > and applied at item.itemNameRu / item.portionTextRu interpolation in buildDraftMessage; tests/meals/messages.test.ts adds 2 regression tests (unsafe-string + manual-entry passthrough); npm test 420/420 (up from 418), lint/typecheck clean. Iter-4 verify (Reviewer commit 8815fef) confirmed F-H2 RESOLVED and ruled both PR-Agent c4fb9f2 findings non-substantive: Finding A (escapeHtml.ts not in TKT-009 §5 Outputs) ruled in-scope per active iter-4 review contract authorizing src/shared/ at Executor discretion; Finding B (escapeHtml omits double-quote and single-quote escaping) ruled non-substantive for current usage because Telegram HTML parseMode reserves only < > & in plain text content and buildDraftMessage produces zero HTML tags / attributes — defensive-depth follow-up filed to BACKLOG-005 §TKT-NEW-S. Two F-L findings deferred: F-L2 (dead transcriptId) folded into BACKLOG-005 §TKT-NEW-Q transcript_id linkage; F-L3 (handleManualEntry direct test gap) covered by iter-4 messages.test.ts manual-entry test path. F-L4 (PR body Rollback line) RESOLVED via PR #59 description edit. Both branches merged: PR #59 squash commit on main 2026-05-01 Executor implementation, PR #60 squash commit on main 2026-05-01 review artifact. Cross-reviewer audit lesson codified: PR-Agent inline /improve comments marked 'old commit' MUST be re-evaluated on every audit pass — pipeline rule codified for future cycles (next clerical PR)."
+superseded_by: null
 ---
 
 # Code Review — PR #59 (TKT-009@0.1.0: Meal Draft Confirmation Flow)
