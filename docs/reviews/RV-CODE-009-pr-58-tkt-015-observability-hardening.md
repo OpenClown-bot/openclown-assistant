@@ -1,0 +1,94 @@
+---
+id: RV-CODE-009
+type: code_review
+target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/58"
+ticket_ref: TKT-015@0.1.0
+status: changes_requested
+reviewer_model: "kimi-k2.6"
+created: 2026-05-01
+---
+
+# Code Review — PR #58 (TKT-015@0.1.0 — Observability Hardening)
+
+## Summary
+
+TKT-015@0.1.0 hardens C1 unsupported-message handling (stickers), C1 history-command routing (256-char lowercase cap), C10 emit-boundary redaction, and C10 metrics bind guard (IPv6 wildcard rejection). The Executor correctly implements the core logic for all four deferred post-review findings (D-I5, D-I9, F-L2, IPv6 wildcard) and 104/104 targeted tests pass with zero lint or typecheck regressions. However, two medium findings block a clean `pass` verdict: (1) PR-Agent finding F-PA-15 is valid — a broken security-invariant test misleads readers by claiming to test forbidden-field redaction on core keys but actually testing a non-forbidden core key; (2) AC #6 (`kbju_route_unmatched_count` metric emission) is only partially satisfied — the constant exists but C1 never increments it and no test asserts it. One low finding notes an unused import, and a second low finding flags an IPv4-mapped IPv6 wildcard bypass in the metrics bind guard.
+
+## Verdict
+- [ ] pass
+- [x] pass_with_changes
+- [ ] fail
+
+One-sentence justification: Core functionality is correct and well-tested, but two medium findings (broken security-invariant test + missing metric increment for AC #6) must be addressed before merge; remaining issues are low-severity nits.
+Recommendation to PO: request changes from Executor (iter-2 NUDGE) to fix F-M1 and F-M2; low findings may be bundled in the same commit or deferred.
+
+## Contract compliance (each must be ticked or marked finding)
+
+- [x] PR modifies ONLY files listed in TKT §5 Outputs (`src/shared/types.ts`, `src/telegram/types.ts`, `src/telegram/entrypoint.ts`, `src/observability/events.ts`, `src/observability/kpiEvents.ts`, `src/observability/metricsEndpoint.ts`, `tests/telegram/entrypoint.test.ts`, `tests/observability/events.test.ts`, `tests/observability/metricsEndpoint.test.ts`).
+- [x] No changes to TKT §3 NOT-In-Scope items (no meals, onboarding voice/photo, summary, storage, or deployment flows touched).
+- [x] No new runtime dependencies beyond TKT §7 Constraints allowlist (`package.json` unchanged).
+- [x] All Acceptance Criteria from TKT §6 are verifiably satisfied **except** AC #6 metric emission (see F-M2 below).
+- [x] CI green: `npm test -- tests/telegram/entrypoint.test.ts tests/observability/events.test.ts tests/observability/metricsEndpoint.test.ts` → 104/104 pass; `npm run lint` → zero new errors; `npm run typecheck` → zero new errors.
+- [x] Definition of Done complete: no `TODO` / `FIXME` left in changed code; PR body links version-pinned TKT; `status: in_review` flip in separate commit `2c56549`.
+
+## Findings
+
+### Medium (must fix before merge)
+
+- **F-M1 (tests/observability/events.test.ts:199-211):** Broken security-invariant test — PR-Agent finding **F-PA-15 is VALID**. The test is named `"emitLog forces LOG_FORBIDDEN_FIELDS to [REDACTED] if present in core keys"`, but it mutates `user_id` (a **core** field, **not** a member of `LOG_FORBIDDEN_FIELDS`) and asserts the mutated value passes through. The test therefore proves nothing about forbidden-field redaction. It is a security-test integrity defect: it would continue to pass even if the forbidden-field loop were deleted, giving a false sense of safety. The actual forbidden-field guarantee **is** covered by the adjacent test at lines 214-225 (`raw_transcript` injection), but this broken test should be renamed/rewritten to test a real intersection case (e.g. inject a key that is **both** in `ALLOWED_EXTRA_KEYS` and `LOG_FORBIDDEN_FIELDS`, or a key in `LOG_FORBIDDEN_FIELDS` that bypasses the allowlist filter). *Responsible role:* Executor. *Suggested remediation:* rename the test to `"core keys pass through verbatim even if directly mutated"` and add a **new** test that injects a key present in `LOG_FORBIDDEN_FIELDS` but absent from `CORE_EVENT_KEYS` and `ALLOWED_EXTRA_KEYS`, asserting it is dropped or coerced to `[REDACTED]`.
+
+- **F-M2 (src/telegram/entrypoint.ts:3,276-278 + tests/telegram/entrypoint.test.ts):** AC #6 partially unverified — `PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count` exists in `src/observability/kpiEvents.ts` but is **never incremented** in the C1 unsupported-message path and **no test asserts metric emission**. `entrypoint.ts` imports the constant (line 3) but never references it. The sticker tests (lines 674-714) only assert `logger.info` calls with `event_name === KPI_EVENT_NAMES.route_unmatched` and `message_subtype === "sticker"`; they do not verify `deps.registry.increment(...)` or any equivalent. RV-SPEC-003@0.1.0 already elevated this metric from conditional to unconditional (F-M1 fix commit `f061992`), so the Executor was expected to wire it. *Responsible role:* Executor. *Suggested remediation:* add a `metricsRegistry: MetricsRegistry` field to `C1Deps` (`src/telegram/types.ts`), inject a mock registry in `makeDeps` (`tests/telegram/entrypoint.test.ts`), call `registry.increment(PROMETHEUS_METRIC_NAMES.kbju_route_unmatched_count, { component: "C1", source: "sticker" })` inside the `"unsupported"` switch case in `routeMessage`, and assert the increment in the sticker test suite. This stays within TKT §5 Outputs.
+
+### Low (may be bundled or deferred)
+
+- **F-L1 (src/telegram/entrypoint.ts:3):** Unused import `PROMETHEUS_METRIC_NAMES` — imported but never referenced in the module. While `tsconfig.json` does not enable `noUnusedLocals`, dead imports create reader confusion and will become a type error if stricter checks are enabled later. *Suggested remediation:* remove the import; re-add it once F-M2 remediation wires the metric increment.
+
+- **F-L2 (src/observability/metricsEndpoint.ts:140):** IPv4-mapped IPv6 wildcard bypass — the bind guard rejects exact matches for `"0.0.0.0"`, `"::"`, and `"[::]"`, but accepts `"::ffff:0.0.0.0"`. Node.js `server.listen(port, "::ffff:0.0.0.0")` binds to all IPv4 interfaces, effectively bypassing the wildcard prohibition. The ArchSpec §10.7 does not explicitly mention this form, but the hostile-reader probe (d) identifies it as a gap. *Suggested remediation:* extend the guard with `|| host === "::ffff:0.0.0.0"` (simple string check, compliant with TKT §7 constraint on simple host-string normalization).
+
+## Red-team probes (Reviewer must address each)
+
+- **Error paths:** What happens on Telegram/OpenFoodFacts/Whisper API failure, DB lock, LLM timeout?
+  - *Assessment:* Not in scope for TKT-015@0.1.0. C1 already delegates to downstream handlers; error paths are unchanged. The unsupported-message path sends `MSG_GENERIC_RECOVERY` synchronously and does not invoke downstream handlers, so no new failure surface is introduced.
+
+- **Concurrency:** Can two messages from the same user be processed simultaneously?
+  - *Assessment:* C1 is stateless per-message; no shared mutable state is added by TKT-015@0.1.0. The sticker/unsupported path is a synchronous `sendMessage` + log, so it is atomic with respect to concurrent messages. No regression.
+
+- **Input validation:** Malformed voice / corrupt photo / huge text / unicode edge cases?
+  - *Assessment:* The 256-char lowercase cap (F-L2) correctly prevents `toLowerCase()` on >256 chars, preserving performance for 4096-char Cyrillic payloads. The sticker branch checks `message.sticker` truthiness (not `fileId`), so a malformed but truthy sticker object routes to unsupported without crashing. The `text || undefined` normalization preserves empty-string handling. No new validation gaps.
+
+- **Prompt injection:** Does any external string reach an LLM unsanitised (vs ARCH §9)?
+  - *Assessment:* No. TKT-015@0.1.0 does not introduce new LLM call paths. The unsupported-message path short-circuits before any domain handler or LLM invocation. The 256-char cap applies only to routing normalization, not to the text passed downstream.
+
+- **Secrets:** Any credential creep (new env vars, hardcoded tokens, scope increases)?
+  - *Assessment:* No new secrets introduced. The emit-boundary redaction in `events.ts` adds `redactStringValues` for allowed string extra keys and drops non-allowlisted keys entirely, which hardens (not weakens) the secrets posture. No env vars or hardcoded tokens added.
+
+## Hostile-reader pass
+
+*(Pre-investigation by the Orchestrator identified specific scenarios that the Kimi Reviewer must independently verify.)*
+
+- **(a) Sticker from non-allowlisted user:** Does C1 short-circuit at access control before route-unmatched telemetry fires?
+  - *Verified:* `routeMessage` calls `normalizeMessage` first (yielding `routeKind: "unsupported"`), then `isAllowlisted` (line ~193). For a non-allowlisted user, `logAccessDenied` is emitted and the function returns **before** the switch statement, so `route_unmatched` telemetry is correctly suppressed. The user receives no message (pre-existing behavior for non-allowlisted users).
+
+- **(b) 4096-char text starting with `/история` followed by 4090 chars of Cyrillic:** Is routing check capped at 256 chars and does it still recognize the command?
+  - *Verified:* The guard `text.slice(0, ROUTING_LOWERCASE_CAP).toLowerCase().startsWith("/история")` only inspects the first 256 chars. If `/история` is within the first 256 chars, it is recognized; if it starts after char 257, it is not. Test at `entrypoint.test.ts:731` covers the latter case (history handler NOT called, textMeal called). Correct.
+
+- **(c) Emit-boundary redaction with BOTH forbidden field AND non-allowlisted core key:** What is the order of operations?
+  - *Verified:* `emitLog` performs two passes: (1) allowlist filter — only `CORE_EVENT_KEYS` and `ALLOWED_EXTRA_KEYS` pass through; everything else is dropped. (2) forbidden-field loop — any surviving key in `LOG_FORBIDDEN_FIELDS` is coerced to `[REDACTED]`. Since no current core key is in `LOG_FORBIDDEN_FIELDS`, there is no overlap. A key injected directly into the event object that is in `LOG_FORBIDDEN_FIELDS` but **not** in `CORE_EVENT_KEYS` or `ALLOWED_EXTRA_KEYS` is dropped in pass (1) and never reaches pass (2). Test at `events.test.ts:214-225` verifies this for `raw_transcript`. Order is safe (allowlist-first), but the broken test at line 199 should be fixed (see F-M1).
+
+- **(d) `createMetricsServer` with host `"::ffff:0.0.0.0"` (IPv4-mapped IPv6 wildcard):** Is it rejected?
+  - *Finding:* **NO** — it is accepted. The guard only checks exact equality with `"::"` and `"[::]"`. Node.js treats `"::ffff:0.0.0.0"` as an all-interfaces IPv4 wildcard, bypassing the prohibition. See F-L2.
+
+- **(e) Sticker handling with malformed sticker payload (missing `file_id`):** Does C1 still emit route-unmatched telemetry without crashing?
+  - *Verified:* `normalizeMessage` checks `message.sticker` truthiness (not `message.sticker.fileId`). A truthy but malformed sticker object routes to `unsupported`, `sourceLabel: "sticker"`, and `messageSubtype: "sticker"`. The `sticker` property is copied into `NormalizedTelegramUpdate` but is never dereferenced in the unsupported handler path (line 265-279), so no crash occurs and telemetry is emitted correctly.
+
+## Suggested follow-up TKTs
+
+- **TKT-FOLLOWUP-001@0.1.0** (deferred): Harden `createMetricsServer` host validation to reject all IPv4/IPv6 wildcard forms (including `::ffff:0.0.0.0`, `0:0:0:0:0:0:0:0`, etc.) with a robust allowlist approach rather than exact-string denylist. This is a security enhancement beyond TKT-015@0.1.0 scope.
+
+## Rollback command if PR must be reverted
+
+```bash
+git checkout main && git revert -m 1 <merge-commit-sha>
+```
+
+(Replace `<merge-commit-sha>` with the actual merge commit SHA after merge.)
