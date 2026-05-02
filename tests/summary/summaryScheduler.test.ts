@@ -3,6 +3,7 @@ import {
   computePeriodBounds,
   validateTimezone,
   buildIdempotencyKey,
+  countInclusiveDays,
   aggregateMeals,
   computeDeltas,
   computePreviousPeriodComparison,
@@ -59,14 +60,16 @@ function makeRecordRow(overrides: Partial<SummaryRecordRow>): SummaryRecordRow {
   };
 }
 
-function makeMockStore(meals: ConfirmedMealRow[] = []): TenantStore {
+function makeMockStore(meals: ConfirmedMealRow[] = []) {
   const records: SummaryRecordRow[] = [];
+  const capturedRequests: Record<string, unknown>[] = [];
   const store: Record<string, unknown> = {
     async listConfirmedMeals() {
       return meals;
     },
-    async createSummaryRecord(_userId: string, request: { idempotencyKey: string }) {
-      const row = makeRecordRow({ idempotency_key: request.idempotencyKey });
+    async createSummaryRecord(_userId: string, request: Record<string, unknown>) {
+      capturedRequests.push({ ...request });
+      const row = makeRecordRow({ idempotency_key: request.idempotencyKey as string });
       records.push(row);
       return row;
     },
@@ -93,7 +96,7 @@ function makeMockStore(meals: ConfirmedMealRow[] = []): TenantStore {
       return [];
     },
   };
-  return store as unknown as TenantStore;
+  return { store: store as unknown as TenantStore, capturedRequests };
 }
 
 describe("computePeriodBounds", () => {
@@ -234,13 +237,62 @@ describe("computePreviousPeriodComparison", () => {
   });
 });
 
+describe("countInclusiveDays", () => {
+  it("same day returns 1", () => {
+    expect(countInclusiveDays("2026-05-01", "2026-05-01")).toBe(1);
+  });
+
+  it("week span returns 7", () => {
+    expect(countInclusiveDays("2026-05-04", "2026-05-10")).toBe(7);
+  });
+
+  it("February 2025 returns 28", () => {
+    expect(countInclusiveDays("2025-02-01", "2025-02-28")).toBe(28);
+  });
+
+  it("February 2028 (leap) returns 29", () => {
+    expect(countInclusiveDays("2028-02-01", "2028-02-29")).toBe(29);
+  });
+
+  it("May 2026 returns 31", () => {
+    expect(countInclusiveDays("2026-05-01", "2026-05-31")).toBe(31);
+  });
+});
+
 describe("computePeriodTargets", () => {
-  it("multiplies daily targets by period multiplier", () => {
-    const daily = { caloriesKcal: 2000, proteinG: 100, fatG: 55, carbsG: 215 };
+  const daily = { caloriesKcal: 2000, proteinG: 100, fatG: 55, carbsG: 215 };
+
+  it("multiplies daily targets by period multiplier when no bounds", () => {
     expect(computePeriodTargets(daily, "daily")).toEqual(daily);
     const weekly = computePeriodTargets(daily, "weekly");
     expect(weekly.caloriesKcal).toBe(14000);
     expect(weekly.proteinG).toBe(700);
+  });
+
+  it("uses actual period bounds for monthly targets — February 2025 (28 days)", () => {
+    const result = computePeriodTargets(daily, "monthly", "2025-02-01", "2025-02-28");
+    expect(result.caloriesKcal).toBe(2000 * 28);
+    expect(result.proteinG).toBe(100 * 28);
+  });
+
+  it("uses actual period bounds for monthly targets — February 2028 (29 days, leap)", () => {
+    const result = computePeriodTargets(daily, "monthly", "2028-02-01", "2028-02-29");
+    expect(result.caloriesKcal).toBe(2000 * 29);
+  });
+
+  it("uses actual period bounds for monthly targets — May 2026 (31 days)", () => {
+    const result = computePeriodTargets(daily, "monthly", "2026-05-01", "2026-05-31");
+    expect(result.caloriesKcal).toBe(2000 * 31);
+  });
+
+  it("daily with bounds still yields 1x targets", () => {
+    const result = computePeriodTargets(daily, "daily", "2026-05-01", "2026-05-01");
+    expect(result.caloriesKcal).toBe(2000);
+  });
+
+  it("weekly with bounds yields 7x targets", () => {
+    const result = computePeriodTargets(daily, "weekly", "2026-05-04", "2026-05-10");
+    expect(result.caloriesKcal).toBe(14000);
   });
 });
 
@@ -255,8 +307,8 @@ describe("periodTypeToTargetMultiplier", () => {
 describe("processDueSchedule", () => {
   const dailyTargets = { caloriesKcal: 2000, proteinG: 100, fatG: 55, carbsG: 215 };
 
-  function makeDeps(meals: ConfirmedMealRow[] = [], llmOverride?: SummarySchedulerDeps["callOmniRoute"]): SummarySchedulerDeps {
-    const store = makeMockStore(meals);
+  function makeDeps(meals: ConfirmedMealRow[] = [], llmOverride?: SummarySchedulerDeps["callOmniRoute"]): SummarySchedulerDeps & { capturedRequests: Record<string, unknown>[] } {
+    const { store, capturedRequests } = makeMockStore(meals);
     const spendTracker = {
       preflightCheck: vi.fn().mockResolvedValue({ allowed: true, estimatedCostUsd: 0.001 }),
       recordSpend: vi.fn().mockResolvedValue(undefined),
@@ -280,6 +332,7 @@ describe("processDueSchedule", () => {
       logger,
       personaPath: "docs/personality/PERSONA-001-kbju-coach.md",
       callOmniRoute: llmOverride,
+      capturedRequests,
     };
   }
 
@@ -399,5 +452,49 @@ describe("processDueSchedule", () => {
       expect.stringContaining("summary_recommendation_blocked"),
       expect.objectContaining({ error_code: expect.stringContaining("forbidden_topic_ru") }),
     );
+  });
+
+  it("persists deltasVsTarget and previousPeriodComparison with KBJUValues keys", async () => {
+    const meals = [
+      makeMeal({ total_calories_kcal: 500, total_protein_g: 30, total_fat_g: 15, total_carbs_g: 60 }),
+    ];
+    const mockLlm = vi.fn().mockResolvedValue({
+      providerAlias: "omniroute",
+      modelAlias: "gpt-oss-120b",
+      rawResponseText: '{"recommendation_ru": "Ты получил 500 ккал при цели 2000. Добавь белка."}',
+      inputUnits: 100,
+      outputUnits: 30,
+      estimatedCostUsd: 0.0001,
+      outcome: "success",
+    });
+    const deps = makeDeps(meals, mockLlm);
+    const schedule: DueSchedule = {
+      scheduleId: "sched-1",
+      userId: "user-1",
+      periodType: "daily",
+      localTime: "2026-05-01",
+      timezone: "Europe/Moscow",
+      lastDuePeriodStart: null,
+    };
+    await processDueSchedule(deps, schedule, "req-7", false, {
+      dailyTargets,
+      previousPeriodMeals: [
+        makeMeal({ total_calories_kcal: 400, total_protein_g: 20, total_fat_g: 10, total_carbs_g: 40 }),
+      ],
+    });
+    expect(deps.capturedRequests.length).toBe(1);
+    const req = deps.capturedRequests[0] as Record<string, unknown>;
+    const deltas = req.deltasVsTarget as Record<string, unknown>;
+    expect(deltas).toHaveProperty("caloriesKcal");
+    expect(deltas).toHaveProperty("proteinG");
+    expect(deltas).toHaveProperty("fatG");
+    expect(deltas).toHaveProperty("carbsG");
+    expect(deltas).not.toHaveProperty("deltaCaloriesKcal");
+    const prev = req.previousPeriodComparison as Record<string, unknown>;
+    expect(prev).toHaveProperty("caloriesKcal");
+    expect(prev).toHaveProperty("proteinG");
+    expect(prev).toHaveProperty("fatG");
+    expect(prev).toHaveProperty("carbsG");
+    expect(prev).not.toHaveProperty("deltaCaloriesKcal");
   });
 });

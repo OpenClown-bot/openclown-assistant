@@ -168,6 +168,14 @@ export function computePreviousPeriodComparison(
   };
 }
 
+export function countInclusiveDays(periodStart: string, periodEnd: string): number {
+  const s = parseLocalDate(periodStart);
+  const e = parseLocalDate(periodEnd);
+  const startEpoch = Date.UTC(s.year, s.month - 1, s.day);
+  const endEpoch = Date.UTC(e.year, e.month - 1, e.day);
+  return Math.round((endEpoch - startEpoch) / 86400000) + 1;
+}
+
 export function periodTypeToTargetMultiplier(periodType: PeriodType): number {
   switch (periodType) {
     case "daily": return 1;
@@ -176,8 +184,13 @@ export function periodTypeToTargetMultiplier(periodType: PeriodType): number {
   }
 }
 
-export function computePeriodTargets(dailyTargets: KBJUValues, periodType: PeriodType): KBJUValues {
-  const m = periodTypeToTargetMultiplier(periodType);
+export function computePeriodTargets(dailyTargets: KBJUValues, periodType: PeriodType, periodStart?: string, periodEnd?: string): KBJUValues {
+  let m: number;
+  if (periodStart && periodEnd) {
+    m = countInclusiveDays(periodStart, periodEnd);
+  } else {
+    m = periodTypeToTargetMultiplier(periodType);
+  }
   return {
     caloriesKcal: dailyTargets.caloriesKcal * m,
     proteinG: dailyTargets.proteinG * m,
@@ -235,7 +248,7 @@ export async function processDueSchedule(
   });
 
   const aggregate = aggregateMeals(meals);
-  const periodTargets = computePeriodTargets(options.dailyTargets, schedule.periodType);
+  const periodTargets = computePeriodTargets(options.dailyTargets, schedule.periodType, periodStart, periodEnd);
   const deltas = computeDeltas(aggregate, periodTargets);
 
   const previousAggregate = options.previousPeriodMeals
@@ -387,17 +400,17 @@ async function persistRecord(
       mealCount: result.totals.mealCount,
     },
     deltasVsTarget: {
-      deltaCaloriesKcal: result.deltas.deltaCaloriesKcal,
-      deltaProteinG: result.deltas.deltaProteinG,
-      deltaFatG: result.deltas.deltaFatG,
-      deltaCarbsG: result.deltas.deltaCarbsG,
+      caloriesKcal: result.deltas.deltaCaloriesKcal,
+      proteinG: result.deltas.deltaProteinG,
+      fatG: result.deltas.deltaFatG,
+      carbsG: result.deltas.deltaCarbsG,
     },
     previousPeriodComparison: result.previousPeriodComparison
       ? {
-          deltaCaloriesKcal: result.previousPeriodComparison.deltaCaloriesKcal,
-          deltaProteinG: result.previousPeriodComparison.deltaProteinG,
-          deltaFatG: result.previousPeriodComparison.deltaFatG,
-          deltaCarbsG: result.previousPeriodComparison.deltaCarbsG,
+          caloriesKcal: result.previousPeriodComparison.deltaCaloriesKcal,
+          proteinG: result.previousPeriodComparison.deltaProteinG,
+          fatG: result.previousPeriodComparison.deltaFatG,
+          carbsG: result.previousPeriodComparison.deltaCarbsG,
         }
       : undefined,
     recommendationTextRu: result.recommendationTextRu ?? undefined,
