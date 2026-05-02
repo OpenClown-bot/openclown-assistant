@@ -72,3 +72,43 @@ Recommendation to PO: Request changes from Executor — add missing smoke-test c
 - No hidden network calls in tests.
 - No new runtime dependencies.
 - Executor self-reported checks (18/18 tests, lint, typecheck, validator) were independently reproduced.
+
+---
+
+# Iter-2 Verification
+
+## Executor delta reviewed
+- Executor branch: `tkt/TKT-014-pilot-kpi-smoke-suite`
+- Iter-1 HEAD: `91d47180522264eaf3de44a64469607601935826`
+- Iter-2 HEAD: `dd1de85125b4ec36b9a10cfbcc494821b4fff92f`
+- Iter-2 commit: `dd1de85 TKT-014: resolve iter-1 review findings`
+- Files changed: `docs/tickets/TKT-014-pilot-kpi-smoke-suite.md` (execution log only), `src/pilot/kpiQueries.ts`, `src/pilot/pilotReadinessReport.ts`, `tests/pilot/fixtures.ts`, `tests/pilot/kpiQueries.test.ts`, `tests/pilot/pilotSmoke.test.ts`
+
+## Checks run (iter-2)
+- `npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts`: 20/20 pass (up from 18/18)
+- `npm run lint`: PASS
+- `npm run typecheck`: PASS
+- `python3 scripts/validate_docs.py`: 62 artifact(s); 0 failed
+
+## Per-finding resolution
+
+| Finding | Status | Evidence |
+|---|---|---|
+| F-H1 (behavioral smoke-test ACs missing) | **PARTIAL** | `pilotSmoke.test.ts` now contains four behavioral `it()` blocks (`pilot behavioral smoke ACs` describe block, lines ~76–157) asserting tenant isolation, photo low-confidence label + no pre-confirm persistence, summary forbidden-topic block + deterministic fallback, and right-to-delete + fresh onboarding. However, these assertions exercise **toy mock helpers** (`buildSmokeStore`, `renderUserInbox`, `createLowConfidencePhotoDraft`, `deliverSummaryWithGuard`, `rightToDeleteUser`, `freshOnboardUser`) defined in `tests/pilot/fixtures.ts` rather than actual production seams (`mealOrchestrator.handleMealInput`, `photoConfidence.computeDraftConfidence`, `recommendationGuard.validateRecommendationOutput`, `rightToDelete.handle`, `tenantAudit.runEndOfPilotTenantAudit`). The smoke tests therefore assert desired properties against hand-rolled stubs, not against the code that will run in production. This does not satisfy the TKT-014 §2 “end-to-end mocked pilot smoke test” intent. |
+| F-M1 (K3 omits `audio_duration_seconds <= 15`) | **RESOLVED** | `src/pilot/kpiQueries.ts:96-97` now filters: `typeof m.metadata.audio_duration_seconds === "number" && m.metadata.audio_duration_seconds <= 15`. `tests/pilot/kpiQueries.test.ts` adds a test case verifying a 16-second clip is excluded (`metric-k3-long-clip`). |
+| F-M2 (K5 monthly-spend test date-dependent) | **RESOLVED** | `tests/pilot/fixtures.ts` introduces `FIXED_MONTH_UTC = "2026-05"` and all cost-event dates are pinned to fixed ISO dates. `tests/pilot/kpiQueries.test.ts` asserts `queryK5MonthlySpend(COST_EVENTS, K5_MONTHLY_CEILING_USD, FIXED_MONTH_UTC)` deterministically. |
+| F-M3 (K7 grouped by `meal_id` instead of calendar date) | **RESOLVED** | `src/pilot/kpiQueries.ts:228` now groups by `label.created_at.slice(0, 10)`. `tests/pilot/kpiQueries.test.ts:149` asserts `dailyCalorieAccuracy` has two entries (May 2 and May 1) for the six labels. |
+| F-L1 (malformed ISO timestamp missing `T`) | **RESOLVED** | All fixture date strings now use proper ISO-8601 format with `T` separator (e.g. `FIXED_NOW = "2026-05-02T12:00:00.000Z"`). |
+| F-L2 (redaction test too weak) | **RESOLVED** | `tests/pilot/fixtures.ts` exports `SENSITIVE_SENTINELS` with `providerToken`, `rawMediaMarker`, `providerPrompt`, etc. `pilotReadinessReport.ts` adds `raw_meal_text`, `transcript_text`, `provider_prompt`, `provider_key`, `raw_media`, and `sk-...` token regexes to `FORBIDDEN_PATTERNS`. `pilotSmoke.test.ts` iterates all sentinel values asserting absence from report output. |
+| F-L3 (missing failure-path tests for K2/K3/K7) | **RESOLVED** | `tests/pilot/kpiQueries.test.ts` adds: K2 duplicate out-of-order events (`uses the first matching events for duplicate out-of-order rows`), K2 missing `draft_reply_sent` returns null, K3 empty eligible voice rows returns null p95/p100, K7 out-of-tolerance values fails targets. |
+
+## New findings (iter-2)
+None.
+
+## Updated Verdict
+- [ ] pass
+- [ ] pass_with_changes
+- [x] fail
+
+One-sentence justification: F-H1 remains PARTIAL — behavioral assertions are now structurally present in `pilotSmoke.test.ts`, but they exercise toy mock helpers instead of the actual production seams mandated by an end-to-end smoke test; all medium and low findings are resolved.
+Recommendation to PO: Require Executor to wire `pilotSmoke.test.ts` behavioral cases to actual production imports (`mealOrchestrator`, `photoConfidence`, `recommendationGuard`, `rightToDelete`, `tenantAudit`) with properly mocked repositories/adapters, or accept the PARTIAL resolution and defer true end-to-end integration to a follow-up ticket.
