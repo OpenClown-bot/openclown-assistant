@@ -1,7 +1,7 @@
 ---
 id: TKT-012
 title: "Right To Delete Audit"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.4.0
 component: "C11 Right-to-Delete and Tenant Audit Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0"]
