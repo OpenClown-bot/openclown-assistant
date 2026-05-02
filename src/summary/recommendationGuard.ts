@@ -43,6 +43,12 @@ const FORBIDDEN_TOPICS_EN: readonly string[] = [
   "eating schedule",
 ];
 
+const ZERO_WIDTH_RE = /[\u200B-\u200D\uFEFF\u00AD\u2060-\u2064\u206A-\u206F]/g;
+
+export function normalizeForValidation(text: string): string {
+  return text.normalize("NFKC").replace(ZERO_WIDTH_RE, "").toLowerCase();
+}
+
 export function buildRecommendationPrompt(
   persona: string,
   input: SummaryRecommendationInput,
@@ -110,9 +116,9 @@ export function validateRecommendationOutput(rawOutput: string): {
     };
   }
 
-  const lowerRu = text.toLowerCase();
+  const normalized = normalizeForValidation(text);
   for (const stem of FORBIDDEN_TOPICS_RU) {
-    if (lowerRu.includes(stem)) {
+    if (normalized.includes(stem)) {
       return {
         valid: false,
         recommendationTextRu: null,
@@ -121,9 +127,8 @@ export function validateRecommendationOutput(rawOutput: string): {
     }
   }
 
-  const lowerEn = text.toLowerCase();
   for (const stem of FORBIDDEN_TOPICS_EN) {
-    if (lowerEn.includes(stem)) {
+    if (normalized.includes(stem)) {
       return {
         valid: false,
         recommendationTextRu: null,

@@ -157,6 +157,38 @@ describe("validateRecommendationOutput", () => {
     );
     expect(result.valid).toBe(true);
   });
+
+  it("blocks Russian forbidden stem split by zero-width space (U+200B)", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Принимай вит\u200Bамины для здоровья."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_ru:витамин");
+  });
+
+  it("blocks English forbidden term split by zero-width joiner (U+200D)", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Take vita\u200Dmins daily."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_en:vitamin");
+  });
+
+  it("blocks forbidden stem with BOM prefix (U+FEFF)", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "\uFEFFПринимай лекарства."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_ru:лекарств");
+  });
+
+  it("blocks forbidden term using NFKC compatibility decomposition", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Follow ﬁtness advice."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_en:fitness");
+  });
 });
 
 describe("buildDeterministicFallback", () => {
