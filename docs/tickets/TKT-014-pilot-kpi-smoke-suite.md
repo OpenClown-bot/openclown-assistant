@@ -1,7 +1,7 @@
 ---
 id: TKT-014
 title: "Pilot KPI Smoke Suite"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.4.0
 component: "End-to-end pilot readiness / K1-K7"
 depends_on: ["TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-013@0.1.0"]
@@ -81,8 +81,15 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-014-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-05-02 14:13 qwen-3.6-plus via OmniRoute: started -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm test — 18/18 pass -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm run lint — PASS -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm run typecheck — PASS -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: status ready -> in_progress commit -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: implementation commit c1c97f2 -->
+<!-- 2026-05-02 14:24 qwen-3.6-plus via OmniRoute: opened PR -->
+
 
 ---
 
