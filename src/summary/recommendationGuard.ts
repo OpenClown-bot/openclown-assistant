@@ -75,12 +75,17 @@ function toCyrillicVariant(text: string): string {
   return mapChars(normalizeForValidation(text), LATIN_TO_CYRILLIC);
 }
 
+function escapePersonaForPrompt(persona: string): string {
+  return persona.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 export function buildRecommendationPrompt(
   persona: string,
   input: SummaryRecommendationInput,
 ): { systemPrompt: string; userContent: string } {
   const periodLabel = periodTypeLabel(input.periodType);
-  const systemPrompt = `<persona>\n${persona}\n</persona>\n\nЗАПРЕЩЁННЫЕ ТЕМЫ: ты не должен упоминать медицинские советы, клинические рекомендации, витамины, добавки, препараты, лекарства, гидратацию, гликимический индекс, режим питания, время приёмов пищи, микронутриенты, диагнозы, лечение, тренировки, фитнес, упражнения. Твои рекомендации — только про калории, белки, жиры и углеводы относительно целей.\n\nОтветь в формате JSON: { "recommendation_ru": "..." }`;
+  const safePersona = escapePersonaForPrompt(persona);
+  const systemPrompt = `<persona>\n${safePersona}\n</persona>\n\nЗАПРЕЩЁННЫЕ ТЕМЫ: ты не должен упоминать медицинские советы, клинические рекомендации, витамины, добавки, препараты, лекарства, гидратацию, гликимический индекс, режим питания, время приёмов пищи, микронутриенты, диагнозы, лечение, тренировки, фитнес, упражнения. Твои рекомендации — только про калории, белки, жиры и углеводы относительно целей.\n\nОтветь в формате JSON: { "recommendation_ru": "..." }`;
 
   const target = input.targets;
   const agg = input.aggregate;

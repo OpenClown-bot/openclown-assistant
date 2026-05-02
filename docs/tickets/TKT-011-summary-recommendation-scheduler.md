@@ -112,3 +112,4 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 | 2026-05-02T01:18Z | iter-5 fix pushed | PR-Agent: isolate persona in summary prompt with `<persona>` delimiters |
 | 2026-05-02T01:33Z | iter-6 fix pushed | PR-Agent: close homoglyph bypass (Cyrillic↔Latin) + persona cache by path |
 | 2026-05-02T01:39Z | iter-7 fix pushed | Devin Review: actual month-length targets + align persisted delta JSON to KBJUValues keys |
+| 2026-05-02T01:59Z | iter-8 fix pushed | PR-Agent: escape persona prompt delimiters (prevent `</persona>` breakout) |
