@@ -10,9 +10,9 @@ created: 2026-05-02
 
 This file collects the deferred follow-ups from the TKT-013 closure (PR #80 + PR #81 + closure-PR) and the structural lessons learned from the third end-to-end Ticket Orchestrator pilot. The first pilot (TKT-010) generated `BACKLOG-007` and `PR #71`; the second (TKT-011) generated `BACKLOG-008`; this third pilot generates `BACKLOG-009`.
 
-The 6 entries below split into:
+The 7 entries below split into:
 - **3× F-L carry-over** from Kimi K2.6 iter-4 review on PR #80 final HEAD `b50443e5` (low-severity, deferred per Reviewer rationale; PR-Agent informational items overlap with these).
-- **3× structural TKT-NEW** from anomalies surfaced during the cycle (opencode session interrupt resilience, PR-Agent CI tail-latency escalation 3-of-3, RV file-naming canonical convention).
+- **4× structural TKT-NEW** from anomalies surfaced during this pilot or surfaced while preparing the next pilot (opencode session interrupt resilience, PR-Agent CI tail-latency escalation 3-of-3, AGENTS.md vs llm-routing.md runtime mismatch surfaced during 4th-pilot prep, RV file-naming canonical convention).
 
 ## TKT-NEW-migrate-script-cleaner-json-errors
 
@@ -76,6 +76,22 @@ The 6 entries below split into:
 3. **Long-term:** Open a Q-INFRA ticket against the OmniRoute / Qwen-routing layer with the gathered timing data; consider switching PR-Agent's reviewer model to a different OmniRoute backend (Kimi K2.6 is already used by primary Reviewer; PR-Agent could trial GLM 5.1 for the second-reviewer role to test whether the tail-latency is Qwen-specific).
 
 **ArchSpec dependency:** None directly. ADR-002@0.1.0 (OmniRoute-First LLM Routing) governs the routing layer; this investigation may surface an ADR amendment or new ADR if the root cause is in the OmniRoute layer.
+
+## TKT-NEW-agents-md-vs-llm-routing-md-runtime-mismatch
+
+**Source:** Triage performed during 4th-pilot (TKT-012) preparation 2026-05-02. PO asked whether `codex-gpt-5.5` Executor must run via Codex CLI or whether opencode + Codex GPT-5.5 (high) is acceptable. Cross-checked two repo sources of truth and found contradictory answers.
+
+**The issue:**
+- `AGENTS.md` row "Code Executor" lists runtime as `opencode + OmniRoute` for ALL three Executor model variants (GLM 5.1 default, Qwen 3.6 Plus parallel, Codex GPT-5.5 specialist). This implies all three route the same way.
+- `docs/knowledge/llm-routing.md` is more specific: "Executor (default) GLM 5.1 — opencode + OmniRoute → Fireworks", "Executor (parallel) Qwen 3.6 Plus — opencode + OmniRoute → Fireworks", but **"Executor (specialist) Codex GPT-5.5 — Codex CLI"** (no `opencode`, no `OmniRoute`). The likely root cause is that GLM/Qwen/Kimi all live behind OmniRoute → Fireworks (non-OpenAI providers), whereas Codex GPT-5.5 is OpenAI and reaches the agent through a different path. AGENTS.md was last updated 2026-04-30 (Devin Review deprecation) and may not have synced with the runtime split that llm-routing.md documents.
+
+**Concrete operational impact:** When PO dispatches the TKT-012 4th TO pilot, both BACKLOG-008 §launcher-asserts-frontmatter-executor (frontmatter `codex-gpt-5.5` must match the actual Executor model) and the runtime question (which CLI) are pending. If opencode happens to support routing to OpenAI Codex GPT-5.5 through OmniRoute, AGENTS.md is correct and llm-routing.md is stale; if not, llm-routing.md is correct and AGENTS.md needs a per-model runtime split.
+
+**Proposed fix:** Triage path before TKT-012 dispatch (or as part of its cycle) — PO empirically tries opencode + Codex GPT-5.5 high in a NEW session; (a) if the model is reachable through OmniRoute, update `docs/knowledge/llm-routing.md` row "Executor (specialist)" to `Codex GPT-5.5 | opencode + OmniRoute` to match AGENTS.md; (b) if the model is NOT reachable, update the AGENTS.md "Code Executor" row to split runtime per-model (`GLM 5.1 / Qwen 3.6 Plus → opencode + OmniRoute; Codex GPT-5.5 → Codex CLI`). Either way, the two sources of truth must converge before the 5th pilot to prevent operational drift on TKT-014.
+
+**Severity:** Low (clerical inconsistency, no immediate correctness or security impact; 4th-pilot can proceed empirically). Resolve as part of TKT-012 closure-PR or as a standalone clerical PR — whichever the empirical answer dictates.
+
+**ArchSpec dependency:** None directly. `ADR-002@0.1.0 OmniRoute-First LLM Routing` governs the routing layer; if the resolution shows OmniRoute does NOT reach OpenAI Codex GPT-5.5, an ADR amendment may be warranted.
 
 ## TKT-NEW-rv-code-file-naming-canonical
 
