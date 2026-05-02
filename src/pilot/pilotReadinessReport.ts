@@ -36,17 +36,65 @@ const FORBIDDEN_PATTERNS = [
   /sk-[A-Za-z0-9_-]+/g,
 ];
 
-function redactValue(value: string): string {
-  let result = value;
-  for (const pattern of FORBIDDEN_PATTERNS) {
-    pattern.lastIndex = 0;
-    result = result.replace(pattern, "[REDACTED]");
-  }
-  return result;
+const HOMOGLYPH_MAP: Record<string, string> = {
+  а: "a", е: "e", о: "o", р: "p", с: "c", х: "x", у: "y",
+  А: "A", Е: "E", О: "O", Р: "P", С: "C", Х: "X", У: "Y",
+};
+
+function normalizeForRedaction(value: string): string {
+  return value
+    .split("")
+    .map((c) => HOMOGLYPH_MAP[c] || c)
+    .join("");
 }
 
-function redactK1Report(thresholds: Record<string, boolean>): Record<string, boolean> {
-  return thresholds;
+interface RedactionRange {
+  start: number;
+  end: number;
+}
+
+function collectRedactionRanges(normalized: string): RedactionRange[] {
+  const ranges: RedactionRange[] = [];
+  for (const pattern of FORBIDDEN_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(normalized)) !== null) {
+      ranges.push({ start: match.index, end: match.index + match[0].length });
+      if (match.index === pattern.lastIndex) {
+        pattern.lastIndex++;
+      }
+    }
+  }
+  return ranges;
+}
+
+function mergeRanges(ranges: RedactionRange[]): RedactionRange[] {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start - b.start || a.end - b.end);
+  const merged: RedactionRange[] = [sorted[0]!];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1]!;
+    const curr = sorted[i]!;
+    if (curr.start <= last.end) {
+      last.end = Math.max(last.end, curr.end);
+    } else {
+      merged.push(curr);
+    }
+  }
+  return merged;
+}
+
+function redactValue(value: string): string {
+  const normalized = normalizeForRedaction(value);
+  const ranges = collectRedactionRanges(normalized);
+  if (ranges.length === 0) return value;
+  const merged = mergeRanges(ranges);
+  let result = value;
+  for (let i = merged.length - 1; i >= 0; i--) {
+    const { start, end } = merged[i]!;
+    result = result.slice(0, start) + "[REDACTED]" + result.slice(end);
+  }
+  return result;
 }
 
 function redactK7Report(k7: K7AccuracyResult): K7AccuracyResult {

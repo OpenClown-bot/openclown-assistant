@@ -11,6 +11,7 @@ import {
   queryK7Accuracy,
 } from "../../src/pilot/kpiQueries.js";
 import { formatPilotReadinessReport } from "../../src/pilot/pilotReadinessReport.js";
+import type { PilotReadinessData } from "../../src/pilot/pilotReadinessReport.js";
 import { HistoryService } from "../../src/history/historyService.js";
 import type { HistoryDeps, ConfirmedMealView } from "../../src/history/types.js";
 import { RightToDeleteService } from "../../src/privacy/rightToDelete.js";
@@ -393,5 +394,38 @@ describe("pilot readiness report - redaction and summary", () => {
     const badData = { ...data, k1UserThresholds: failingK1 };
     const report = formatPilotReadinessReport(badData);
     expect(report).toContain("NOT READY");
+  });
+
+  it("redacts Cyrillic-homoglyph variants of sensitive field names", () => {
+    const data = buildPilotReadinessData();
+    // Cyrillic а (U+0430) replaces Latin a in forbidden keywords
+    const CYRILLIC_A = "\u0430";
+    const cyrillicTelegram = 'telegram_id: "123456789"'.replace("a", CYRILLIC_A);
+    const cyrillicUsername = 'username: "secret"'.replace("a", CYRILLIC_A);
+    const cyrillicRawMedia = 'raw_media: blob'.replace("a", CYRILLIC_A);
+    const cyrillicProvider = 'provider_key: sk-xxx'; // Latin, matches too
+
+    const homoglyphData: PilotReadinessData = {
+      ...data,
+      k6WeeklyRetentions: {
+        [cyrillicTelegram]: { activeDaysInWeek: 5, daysInWeek: 7, metThreshold: true },
+        [cyrillicUsername]: { activeDaysInWeek: 5, daysInWeek: 7, metThreshold: true },
+        [cyrillicRawMedia]: { activeDaysInWeek: 5, daysInWeek: 7, metThreshold: true },
+        [cyrillicProvider]: { activeDaysInWeek: 5, daysInWeek: 7, metThreshold: true },
+      },
+    };
+
+    const report = formatPilotReadinessReport(homoglyphData);
+    // Original Cyrillic strings must not leak
+    expect(report).not.toContain(cyrillicTelegram);
+    expect(report).not.toContain(cyrillicUsername);
+    expect(report).not.toContain(cyrillicRawMedia);
+    expect(report).not.toContain(cyrillicProvider);
+    // Individual homoglyph substrings must also not leak
+    expect(report).not.toContain("telegram_id");
+    expect(report).not.toContain("username");
+    expect(report).not.toContain("raw_media");
+    // But redaction markers must be present
+    expect(report).toContain("[REDACTED]");
   });
 });
