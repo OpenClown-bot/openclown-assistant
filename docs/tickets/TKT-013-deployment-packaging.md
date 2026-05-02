@@ -1,7 +1,7 @@
 ---
 id: TKT-013
 title: "Deployment Packaging"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.4.0
 component: "Deployment / ADR-008"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
