@@ -112,3 +112,64 @@ None.
 
 One-sentence justification: F-H1 remains PARTIAL — behavioral assertions are now structurally present in `pilotSmoke.test.ts`, but they exercise toy mock helpers instead of the actual production seams mandated by an end-to-end smoke test; all medium and low findings are resolved.
 Recommendation to PO: Require Executor to wire `pilotSmoke.test.ts` behavioral cases to actual production imports (`mealOrchestrator`, `photoConfidence`, `recommendationGuard`, `rightToDelete`, `tenantAudit`) with properly mocked repositories/adapters, or accept the PARTIAL resolution and defer true end-to-end integration to a follow-up ticket.
+
+---
+
+# Iter-3 Verification
+
+## Executor delta reviewed
+- Executor branch: `tkt/TKT-014@0.1.0-pilot-kpi-smoke-suite`
+- Iter-2 HEAD: `dd1de85125b4ec36b9a10cfbcc494821b4fff92f`
+- Iter-3 HEAD: `7dc4606bc4307c00a543edde82bc19a90851da22`
+- Iter-4 HEAD: `29f2fd464c2b3f9536c9b5b57635a01e99b88c19`
+- Iter-5 HEAD: `3c6ff96312825effab3032284c72bcb8271ce65f`
+- Iter-3 commit: `7dc4606 TKT-014@0.1.0: iter-3 fix K1 vacuous pass + rewrite pilotSmoke with production exports`
+- Iter-4 commit: `29f2fd4 TKT-014@0.1.0: harden readiness report redaction against Cyrillic homoglyphs, remove dead code`
+- Iter-5 commit: `3c6ff96 TKT-014@0.1.0: resolve final PR-Agent pilot findings`
+- Files changed: `docs/tickets/TKT-014@0.1.0-pilot-kpi-smoke-suite.md`, `src/pilot/kpiQueries.ts`, `src/pilot/pilotReadinessReport.ts`, `tests/pilot/fixtures.ts`, `tests/pilot/kpiQueries.test.ts`, `tests/pilot/pilotSmoke.test.ts`
+
+## Checks run (iter-3)
+- `npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts`: 30/30 pass (19 kpiQueries + 11 pilotSmoke)
+- `npm run lint`: PASS
+- `npm run typecheck`: PASS
+- `python3 scripts/validate_docs.py`: 63 artifact(s); 0 failed
+
+## Per-finding resolution
+
+| Finding | Status | Evidence |
+|---|---|---|
+| F-H1 (behavioral smoke-test ACs missing) | **RESOLVED** | `pilotSmoke.test.ts` now imports and invokes actual production seams: `HistoryService.listHistory` (tenant isolation), `photoConfidence.computeDraftConfidence` / `isLowConfidence` / `getLowConfidenceLabel` (low-confidence guard), `recommendationGuard.validateRecommendationOutput` / `buildDeterministicFallback` (forbidden-topic block), `RightToDeleteService.handle` (right-to-delete + fresh onboarding), and `tenantAudit.runEndOfPilotTenantAudit` (cross-user audit). All assertions exercise production code paths with typed mock repositories/adapters. |
+| F-M1 (K3 omits `audio_duration_seconds <= 15`) | **RESOLVED** (unchanged from iter-2) | `src/pilot/kpiQueries.ts:112-113` filters `audio_duration_seconds <= 15`. Test verifies 16-second clip excluded. |
+| F-M2 (K5 date-dependent) | **RESOLVED** (unchanged from iter-2) | `FIXED_MONTH_UTC = "2026-05"` and pinned ISO dates in fixtures. |
+| F-M3 (K7 grouped by `meal_id`) | **RESOLVED** (unchanged from iter-2) | Grouping key changed to `created_at.slice(0, 10)` in `src/pilot/kpiQueries.ts:232`. |
+| F-L1 (malformed ISO timestamps) | **RESOLVED** (unchanged from iter-2) | All fixture dates use proper ISO-8601 with `T` separator. |
+| F-L2 (redaction test too weak) | **RESOLVED** | `SENSITIVE_SENTINELS` covers 7 categories; `FORBIDDEN_PATTERNS` expanded; Cyrillic-homoglyph normalization added with `HOMOGLYPH_MAP` (22 codepoints mapped); test proves Cyrillic-homoglyph variants of sensitive fields are redacted. |
+| F-L3 (K2/K3/K7 failure paths) | **RESOLVED** (unchanged from iter-2) | K2 out-of-order events, K3 empty eligible rows, K7 out-of-tolerance + daily macro tolerance exceeded. |
+
+## PR-Agent final-head finding resolution
+
+| PR-Agent Finding | Status | Evidence |
+|---|---|---|
+| K1 vacuous pass (missing expected users omitted from thresholds) | **RESOLVED** | `queryK1MeetsThreshold` accepts optional `expectedUserIds` parameter; missing users explicitly set to `false`. `formatPilotReadinessReport` K1 pass requires `k1Entries.length > 0 && every(Boolean)`. Tests add empty-thresholds and missing-expected-user regression cases. |
+| Cyrillic homoglyph bypass in redaction | **RESOLVED** | `src/pilot/pilotReadinessReport.ts` adds `HOMOGLYPH_MAP` with 22 Cyrillic→Latin mappings. `normalizeForRedaction` converts before pattern matching; `collectRedactionRanges` / `mergeRanges` replace original text segments with `[REDACTED]`. `pilotSmoke.test.ts` verifies 6 Cyrillic-homoglyph variants are fully redacted. |
+| Unused `redactK1Report` dead code | **RESOLVED** | `redactK1Report` function removed from `pilotReadinessReport.ts`. |
+| K7 daily macro tolerance | **RESOLVED** | `queryK7Accuracy` now accepts `dailyMacroTolerance` parameter; `dailyMacroMap` groups by calendar date; `avgMacroError > dailyMacroTolerance` check added. Test `fails K7 targets when daily macro average exceeds tolerance` covers this (3 meals with protein_error_pct=8 each → avg 8 > tolerance 5 → `withinK7Targets=false`). |
+| K2 event order dependency | **RESOLVED** | `queryK2LatencyMs` now `.sort((a, b) => a.time - b.time)` before `find()`. Test `selects the earliest valid reply after the earliest received event` with out-of-order events (reply at 09:59:59 before received at 10:00:00) asserts correct 4000ms latency. |
+| K4 latest audit run assumption | **RESOLVED** | `queryK4CrossUserAudit` now uses `reduce` to select the run with the latest `completed_at` timestamp. Test `selects the audit run with the latest completed_at timestamp` places leaky older run last in array, but latest-clean-run selected. |
+
+## PR-Agent infra caveat
+- PR-Agent workflow check `Run PR Agent on every pull request` shows conclusion `CANCELLED` on the final CI run. However, the **persistent review comment** was updated to the final Executor HEAD `3c6ff96312825effab3032284c72bcb8271ce65f` before cancellation, and states: "No security concerns identified", "No major issues detected", "No multiple PR themes". This is recorded as an infrastructure scheduling issue, not a code finding.
+
+## Scope check (iter-3)
+- [x] Diff limited to TKT-014@0.1.0 §5 Outputs: `src/pilot/kpiQueries.ts`, `src/pilot/pilotReadinessReport.ts`, `tests/pilot/fixtures.ts`, `tests/pilot/kpiQueries.test.ts`, `tests/pilot/pilotSmoke.test.ts`, plus `docs/tickets/TKT-014@0.1.0-pilot-kpi-smoke-suite.md` execution log.
+- [x] No production behavior changes outside `src/pilot/*`.
+- [x] No new runtime dependencies.
+- [x] No hidden network calls in tests.
+
+## Updated Verdict
+- [x] pass
+- [ ] pass_with_changes
+- [ ] fail
+
+One-sentence justification: All prior Kimi findings (F-H1 through F-L3) and all PR-Agent final-head findings (K1 vacuous pass, homoglyph redaction, dead code, K7 daily macro tolerance, K2 event order, K4 latest audit run) are resolved; behavioral smoke tests now exercise actual production seams with typed mocks; lint, typecheck, targeted tests, and docs validation all pass.
+Recommendation to PO: Approve for merge.
