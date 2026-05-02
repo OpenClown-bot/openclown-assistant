@@ -82,13 +82,13 @@ export function createDeletionSqlByTable(): Record<string, string> {
     metric_events: "DELETE FROM metric_events WHERE user_id = $1",
     audit_events: "DELETE FROM audit_events WHERE user_id = $1",
     food_lookup_cache: "DELETE FROM food_lookup_cache WHERE user_id = $1",
-    meal_drafts: "DELETE FROM meal_drafts WHERE user_id = $1",
-    confirmed_meals: "DELETE FROM confirmed_meals WHERE user_id = $1",
-    transcripts: "DELETE FROM transcripts WHERE user_id = $1",
     onboarding_states: "DELETE FROM onboarding_states WHERE user_id = $1",
     user_targets: "DELETE FROM user_targets WHERE user_id = $1",
     user_profiles: "DELETE FROM user_profiles WHERE user_id = $1",
     monthly_spend_counters: "DELETE FROM monthly_spend_counters WHERE user_id = $1",
+    confirmed_meals: "DELETE FROM confirmed_meals WHERE user_id = $1",
+    meal_drafts: "DELETE FROM meal_drafts WHERE user_id = $1",
+    transcripts: "DELETE FROM transcripts WHERE user_id = $1",
     users: "DELETE FROM users WHERE id = $1",
   };
 }

@@ -75,8 +75,8 @@ describe("runEndOfPilotTenantAudit", () => {
     expect(insertSql).not.toContain("user_id");
   });
 
-  it("keeps AUDIT_DB_URL out of application skill source imports", async () => {
-    const applicationFiles = [
+  it("keeps AUDIT_DB_URL out of sampled application skill source imports", async () => {
+    const applicationSkillFiles = [
       "src/shared/types.ts",
       "src/store/tenantStore.ts",
       "src/telegram/types.ts",
@@ -85,7 +85,7 @@ describe("runEndOfPilotTenantAudit", () => {
       "src/summary/summaryScheduler.ts",
     ];
 
-    for (const file of applicationFiles) {
+    for (const file of applicationSkillFiles) {
       const source = await import("node:fs/promises").then((fs) => fs.readFile(file, "utf8"));
       expect(source, file).not.toContain("AUDIT_DB_URL");
     }

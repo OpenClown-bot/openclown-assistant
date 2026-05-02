@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELETE_FRESH_START_MESSAGE_RU } from "../../src/privacy/messages.js";
+import { DELETE_FRESH_START_MESSAGE_RU, isRussianDeletionIntent } from "../../src/privacy/messages.js";
 import {
   RightToDeleteService,
   createDeletionSqlByTable,
@@ -127,11 +127,31 @@ describe("RightToDeleteService", () => {
 });
 
 describe("right-to-delete SQL helpers", () => {
-  it("deletes summary schedules first and users last", () => {
+  it("deletes user-scoped tables in FK-safe child-before-parent order", () => {
     const tables = Object.keys(createDeletionSqlByTable());
 
-    expect(tables[0]).toBe("summary_schedules");
-    expect(tables.at(-1)).toBe("users");
+    expect(tables).toEqual([
+      "summary_schedules",
+      "meal_draft_items",
+      "meal_items",
+      "kbju_accuracy_labels",
+      "summary_records",
+      "cost_events",
+      "metric_events",
+      "audit_events",
+      "food_lookup_cache",
+      "onboarding_states",
+      "user_targets",
+      "user_profiles",
+      "monthly_spend_counters",
+      "confirmed_meals",
+      "meal_drafts",
+      "transcripts",
+      "users",
+    ]);
+    expect(tables.indexOf("confirmed_meals")).toBeLessThan(tables.indexOf("meal_drafts"));
+    expect(tables.indexOf("meal_items")).toBeLessThan(tables.indexOf("confirmed_meals"));
+    expect(tables.indexOf("kbju_accuracy_labels")).toBeLessThan(tables.indexOf("confirmed_meals"));
   });
 
   it("executes hard-delete statements for all user-scoped tables", async () => {
@@ -155,6 +175,21 @@ describe("right-to-delete SQL helpers", () => {
     expect(locked).toBe(true);
     expect(queries[0]).toContain("pg_advisory_xact_lock");
     expect(queries[1]).toContain("FOR UPDATE");
+  });
+});
+
+describe("isRussianDeletionIntent", () => {
+  it("accepts /forget_me", () => {
+    expect(isRussianDeletionIntent("/forget_me")).toBe(true);
+  });
+
+  it("accepts clear Russian deletion phrases", () => {
+    expect(isRussianDeletionIntent("пожалуйста, удали мои данные")).toBe(true);
+  });
+
+  it("rejects obvious negated deletion phrases", () => {
+    expect(isRussianDeletionIntent("не удаляй мои данные")).toBe(false);
+    expect(isRussianDeletionIntent("я не хочу удалить мои данные")).toBe(false);
   });
 });
 

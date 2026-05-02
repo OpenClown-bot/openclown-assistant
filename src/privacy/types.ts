@@ -29,8 +29,8 @@ export type UserScopedDeletionTable =
   | "metric_events"
   | "audit_events"
   | "food_lookup_cache"
-  | "meal_drafts"
   | "confirmed_meals"
+  | "meal_drafts"
   | "transcripts"
   | "onboarding_states"
   | "user_targets"
@@ -46,6 +46,7 @@ export interface UserIdentityForDeletion {
 
 export interface RightToDeleteRepository {
   findUserByTelegramUserId(telegramUserId: string): Promise<UserIdentityForDeletion | null>;
+  /** Runs the callback inside one C3 transaction scoped to this user. */
   withUserDeletionTransaction<T>(userId: string, action: (tx: RightToDeleteTransaction) => Promise<T>): Promise<T>;
 }
 
