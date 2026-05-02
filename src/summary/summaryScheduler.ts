@@ -334,7 +334,7 @@ export async function processDueSchedule(
       schedule.userId,
       "validation_blocked",
       degradeModeEnabled,
-      { blocked_reason: validation.blockedReason },
+      { error_code: validation.blockedReason },
     ));
     const result: ProcessScheduleResult = {
       idempotencyKey,

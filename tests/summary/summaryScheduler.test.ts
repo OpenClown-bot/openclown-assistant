@@ -397,7 +397,7 @@ describe("processDueSchedule", () => {
     expect(result.recommendationTextRu).toContain("ккал");
     expect(deps.logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("summary_recommendation_blocked"),
-      expect.anything(),
+      expect.objectContaining({ error_code: expect.stringContaining("forbidden_topic_ru") }),
     );
   });
 });
