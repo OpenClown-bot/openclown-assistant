@@ -104,4 +104,4 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 | Timestamp (UTC) | Event | Detail |
 |---|---|---|
 | 2026-05-02T00:38Z | iter-1 started | qwen-3.6-plus on opencode |
-| 2026-05-02T00:40Z | PR opened | PR URL pending push |
+| 2026-05-02T00:40Z | PR opened | https://github.com/OpenClown-bot/openclown-assistant/pull/75 |
