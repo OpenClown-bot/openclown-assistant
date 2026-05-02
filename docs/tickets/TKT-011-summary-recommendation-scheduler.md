@@ -1,7 +1,7 @@
 ---
 id: TKT-011
 title: "Summary Recommendation Scheduler"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.4.0
 component: "C9 Summary Recommendation Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-006@0.1.0", "TKT-010@0.1.0"]
