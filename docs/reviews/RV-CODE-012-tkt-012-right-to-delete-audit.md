@@ -109,5 +109,19 @@ python3 scripts/validate_docs.py
 # validated 60 artifact(s); 0 failed
 ```
 
+## Iter-3 PR-Agent Finding Verification
+
+### F-PA-1 Privacy Compliance Risk — NOT A FINDING
+
+**PR-Agent claim:** `isRussianDeletionIntent` returns `false` if any negated pattern matches, even when a clear deletion intent is also present. Example: "удали мои данные, но не удаляй пока" would be blocked.
+
+**Evaluation:** The negation patterns in `NEGATED_DELETION_PATTERNS_RU` (lines 13-18) are narrowly targeted at specific Russian deletion verbs (`не удаляй`, `не удали`, `не удалить`, `не хочу удал`). They do NOT match general negation particles like "не волнуйся" or "не шучу". The example message "удали мои данные, но не удаляй пока" literally translates to "delete my data, BUT don't delete yet" — a textbook mixed-intent message containing both an affirmative and a countermanding clause. It is correctly classified as ambiguous and should not trigger the deletion confirmation flow. PRD-001@0.2.0 US-8 establishes `/forget_me` as the single explicit right-to-delete command; natural-language detection is a convenience layer that appropriately errs toward caution on ambiguous input. Blocking genuinely ambiguous mixed-intent messages is correct behavior, not a privacy compliance failure.
+
+### F-PA-2 Flaky Concurrency Test — REAL, LOW, accepted for pilot scope
+
+**PR-Agent claim:** `waitForCall` (lines 200-207) uses a 10-iteration `await Promise.resolve()` polling loop instead of fake timers or deterministic promise-based synchronization. Could cause intermittent CI failures under load.
+
+**Evaluation:** The concern is technically valid. Under extreme CPU pressure, 10 microtask turns may not suffice for the mock `confirmMeal` promise to resolve before the polling loop exhausts. However: (a) Vitest runs tests sequentially by default, so cross-test contention is minimal; (b) the mock `MemoryDeletionRepository` is entirely in-memory with no I/O; (c) the real concurrency guarantee is provided by PostgreSQL `pg_advisory_xact_lock`, not this unit test, which only verifies service-level call ordering. This is a test-quality issue that does not undermine TKT-012@0.1.0 AC proof because the production locking mechanism is database-native. Recommended follow-up: replace the polling loop with `vi.useFakeTimers()` or a deterministic `Promise`-based barrier in a future hygiene ticket.
+
 ## PO recommendation
-**Approve & merge.** TKT-012@0.1.0 iter-2 resolves all iter-1 blocking findings. The right-to-delete service now uses a FK-safe child-before-parent deletion order, the intent handler correctly rejects negated Russian phrases, and tests assert the full ordering. One low-severity lint-coverage gap (F-L2) remains deferred as out-of-scope; recommend a future hygiene ticket for a repo-wide `no-restricted-syntax` ESLint rule or CI script to enforce `AUDIT_DB_URL` isolation.
+**Approve & merge.** TKT-012@0.1.0 iter-2 resolves all iter-1 blocking findings, and the two PR-Agent focus areas raised on the final HEAD (F-PA-1, F-PA-2) are independently assessed as non-blocking. F-PA-1 is a correctly handled ambiguity edge case; F-PA-2 is an acceptable test-quality limitation for pilot scope that does not undermine the AC proof. One low-severity lint-coverage gap (F-L2) remains deferred as out-of-scope; recommend a future hygiene ticket for a repo-wide `no-restricted-syntax` ESLint rule or CI script to enforce `AUDIT_DB_URL` isolation.
