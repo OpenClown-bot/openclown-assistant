@@ -35,6 +35,7 @@ export function queryK1MeetsThreshold(
   dailyCounts: K1DailyMealCount[],
   targetMealsPerDay: number,
   targetDays: number,
+  expectedUserIds?: readonly string[],
 ): Record<string, boolean> {
   const userDays = new Map<string, number>();
   for (const c of dailyCounts) {
@@ -45,6 +46,13 @@ export function queryK1MeetsThreshold(
   const result: Record<string, boolean> = {};
   for (const [userId, days] of userDays) {
     result[userId] = days >= targetDays;
+  }
+  if (expectedUserIds) {
+    for (const userId of expectedUserIds) {
+      if (!(userId in result)) {
+        result[userId] = false;
+      }
+    }
   }
   return result;
 }

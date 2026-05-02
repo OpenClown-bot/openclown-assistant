@@ -68,7 +68,8 @@ export function formatPilotReadinessReport(data: PilotReadinessData): string {
   lines.push("");
 
   lines.push("--- K1: Daily Confirmed Meals ---");
-  const k1Pass = Object.values(data.k1UserThresholds).every(Boolean);
+  const k1Entries = Object.entries(data.k1UserThresholds);
+  const k1Pass = k1Entries.length > 0 && k1Entries.every(([, passes]) => passes);
   lines.push(`  All users meet threshold: ${k1Pass ? "PASS" : "FAIL"}`);
   for (const [userId, passes] of Object.entries(data.k1UserThresholds)) {
     lines.push(`  ${redactValue(userId)}: ${passes ? "PASS" : "FAIL"}`);

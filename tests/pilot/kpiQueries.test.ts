@@ -44,6 +44,21 @@ describe("K1 - daily confirmed meals", () => {
     expect(thresholds[USER_A.userId]).toBe(true);
     expect(thresholds[USER_B.userId]).toBe(true);
   });
+
+  it("returns empty result for no meals", () => {
+    expect(queryK1DailyConfirmedMeals([])).toEqual([]);
+  });
+
+  it("returns empty thresholds when no users have qualifying days", () => {
+    const thresholds = queryK1MeetsThreshold([], 1, 7);
+    expect(Object.keys(thresholds)).toHaveLength(0);
+  });
+
+  it("marks missing expected users as failing", () => {
+    const thresholds = queryK1MeetsThreshold([], 1, 7, [USER_A.userId, USER_B.userId]);
+    expect(thresholds[USER_A.userId]).toBe(false);
+    expect(thresholds[USER_B.userId]).toBe(false);
+  });
 });
 
 describe("K2 - time-to-first-value", () => {

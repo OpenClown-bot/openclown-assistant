@@ -1,7 +1,7 @@
 ---
 id: TKT-014
 title: "Pilot KPI Smoke Suite"
-status: in_review
+status: ready
 arch_ref: ARCH-001@0.4.0
 component: "End-to-end pilot readiness / K1-K7"
 depends_on: ["TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-013@0.1.0"]
@@ -94,6 +94,7 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 <!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run lint — PASS -->
 <!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run typecheck — PASS -->
 <!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
+<!-- 2026-05-02 17:00 Codex GPT-5.5 high via OmniRoute: iter-3 fixes for RV-CODE-014 — K1 vacuous pass fix, K1 regression tests, pilotSmoke.test.ts rewritten with actual production imports (HistoryService, RightToDeleteService, recommendationGuard, photoConfidence, tenantAudit) — npm test tests/pilot/ 26/26 pass, lint PASS, typecheck PASS -->
 
 
 ---
