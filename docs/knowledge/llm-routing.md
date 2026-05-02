@@ -37,9 +37,9 @@ Sources:
 | Architect (backup) | Opus 4.6 thinking | Windsurf | Strong but Windsurf sessions sometimes break on long shell work — keep sessions short |
 | Executor (default) | GLM 5.1 | opencode + OmniRoute → Fireworks | Cheap, fast, good enough for ≈70% of tickets |
 | Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute → Fireworks | Independent family from GLM — runs alongside without correlated failures |
-| Executor (specialist) | Codex GPT-5.5 | Codex CLI | Reserved for security / typing-heavy tickets (Architect justifies in TKT §7) |
+| Executor (specialist) | Codex GPT-5.5 | opencode + OmniRoute → Fireworks (OpenAI route, empirically verified TKT-012@0.1.0 2026-05-02) | Reserved for security / typing-heavy tickets (Architect justifies in TKT §7) |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute → Fireworks | Different family from Architect (GPT) and Executor (GLM / Qwen / Codex) — uncorrelated judgment |
-| Reviewer (auto) | Devin Review | GitHub bot | Second reviewer; runs on every PR automatically |
+| Reviewer (auto) | Qodo PR-Agent (Qwen 3.6 Plus) | GitHub Actions via OmniRoute | Second reviewer; runs on every PR automatically (Devin Review deprecated 2026-04-30 per AGENTS.md — ACU exhaustion) |
 
 ## Cost envelope (sanity reference; PRD §7 must restate concrete numbers)
 
