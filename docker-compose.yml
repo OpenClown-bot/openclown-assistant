@@ -1,0 +1,80 @@
+services:
+  app:
+    build: .
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_PILOT_USER_IDS: ${TELEGRAM_PILOT_USER_IDS}
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      OMNIROUTE_BASE_URL: ${OMNIROUTE_BASE_URL}
+      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY}
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY}
+      USDA_FDC_API_KEY: ${USDA_FDC_API_KEY}
+      PERSONA_PATH: ${PERSONA_PATH}
+      PO_ALERT_CHAT_ID: ${PO_ALERT_CHAT_ID}
+      MONTHLY_SPEND_CEILING_USD: ${MONTHLY_SPEND_CEILING_USD:-10}
+      AUDIT_DB_URL: ${AUDIT_DB_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - openclaw_state:/app/state
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kbju
+    volumes:
+      - kbju_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  metrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["node", "-e", "require('./dist/deployment/healthCheck.js').startMetricsServer()"]
+    environment:
+      METRICS_HOST: "metrics"
+      METRICS_PORT: "9464"
+    ports:
+      - "127.0.0.1:9464:9464"
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://metrics:9464/healthz',(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.exit(JSON.parse(d).status==='ok'?0:1)}catch{process.exit(1)}});r.on('error',()=>process.exit(1))});req.on('error',()=>process.exit(1));req.setTimeout(3000,()=>{req.destroy();process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  kbju_pgdata:
+  openclaw_state:
+
+networks:
+  internal:
+    driver: bridge

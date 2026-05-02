@@ -1,7 +1,7 @@
 ---
 id: TKT-013
 title: "Deployment Packaging"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.4.0
 component: "Deployment / ADR-008"
 depends_on: ["TKT-001@0.1.0", "TKT-002@0.1.0", "TKT-003@0.1.0"]
@@ -87,8 +87,12 @@ Package the KBJU Coach stack for portable Docker Compose deployment.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-013-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-05-02 08:50 glm-5.1: started iter-1 -->
+2026-05-02 08:51 glm-5.1: all §5 Outputs implemented; tests (14/14), lint, typecheck, docker compose config, validate_docs all pass
+<!-- 2026-05-02 08:52 glm-5.1: opened PR #80 -->
+2026-05-02 09:35 glm-5.1: iter-3 pushed — fixed F-H1 (metrics reachable via loopback port mapping), F-H2 (shell-script tests added), F-M1 (openclaw_state mounted), F-M2/F-L2 (migrate service names aligned), F-L1 (uptime from serverStartTime), F-PA-1 (healthCheck validates env vars + Dockerfile queries /healthz), F-PA-2 (node -e JSON parsing), F-PA-3 (dirty-tree pre-flight), F-PA-4 (dead code removed)
+2026-05-02 09:51 glm-5.1: iter-4 pushed — fixed F-M3 (removed image-level HEALTHCHECK from Dockerfile, added service-specific healthcheck on metrics only; app has no healthcheck)
+2026-05-02 10:14 glm-5.1: iter-5 pushed — reject wildcard metrics bind (0.0.0.0); METRICS_HOST now 'metrics' (Docker-internal hostname); healthCheck.ts bans 0.0.0.0/::/[::] per ARCH-001@0.4.0 §8.2/§11 C10; added healthCheck.test.ts
 
 ---
 
