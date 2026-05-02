@@ -138,6 +138,46 @@ The lesson behind this rule is **F-PA-17** (`docs/session-log/2026-05-01-session
 
 **Absence of comment ≠ absence of review.** Every audit pass must re-read every PR-Agent inline, every time.
 
+## TO-NUDGE Formatting Contract (added 2026-05-02 in closure-PR #91 per BACKLOG-011 §TKT-NEW-to-nudge-must-be-valid-markdown-formatting)
+
+When you draft NUDGE files for the Executor and Reviewer opencode sessions (paste-text dispatched by the PO into a fresh opencode session as the first user message), the NUDGE body MUST be **valid CommonMark / GitHub Flavored Markdown**. The opencode chat UI renders the first user message as Markdown by default; non-Markdown ad-hoc markers degrade the render to unstructured plain text and undermine the Executor / Reviewer's ability to extract the contract surface efficiently.
+
+**Required:**
+- `## H2` for major sections (e.g. `## Iter-1 Executor REPO BOOTSTRAP for TKT-NNN`, `## Contract surface`, `## Acceptance Criteria`, `## Constraints`, `## Hand-off`).
+- `### H3` for sub-sections (e.g. `### Inputs`, `### Outputs`, `### NOT-In-Scope`).
+- ` ```language ` triple-backtick fenced code blocks for command blocks, contract excerpts, and file-path lists. Use the language tag where applicable (` ```bash`, ` ```typescript`, ` ```yaml`, ` ```markdown`).
+- `-` or `*` for bulleted lists; `1.` for numbered lists.
+- `**bold**` for emphasis on **critical constraints** (e.g. "**You MUST NOT touch files outside TKT §5 outputs**").
+- `_italic_` for citations or sub-emphasis.
+- `> blockquote` for quoted ArchSpec / TKT excerpts that the Executor / Reviewer should read but not edit.
+- A leading one-line header inside a `markdown`-tagged code-fence at the top: "Iter-N <ROLE> for TKT-NNN: <one-line goal>" — the Executor / Reviewer can immediately recognize this as the dispatch boundary.
+- A trailing explicit gate at the bottom: `Wait for me ('go') before you write any code or push any commit.` (or analogous for Reviewer: `Wait for me ('go') before you create the rv-branch or push any review file.`).
+
+**Forbidden:**
+- Ad-hoc section markers like `<<<HEADING>>>`, `==== SECTION ====`, `[[ NOTE ]]`, ASCII-art separators, or any non-Markdown structural marker.
+- Plain-text walls without headings (the Executor / Reviewer cannot scan structure).
+- Wrapping critical constraints in prose paragraphs without `**bold**` emphasis.
+- Mixing Markdown and non-Markdown markers in the same NUDGE.
+
+**Verification before dispatch:** Before pasting into PO chat, render your NUDGE body in any Markdown previewer (e.g. open a scratch `.md` file in VS Code and open the side preview). If the rendered preview shows unstructured plain text in places where you intended structure, fix the formatting before dispatch.
+
+This rule is also recorded as a Hard rule in `CONTRIBUTING.md` so it is discoverable from the top-level repo docs.
+
+## Mid-cycle Executor takeover sub-protocol (added 2026-05-02 in closure-PR #91 per BACKLOG-011 §TKT-NEW-mid-cycle-executor-takeover-clobbers-frontmatter-status)
+
+If the PO reports mid-cycle that the active Executor model has stalled or is unable to proceed (e.g. context exhaustion, throughput degradation, repeated tool-call failures) and a different Executor model is taking over (e.g. Qwen → Codex switch as on TKT-014), the takeover Executor MUST:
+
+1. **Sync local state to origin HEAD before any new write.** Run `git fetch origin` + `git checkout <pr-branch>` + `git pull --ff-only`. Avoid `git reset --hard origin/<branch>` because that loses local commits if the prior Executor pushed any (which the prior Executor's last clerical commit may include — e.g. a `status: in_review` flip).
+2. **Re-read the post-pull TKT and RV-CODE artifacts.** Confirm the current `status:` values in TKT frontmatter (`in_review` mid-cycle is normal) and `RV-CODE-NNN` frontmatter (`in_review` mid-cycle is normal). Do NOT edit frontmatter unless the iter-N task explicitly requires it.
+3. **State the takeover explicitly in §10 Execution Log** with the takeover commit message body using the form:
+   ```
+   <ISO timestamp> <new-executor-model> via OmniRoute: iter-N takeover after <prior-executor-model> stalled on <reason>; reset local state to origin/<pr-branch> HEAD <SHA>; re-read TKT + RV-CODE; resuming from <task description>.
+   ```
+4. **Verify TKT frontmatter `status` field BEFORE every commit and AFTER every save.** If your editor / agent re-wrote the frontmatter, restore the prior `status:` value as a clerical fix commit before pushing the substantive iter-N work.
+5. **TO must verify on hand-back:** the final HEAD frontmatter `status` is `in_review` (mid-cycle code review) and has not regressed across the takeover. If regression is found, require a clerical fix commit before hand-back. Capture in TO Operational Notes regardless.
+
+This sub-protocol exists because TKT-014's Codex iter-3 commit silently regressed `status: in_review → ready` after Qwen takeover; none of the three reviewers (TO, Kimi, PR-Agent) caught it in pass-1 audit. Devin Orchestrator pass-2 caught it but the regression had already persisted across 4 hours and 2 substantive commits.
+
 ## PR-Agent settle-on-final-HEAD requirement
 
 PR-Agent (Qwen 3.6 Plus through OmniRoute → Fireworks) is **slow** — typical end-to-end runtime is 3–9 minutes per push, but tail-latency runs of 15–25 minutes have been observed (likely OmniRoute / upstream provider congestion). It is tempting to hand back to Devin while PR-Agent is still `IN_PROGRESS` on the final Executor HEAD; **do not do this**.
@@ -189,8 +229,39 @@ Pending closure-PR scope:
   - TKT-<NNN> §10 Execution Log fill (iter-1..N narrative)
   - BACKLOG-<NNN> with TKT-NEW-<X..>: <list>
 
+TO Operational Notes (for Devin Orchestrator postmortem capture):
+  - <one bullet per procedural / pipeline observation observed during the cycle that is NOT a Reviewer code finding>
+  - <if no operational anomalies this cycle, write affirmatively: "No operational anomalies this cycle.">
+
 Awaiting Devin ratification audit + final merge-safe sign-off.
 ```
+
+## Operational Notes capture protocol (added 2026-05-02 in closure-PR #91 per BACKLOG-011 §TKT-NEW-to-do-postmortem-loop-formal-channel)
+
+The `TO Operational Notes` section above is **mandatory** in every hand-back. Its purpose is to close the TO → Devin Orchestrator feedback loop so procedural insights observed during the cycle reach the Devin Orchestrator's pass-2 ratification audit (§11.4) and can be codified into BACKLOG entries during closure-PR drafting.
+
+**What belongs in TO Operational Notes:**
+- Executor model failure modes (e.g., context exhaustion, throughput degradation, push-auth fail, mid-cycle takeover frontmatter clobber, unexpected output truncation).
+- Reviewer model failure modes (e.g., refusing to verify a finding, looping on a single finding, missing PR-Agent overlap).
+- opencode session interruptions (TUI "continue" prompts, network blips, manual escapes, OmniRoute hiccups).
+- PR-Agent CI behavior anomalies (workflow stall timing, conclusion mismatch with persistent review, retry storm).
+- Cross-reviewer audit difficulties (Kimi / PR-Agent classification disagreements, reviewer-re-engagement edge cases).
+- Unexpected ArchSpec / TKT contradictions discovered mid-cycle.
+- PO-mediated decisions and their impact (e.g., Variant A/B/C choice on a strategic blocker, mid-cycle Executor model swap).
+- Anything that took more than 5 minutes of unscheduled debugging or that you suspect will recur on a future TKT.
+
+**What does NOT belong in TO Operational Notes:**
+- Reviewer code findings on the diff. Those go in the `RV-CODE-<NNN>` artifact iter-N section + the `Cross-reviewer audit pass-1 (TO)` section above.
+- Deferred follow-ups for the production code. Those go in `BACKLOG-<NNN>` via the closure-PR.
+- Routine cycle metrics (test counts, lint pass timestamps, validate_docs counts). Those go in the `TKT §10 Execution Log`.
+
+**Format guidance:** Free-form bullet list. Each bullet 1–3 sentences with: (a) what happened, (b) why it happened (best understanding — don't speculate beyond what you observed), (c) the impact on the cycle, (d) whether you worked around it or were blocked. **Examples drawn from the first 5 TO pilots (BACKLOG-007/008/009/010/011):**
+- *(TKT-014)* "Executor opencode session running Qwen 3.6 Plus stalled on iter-2 because cumulative prompt size exceeded the model's effective working window (128k advertised); PO mid-cycle switched to Codex GPT-5.5 high which completed iter-2..iter-5 successfully. Worked around by post-hoc frontmatter bump per BACKLOG-008 §launcher-asserts."
+- *(TKT-014)* "Executor opencode session lacked git push credentials (HTTP 403 on `git push -u origin tkt/...`); PO manually ran the push commands from a credentialed shell. Worked around but recurs on every TO pilot."
+- *(TKT-014)* "Codex iter-3 commit clobbered TKT frontmatter `status: in_review` set by Qwen iter-2 commit, regressing it to `status: ready`; persisted across iter-4 + iter-5 + final HEAD. None of TO / Kimi / PR-Agent caught it; Devin Orchestrator caught it on pass-2. Was not blocked but recommend Reviewer / TO frontmatter-status check on final HEAD."
+- *(TKT-013)* "PR-Agent CI workflow on final HEAD cancelled at 12m12s for 3rd pilot in a row; pattern is now structural per BACKLOG-009 §TKT-NEW-pr-agent-ci-tail-latency-investigation-CRITICAL. Persistent review settled clean to final HEAD; treated as expected infra failure under DO authority."
+
+**Integration with Devin Orchestrator pass-2:** The Devin Orchestrator will read each operational-note bullet and decide one of: (a) codify as a new BACKLOG TKT-NEW entry (structural / portable lesson), (b) note in session-log only (single-pilot anomaly, archive), or (c) escalate to PO via chat (urgent / requires PO input). The decision is recorded in the closure-PR body and/or session-log. **Do not omit the section, and do not omit observations because they feel "obvious." The Devin Orchestrator's ratification depends on hearing from you what you saw.**
 
 The Devin Orchestrator will run pass-2 ratification on the same evidence and either:
 - Confirm closure-ready and tell the PO "merge safe" with the merge order — at which point your role for this TKT is complete.
