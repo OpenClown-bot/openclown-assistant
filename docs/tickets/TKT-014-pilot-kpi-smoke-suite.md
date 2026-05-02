@@ -96,6 +96,7 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 <!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
 <!-- 2026-05-02 17:00 Codex GPT-5.5 high via OmniRoute: iter-3 fixes for RV-CODE-014 — K1 vacuous pass fix, K1 regression tests, pilotSmoke.test.ts rewritten with actual production imports (HistoryService, RightToDeleteService, recommendationGuard, photoConfidence, tenantAudit) — npm test tests/pilot/ 26/26 pass, lint PASS, typecheck PASS -->
 <!-- 2026-05-02 17:12 Codex GPT-5.5 high via OmniRoute: iter-4 fixes for PR-Agent — Cyrillic homoglyph normalization in redactValue (HOMOGLYPH_MAP а→a е→e о→o р→p с→c х→x у→y + uppercase), merge overlapping ranges, remove dead code redactK1Report; pilotSmoke.test.ts adds Cyrillic homoglyph redaction test with U+0430 — npm test tests/pilot/ 27/27 pass, lint PASS, typecheck PASS, validate_docs.py 62/62 OK -->
+<!-- 2026-05-02 17:32 Codex GPT-5.5 high via OmniRoute: iter-5 fixes for PR-Agent final-head findings — expanded Cyrillic homoglyph redaction map, K7 daily macro tolerance enforcement, K2 timestamp-order pairing, K4 latest completed_at selection -->
 
 ---
 

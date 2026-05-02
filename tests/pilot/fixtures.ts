@@ -342,6 +342,7 @@ export const K7_ACCURACY: K7AccuracyResult = {
   mealsWithinMacroBounds: 6,
   totalLabeled: 6,
   dailyCalorieAccuracy: new Map<string, { totalError: number; count: number }>(),
+  dailyMacroAccuracy: new Map<string, { totalError: number; count: number }>(),
   withinK7Targets: true,
 };
 

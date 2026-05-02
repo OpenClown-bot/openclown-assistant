@@ -38,7 +38,11 @@ const FORBIDDEN_PATTERNS = [
 
 const HOMOGLYPH_MAP: Record<string, string> = {
   а: "a", е: "e", о: "o", р: "p", с: "c", х: "x", у: "y",
+  т: "t", м: "m", к: "k", в: "b", н: "h", і: "i", ј: "j",
+  ѕ: "s", ԁ: "d", ӏ: "l",
   А: "A", Е: "E", О: "O", Р: "P", С: "C", Х: "X", У: "Y",
+  Т: "T", М: "M", К: "K", В: "B", Н: "H", І: "I", Ј: "J",
+  Ѕ: "S", Ԁ: "D", Ӏ: "L",
 };
 
 function normalizeForRedaction(value: string): string {
@@ -103,6 +107,7 @@ function redactK7Report(k7: K7AccuracyResult): K7AccuracyResult {
     mealsWithinMacroBounds: k7.mealsWithinMacroBounds,
     totalLabeled: k7.totalLabeled,
     dailyCalorieAccuracy: new Map(),
+    dailyMacroAccuracy: new Map(),
     withinK7Targets: k7.withinK7Targets,
   };
 }

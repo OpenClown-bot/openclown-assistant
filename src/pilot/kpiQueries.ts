@@ -66,17 +66,24 @@ export function queryK2LatencyMs(
   metrics: MetricEventRow[],
   requestId: string,
 ): number | null {
-  const filtered = metrics.filter((m) => m.request_id === requestId);
+  const filtered = metrics
+    .filter((m) => m.request_id === requestId && m.created_at)
+    .map((m) => ({ metric: m, time: new Date(m.created_at).getTime() }))
+    .filter((m) => Number.isFinite(m.time))
+    .sort((a, b) => a.time - b.time);
   const received = filtered.find(
-    (m) => m.event_name === "meal_content_received",
+    (m) => m.metric.event_name === "meal_content_received",
   );
-  const reply = filtered.find((m) => m.event_name === "draft_reply_sent");
-  if (!received?.created_at || !reply?.created_at) {
+  if (!received) {
     return null;
   }
-  const start = new Date(received.created_at).getTime();
-  const end = new Date(reply.created_at).getTime();
-  return end - start;
+  const reply = filtered.find(
+    (m) => m.metric.event_name === "draft_reply_sent" && m.time >= received.time,
+  );
+  if (!reply) {
+    return null;
+  }
+  return reply.time - received.time;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +135,15 @@ export function queryK4CrossUserAudit(
   if (auditRuns.length === 0) {
     return { crossUserReferences: -1, passed: false };
   }
-  const latest = auditRuns[auditRuns.length - 1];
+  const latest = auditRuns.reduce((selected, current) => {
+    const selectedTime = selected.completed_at
+      ? new Date(selected.completed_at).getTime()
+      : -Infinity;
+    const currentTime = current.completed_at
+      ? new Date(current.completed_at).getTime()
+      : -Infinity;
+    return currentTime > selectedTime ? current : selected;
+  });
   return {
     crossUserReferences: latest.cross_user_reference_count,
     passed: latest.cross_user_reference_count === 0,
@@ -205,6 +220,7 @@ export interface K7AccuracyResult {
   mealsWithinMacroBounds: number;
   totalLabeled: number;
   dailyCalorieAccuracy: Map<string, { totalError: number; count: number }>;
+  dailyMacroAccuracy: Map<string, { totalError: number; count: number }>;
   withinK7Targets: boolean;
 }
 
@@ -218,6 +234,10 @@ export function queryK7Accuracy(
   let mealsWithinCal = 0;
   let mealsWithinMacro = 0;
   const dailyCalMap = new Map<
+    string,
+    { totalError: number; count: number }
+  >();
+  const dailyMacroMap = new Map<
     string,
     { totalError: number; count: number }
   >();
@@ -239,6 +259,11 @@ export function queryK7Accuracy(
       totalError: existing.totalError + calError,
       count: existing.count + 1,
     });
+    const existingMacro = dailyMacroMap.get(day) ?? { totalError: 0, count: 0 };
+    dailyMacroMap.set(day, {
+      totalError: existingMacro.totalError + maxMacroError,
+      count: existingMacro.count + 1,
+    });
   }
 
   let withinK7Targets =
@@ -256,11 +281,22 @@ export function queryK7Accuracy(
     }
   }
 
+  if (withinK7Targets) {
+    for (const [, daily] of dailyMacroMap) {
+      const avgMacroError = daily.count > 0 ? daily.totalError / daily.count : 0;
+      if (avgMacroError > dailyMacroTolerance) {
+        withinK7Targets = false;
+        break;
+      }
+    }
+  }
+
   return {
     mealsWithinCalorieBounds: mealsWithinCal,
     mealsWithinMacroBounds: mealsWithinMacro,
     totalLabeled: labels.length,
     dailyCalorieAccuracy: dailyCalMap,
+    dailyMacroAccuracy: dailyMacroMap,
     withinK7Targets,
   };
 }
