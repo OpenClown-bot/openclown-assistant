@@ -87,16 +87,7 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 ## 9. Questions (empty at creation; Executor appends here ONLY if blocked — do NOT start code)
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-011-NN.md -->
 
-## 11. Handoff Checklist
-- [x] Goal is one sentence, no conjunctions
-- [x] NOT-In-Scope has ≥1 explicit item
-- [x] Acceptance Criteria are machine-checkable (no "looks good")
-- [x] Constraints explicitly list forbidden actions
-- [x] All ArchSpec / ADR references are version-pinned
-- [x] `depends_on` accurately reflects prerequisites; no cycles
-- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)
-
-## 10. Execution Log
+## 10. Execution Log (Executor fills as work proceeds)
 
 | Timestamp (UTC) | Event | Detail |
 |---|---|---|
@@ -116,4 +107,15 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 | 2026-05-02T02:20Z | ticket-orchestrator (gpt-5.5-thinking) | Cross-reviewer audit pass-1 — Reviewer iter-2 verdict pass valid; PR-Agent persistent review on final HEAD non-blocking; closure-ready hand-back to Devin Orchestrator with PR-Agent CI status flagged as strategic blocker |
 | 2026-05-02T02:30Z | devin-orchestrator | Ratification audit pass-2 — independent re-classification confirmed Reviewer iter-2 pass valid + iter-3..8 substantive changes covered by PR-Agent + Devin Review (procedural anomaly captured as BACKLOG-008 lesson, not substance blocker); PR-Agent stuck CI ruled infra failure under DO authority; merge-safe sign-off issued |
 | 2026-05-02T02:35Z | PO | Merged PR #75 (TKT-011 code, squash to main 73c4f96) and PR #76 (RV-CODE-011 née RV-CODE-016, squash to main 4847e9b); two-phase audit invariant (TO pass-1 + Devin pass-2) satisfied per CONTRIBUTING.md Hard rule + docs/meta/devin-session-handoff.md §11.4 |
-| 2026-05-02T02:45Z | devin-orchestrator | Opening closure-PR (this PR): TKT-011 status flip in_review→done + assigned_executor formality fix qwen-3.6-plus→glm-5.1 + §10 closure fill + §10/§11 H2 deduplication + RV-CODE-016→RV-CODE-011 rename + frontmatter status flip in_review→approved + new BACKLOG-008 summary-followups (F-PA-1 + F-PA-2 + 4 structural TKT-NEW entries) + CONTRIBUTING.md clarification (closure-PR fields enumeration) per PO verbatim authorization |
+| 2026-05-02T02:45Z | devin-orchestrator | Opening closure-PR (this PR): TKT-011 status flip in_review→done + assigned_executor formality fix qwen-3.6-plus→glm-5.1 + §10 closure fill + duplicate-§10 boilerplate removed (template H2 + Executor-table both said `## 10. Execution Log`; template H2 dropped) + RV-CODE-016→RV-CODE-011 rename + frontmatter status flip in_review→approved + new BACKLOG-008 summary-followups (F-PA-1 + F-PA-2 + 4 structural TKT-NEW entries) + CONTRIBUTING.md clarification (closure-PR fields enumeration) per PO verbatim authorization |
+
+---
+
+## Handoff Checklist
+- [x] Goal is one sentence, no conjunctions
+- [x] NOT-In-Scope has ≥1 explicit item
+- [x] Acceptance Criteria are machine-checkable (no "looks good")
+- [x] Constraints explicitly list forbidden actions
+- [x] All ArchSpec / ADR references are version-pinned
+- [x] `depends_on` accurately reflects prerequisites; no cycles
+- [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)
