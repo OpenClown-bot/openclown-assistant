@@ -1,7 +1,7 @@
 ---
 id: TKT-014
 title: "Pilot KPI Smoke Suite"
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.4.0
 component: "End-to-end pilot readiness / K1-K7"
 depends_on: ["TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-013@0.1.0"]
