@@ -2,14 +2,14 @@
 id: TKT-014
 title: "Pilot KPI Smoke Suite"
 status: ready
-arch_ref: ARCH-001@0.2.0
+arch_ref: ARCH-001@0.4.0
 component: "End-to-end pilot readiness / K1-K7"
 depends_on: ["TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-009@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0", "TKT-012@0.1.0", "TKT-013@0.1.0"]
 blocks: []
 estimate: M
 assigned_executor: "qwen-3.6-plus"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-05-02
 ---
 
 # TKT-014: Pilot KPI Smoke Suite
@@ -29,10 +29,10 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 - No changes to production flow behavior outside KPI/report helpers.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.2.0 §1.1 Trace matrix
-- ARCH-001@0.2.0 §4 Data Flow
-- ARCH-001@0.2.0 §8.3 KPI Measurement
-- ARCH-001@0.2.0 §12 Risks & Open Questions
+- ARCH-001@0.4.0 §1.1 Trace matrix
+- ARCH-001@0.4.0 §4 Data Flow
+- ARCH-001@0.4.0 §8.3 KPI Measurement
+- ARCH-001@0.4.0 §12 Risks & Open Questions
 - ADR-005@0.1.0
 - ADR-009@0.1.0
 - `src/shared/types.ts`
@@ -56,7 +56,7 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 - [ ] `npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts` passes.
 - [ ] `npm run lint` passes.
 - [ ] `npm run typecheck` passes.
-- [ ] Tests prove K1-K7 helpers calculate the ARCH-001@0.2.0 §8.3 KPI values from synthetic data.
+- [ ] Tests prove K1-K7 helpers calculate the ARCH-001@0.4.0 §8.3 KPI values from synthetic data.
 - [ ] Smoke test proves no user B receives user A meal, summary, history, transcript, or audit data.
 - [ ] Smoke test proves low-confidence photo output is labelled `низкая уверенность` and is not persisted before confirmation.
 - [ ] Smoke test proves summary forbidden-topic output is blocked and deterministic fallback is delivered.
