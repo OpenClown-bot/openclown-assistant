@@ -2,14 +2,14 @@
 id: TKT-012
 title: "Right To Delete Audit"
 status: ready
-arch_ref: ARCH-001@0.2.0
+arch_ref: ARCH-001@0.4.0
 component: "C11 Right-to-Delete and Tenant Audit Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0"]
 blocks: ["TKT-014@0.1.0"]
 estimate: M
 assigned_executor: "codex-gpt-5.5"
 created: 2026-04-26
-updated: 2026-04-26
+updated: 2026-05-02
 ---
 
 # TKT-012: Right To Delete Audit
@@ -20,8 +20,8 @@ Implement right-to-delete plus the tenant isolation audit runner.
 ## 2. In Scope
 - Add C11 `/forget_me` and Russian natural-language deletion intent handler interface for C1.
 - Require a single yes/no Russian confirmation before deletion.
-- Hard-delete all user-scoped rows listed in ARCH-001@0.2.0 §5 inside one transaction after locking the user (per-user PostgreSQL advisory lock on `users.id`); the `users` row itself is removed in the same transaction.
-- Handle the no-row-to-mark case: a repeat `/forget_me` from a Telegram user with no matching `users` row returns the Russian fresh-start message (ARCH-001@0.2.0 §3.11) without persisting anything.
+- Hard-delete all user-scoped rows listed in ARCH-001@0.4.0 §5 inside one transaction after locking the user (per-user PostgreSQL advisory lock on `users.id`); the `users` row itself is removed in the same transaction.
+- Handle the no-row-to-mark case: a repeat `/forget_me` from a Telegram user with no matching `users` row returns the Russian fresh-start message (ARCH-001@0.4.0 §3.11) without persisting anything.
 - Stop future summary schedules before deleting the user row.
 - Add end-of-pilot K4 audit runner that opens its own connection using `AUDIT_DB_URL` (the `kbju_audit` `BYPASSRLS` role provisioned in TKT-002@0.1.0); the runner writes only aggregate counts/findings to `tenant_audit_runs.findings`.
 
@@ -31,11 +31,11 @@ Implement right-to-delete plus the tenant isolation audit runner.
 - No admin web UI or dashboard.
 
 ## 4. Inputs (Executor MUST read before writing code; nothing else)
-- ARCH-001@0.2.0 §3.11 C11 Right-to-Delete and Tenant Audit Service
-- ARCH-001@0.2.0 §4.7 Right-to-delete and tenant audit
-- ARCH-001@0.2.0 §5 Data Model / Schemas
-- ARCH-001@0.2.0 §9.2 Access Control and Tenant Isolation
-- ARCH-001@0.2.0 §9.5 PII Handling and Deletion
+- ARCH-001@0.4.0 §3.11 C11 Right-to-Delete and Tenant Audit Service
+- ARCH-001@0.4.0 §4.7 Right-to-delete and tenant audit
+- ARCH-001@0.4.0 §5 Data Model / Schemas
+- ARCH-001@0.4.0 §9.2 Access Control and Tenant Isolation
+- ARCH-001@0.4.0 §9.5 PII Handling and Deletion
 - ADR-001@0.1.0
 - ADR-009@0.1.0
 - `src/shared/types.ts`
