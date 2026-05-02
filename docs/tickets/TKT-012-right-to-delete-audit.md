@@ -1,7 +1,7 @@
 ---
 id: TKT-012
 title: "Right To Delete Audit"
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.4.0
 component: "C11 Right-to-Delete and Tenant Audit Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-004@0.1.0", "TKT-010@0.1.0", "TKT-011@0.1.0"]
@@ -83,8 +83,8 @@ Implement right-to-delete plus the tenant isolation audit runner.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-012-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-05-02 11:12 UTC codex-gpt-5.5: started; runtime observed opencode + Codex GPT-5.5 high (cx/gpt-5.5-high / omniroute/cx/gpt-5.5-high) -->
+<!-- 2026-05-02 11:25 UTC codex-gpt-5.5: opened PR #84; local checks passed: npm test -- tests/privacy/rightToDelete.test.ts tests/privacy/tenantAudit.test.ts, npm run lint, npm run typecheck, python3 scripts/validate_docs.py -->
 
 ---
 
