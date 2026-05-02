@@ -1,7 +1,7 @@
 ---
 id: TKT-011
 title: "Summary Recommendation Scheduler"
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.4.0
 component: "C9 Summary Recommendation Service"
 depends_on: ["TKT-002@0.1.0", "TKT-003@0.1.0", "TKT-005@0.1.0", "TKT-006@0.1.0", "TKT-010@0.1.0"]
@@ -98,3 +98,18 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 - [x] All ArchSpec / ADR references are version-pinned
 - [x] `depends_on` accurately reflects prerequisites; no cycles
 - [x] `assigned_executor` is justified (especially Codex — explain why GLM cannot)
+
+## 10. Execution Log
+
+| Timestamp (UTC) | Event | Detail |
+|---|---|---|
+| 2026-05-02T00:38Z | iter-1 started | qwen-3.6-plus on opencode |
+| 2026-05-02T00:40Z | PR opened | https://github.com/OpenClown-bot/openclown-assistant/pull/75 |
+| 2026-05-02T00:51Z | iter-2 started | Reviewer pass_with_changes — F-M1, F-L1, F-L2 |
+| 2026-05-02T00:53Z | iter-2 fixes pushed | F-M1: timezone-aware pure-calendar period bounds; F-L1: removed unused DETERMINISTIC_FALLBACK_RU; F-L2: assert summary_recommendation_blocked event name |
+| 2026-05-02T01:01Z | iter-3 fix pushed | Observability metadata: blocked_reason → error_code (allowlisted key) so blocked reason survives log redaction |
+| 2026-05-02T01:10Z | iter-4 fix pushed | PR-Agent: harden recommendation guard with NFKC normalization + zero-width stripping |
+| 2026-05-02T01:18Z | iter-5 fix pushed | PR-Agent: isolate persona in summary prompt with `<persona>` delimiters |
+| 2026-05-02T01:33Z | iter-6 fix pushed | PR-Agent: close homoglyph bypass (Cyrillic↔Latin) + persona cache by path |
+| 2026-05-02T01:39Z | iter-7 fix pushed | Devin Review: actual month-length targets + align persisted delta JSON to KBJUValues keys |
+| 2026-05-02T01:59Z | iter-8 fix pushed | PR-Agent: escape persona prompt delimiters (prevent `</persona>` breakout) |
