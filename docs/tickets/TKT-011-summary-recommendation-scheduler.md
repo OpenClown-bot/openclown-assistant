@@ -105,3 +105,5 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 |---|---|---|
 | 2026-05-02T00:38Z | iter-1 started | qwen-3.6-plus on opencode |
 | 2026-05-02T00:40Z | PR opened | https://github.com/OpenClown-bot/openclown-assistant/pull/75 |
+| 2026-05-02T00:51Z | iter-2 started | Reviewer pass_with_changes — F-M1, F-L1, F-L2 |
+| 2026-05-02T00:53Z | iter-2 fixes pushed | F-M1: timezone-aware pure-calendar period bounds; F-L1: removed unused DETERMINISTIC_FALLBACK_RU; F-L2: assert summary_recommendation_blocked event name |

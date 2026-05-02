@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   computePeriodBounds,
+  validateTimezone,
   buildIdempotencyKey,
   aggregateMeals,
   computeDeltas,
@@ -102,7 +103,7 @@ describe("computePeriodBounds", () => {
     expect(result.periodEnd).toBe("2026-05-01");
   });
 
-  it("weekly returns Monday to Sunday", () => {
+  it("weekly returns Monday to Sunday for a Wednesday", () => {
     const result = computePeriodBounds("weekly", "2026-05-06", "Europe/Moscow");
     expect(result.periodStart).toBe("2026-05-04");
     expect(result.periodEnd).toBe("2026-05-10");
@@ -112,6 +113,66 @@ describe("computePeriodBounds", () => {
     const result = computePeriodBounds("monthly", "2026-05-15", "Europe/Moscow");
     expect(result.periodStart).toBe("2026-05-01");
     expect(result.periodEnd).toBe("2026-05-31");
+  });
+
+  it("monthly handles February in a non-leap year", () => {
+    const result = computePeriodBounds("monthly", "2025-02-10", "Europe/Moscow");
+    expect(result.periodStart).toBe("2025-02-01");
+    expect(result.periodEnd).toBe("2025-02-28");
+  });
+
+  it("monthly handles February in a leap year", () => {
+    const result = computePeriodBounds("monthly", "2028-02-10", "Europe/Moscow");
+    expect(result.periodStart).toBe("2028-02-01");
+    expect(result.periodEnd).toBe("2028-02-29");
+  });
+
+  it("weekly boundary for a Sunday yields that week's Monday-Sunday", () => {
+    const result = computePeriodBounds("weekly", "2026-05-10", "Europe/Moscow");
+    expect(result.periodStart).toBe("2026-05-04");
+    expect(result.periodEnd).toBe("2026-05-10");
+  });
+
+  it("weekly boundary for a Monday yields that same Monday-Sunday", () => {
+    const result = computePeriodBounds("weekly", "2026-05-04", "Europe/Moscow");
+    expect(result.periodStart).toBe("2026-05-04");
+    expect(result.periodEnd).toBe("2026-05-10");
+  });
+
+  it("period boundaries are host-runtime-timezone-independent", () => {
+    const originalTz = process.env.TZ;
+    try {
+      process.env.TZ = "America/New_York";
+      const result = computePeriodBounds("weekly", "2026-05-06", "Europe/Moscow");
+      expect(result.periodStart).toBe("2026-05-04");
+      expect(result.periodEnd).toBe("2026-05-10");
+    } finally {
+      if (originalTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTz;
+      }
+    }
+  });
+
+  it("throws for invalid IANA timezone", () => {
+    expect(() => computePeriodBounds("daily", "2026-05-01", "Invalid/Zone")).toThrow(
+      'Invalid IANA timezone: "Invalid/Zone"',
+    );
+  });
+});
+
+describe("validateTimezone", () => {
+  it("accepts valid IANA timezone", () => {
+    expect(() => validateTimezone("Europe/Moscow")).not.toThrow();
+  });
+
+  it("accepts UTC timezone", () => {
+    expect(() => validateTimezone("UTC")).not.toThrow();
+  });
+
+  it("rejects invalid timezone string", () => {
+    expect(() => validateTimezone("not-a-zone")).toThrow();
   });
 });
 
@@ -334,6 +395,9 @@ describe("processDueSchedule", () => {
     expect(result.recommendationMode).toBe("deterministic_fallback");
     expect(result.blockedReason).toContain("forbidden_topic_ru");
     expect(result.recommendationTextRu).toContain("ккал");
-    expect(deps.logger.warn).toHaveBeenCalled();
+    expect(deps.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("summary_recommendation_blocked"),
+      expect.anything(),
+    );
   });
 });

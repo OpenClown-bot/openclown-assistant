@@ -32,46 +32,90 @@ export interface SummarySchedulerDeps {
   callOmniRoute?: OmniRouteCaller;
 }
 
+export function validateTimezone(timezone: string): void {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+  } catch {
+    throw new Error(`Invalid IANA timezone: "${timezone}"`);
+  }
+}
+
+function parseLocalDate(dateStr: string): { year: number; month: number; day: number } {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!match) {
+    throw new Error(`Invalid local date format: "${dateStr}", expected YYYY-MM-DD`);
+  }
+  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+function formatCalendarDate(year: number, month: number, day: number): string {
+  const y = String(year);
+  const m = String(month).padStart(2, "0");
+  const d = String(day).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+const DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2 && isLeapYear(year)) return 29;
+  return DAYS_IN_MONTH[month];
+}
+
+function dayOfWeekUtc(year: number, month: number, day: number): number {
+  const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
 export function computePeriodBounds(
   periodType: PeriodType,
   referenceDate: string,
   timezone: string,
 ): { periodStart: string; periodEnd: string } {
+  validateTimezone(timezone);
+
+  const { year, month, day } = parseLocalDate(referenceDate);
+
   switch (periodType) {
     case "daily":
       return { periodStart: referenceDate, periodEnd: referenceDate };
     case "weekly": {
-      const d = new Date(referenceDate + "T00:00:00");
-      const dayOfWeek = d.getUTCDay();
-      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      const monday = new Date(d);
-      monday.setUTCDate(monday.getUTCDate() + mondayOffset);
-      const sunday = new Date(monday);
-      sunday.setUTCDate(monday.getUTCDate() + 6);
+      const dow = dayOfWeekUtc(year, month, day);
+      const mondayDay = day - (dow - 1);
+      const monday = normalizeDate(year, month, mondayDay);
+      const sundayDay = monday.day + 6;
+      const sunday = normalizeDate(monday.year, monday.month, sundayDay);
       return {
-        periodStart: formatDate(monday),
-        periodEnd: formatDate(sunday),
+        periodStart: formatCalendarDate(monday.year, monday.month, monday.day),
+        periodEnd: formatCalendarDate(sunday.year, sunday.month, sunday.day),
       };
     }
     case "monthly": {
-      const d = new Date(referenceDate + "T00:00:00");
-      const year = d.getUTCFullYear();
-      const month = d.getUTCMonth();
-      const firstDay = new Date(Date.UTC(year, month, 1));
-      const lastDay = new Date(Date.UTC(year, month + 1, 0));
+      const lastDay = daysInMonth(year, month);
       return {
-        periodStart: formatDate(firstDay),
-        periodEnd: formatDate(lastDay),
+        periodStart: formatCalendarDate(year, month, 1),
+        periodEnd: formatCalendarDate(year, month, lastDay),
       };
     }
   }
 }
 
-function formatDate(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function normalizeDate(year: number, month: number, day: number): { year: number; month: number; day: number } {
+  while (day < 1) {
+    month -= 1;
+    if (month < 1) { month = 12; year -= 1; }
+    day += daysInMonth(year, month);
+  }
+  while (day > daysInMonth(year, month)) {
+    day -= daysInMonth(year, month);
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return { year, month, day };
 }
 
 export function buildIdempotencyKey(
