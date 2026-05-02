@@ -6,37 +6,38 @@ ticket_ref: TKT-011@0.1.0
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-05-02
+updated: 2026-05-02
 ---
 
-# Code Review — PR #75 (TKT-011)
+# Code Review — PR #75 (TKT-011@0.1.0)
 
 ## Summary
-PR #75 delivers the C9 Summary Recommendation Scheduler with guarded recommendations, deterministic fallbacks, and idempotency. All 61 targeted tests pass, lint/typecheck/validator are green, and the core acceptance criteria are satisfied. Two minor issues remain: `computePeriodBounds` accepts a `timezone` parameter but ignores it, and one unused message export adds dead code.
+PR #75 delivers the C9 Summary Recommendation Scheduler with guarded recommendations, deterministic fallbacks, and idempotency. All 70 targeted tests pass, lint/typecheck/validator are green, and all core acceptance criteria are satisfied. Iter-1 findings F-M1 (timezone-aware period boundaries), F-L1 (dead code), and F-L2 (test assertion specificity) were all resolved in iter-2 (Executor commit `f195017`).
 
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: Core functionality and safety guardrails are correct and tested, but `computePeriodBounds` ignores its `timezone` argument (violating ArchSpec §4.6 / TKT-011 §2 timezone-aware boundaries) and one unused export adds dead code.
-Recommendation to PO: `approve & merge with noted changes` — the medium finding should be patched in a follow-up commit (use `timezone` in `computePeriodBounds` or document the UTC-runtime invariant) and the dead code removed.
+One-sentence justification: All acceptance criteria are met, iter-1 findings are resolved, tests/lint/typecheck/validator are green, and no new regressions were introduced.
+Recommendation to PO: `approve & merge`.
 
 ## Contract compliance (each must be ticked or marked finding)
-- [x] PR modifies ONLY files listed in TKT §5 Outputs
+- [x] PR modifies ONLY files listed in TKT-011@0.1.0 §5 Outputs
   - In-scope: `src/summary/*.ts`, `tests/summary/*.test.ts`
   - Ticket change: `status: ready → in_review` + append-only §10 Execution Log. No body/frontmatter edits.
-- [x] No changes to TKT §3 NOT-In-Scope items
+- [x] No changes to TKT-011@0.1.0 §3 NOT-In-Scope items
   - No onboarding schedules, no meal edit/delete, no right-to-delete hard deletion.
-- [x] No new runtime dependencies beyond TKT §7 Constraints allowlist
+- [x] No new runtime dependencies beyond TKT-011@0.1.0 §7 Constraints allowlist
   - `package.json` unchanged; no new `dependencies` entries.
-- [x] All Acceptance Criteria from TKT §6 are verifiably satisfied (file:line or test name cited)
-  - AC #1 (`npm test ... passes`): 61 tests, 0 failures.
+- [x] All Acceptance Criteria from TKT-011@0.1.0 §6 are verifiably satisfied (file:line or test name cited)
+  - AC #1 (`npm test ... passes`): 70 tests, 0 failures.
   - AC #2 (`npm run lint` passes): `tsc --noEmit` clean.
   - AC #3 (`npm run typecheck` passes): `tsc --noEmit` clean.
   - AC #4 (duplicate cron idempotency): `summaryScheduler.test.ts:255` — `"duplicate cron events produce one summary_records row per idempotency key"` asserts `mockLlm` once + second call `skipped: true`.
   - AC #5 (zero-meal nudge without LLM): `summaryScheduler.test.ts:293` — `"zero-meal periods send deterministic Russian nudge without LLM call"` asserts `mockLlm` not called + mode `"no_meal_nudge"` + text contains `"нет подтверждённых приёмов пищи"`.
   - AC #6 (forbidden-term coverage): `recommendationGuard.test.ts:100` — 16 Russian cases + `recommendationGuard.test.ts:127` — 16 English cases covering all required categories.
-  - AC #7 (blocked fallback + event): `summaryScheduler.test.ts:310` — `"blocked recommendation sends deterministic numeric KBJU fallback and emits summary_recommendation_blocked"` asserts mode `"deterministic_fallback"`, `blockedReason` contains `"forbidden_topic_ru"`, text contains `"ккал"`, `logger.warn` called. Note: test does not assert the specific KPI event name (see F-L2).
+  - AC #7 (blocked fallback + event): `summaryScheduler.test.ts:371` — `"blocked recommendation sends deterministic numeric KBJU fallback and emits summary_recommendation_blocked"` asserts mode `"deterministic_fallback"`, `blockedReason` contains `"forbidden_topic_ru"`, text contains `"ккал"`, and `logger.warn` is called with a string containing `"summary_recommendation_blocked"`.
   - AC #8 (missing `PERSONA_PATH` fail-closed): `personaLoader.test.ts:45` — `"throws and logs critical when PERSONA_PATH is missing"`.
 - [x] CI green (lint, typecheck, tests, coverage)
 - [x] Definition of Done complete
@@ -48,23 +49,26 @@ Recommendation to PO: `approve & merge with noted changes` — the medium findin
 *None.*
 
 ### Medium
-- **F-M1 (`src/summary/summaryScheduler.ts:35-68`)**: `computePeriodBounds` accepts a `timezone: string` parameter but never uses it. Weekly boundaries are computed with `getUTCDay()` / `setUTCDate()` and monthly boundaries with `getUTCFullYear()` / `getUTCMonth()` on a `Date` constructed from `referenceDate + "T00:00:00"` (local-time interpretation). This yields correct Monday/Sunday and month boundaries only when the runtime timezone is UTC. If the container timezone drifts, or if `referenceDate` crosses a date boundary in the user’s timezone, the computed boundaries will be off by one day. ArchSpec §4.6 and TKT-011 §2 explicitly require user-timezone-aware local period boundaries.
-  - *Responsible role:* Executor.
-  - *Suggested remediation:* Either (a) use `timezone` to construct an unambiguous UTC Date (e.g. `new Date(referenceDate + "T00:00:00" + timezoneOffset)`) and document the invariant, or (b) remove the unused parameter and add a runtime assert that `process.env.TZ === "UTC"`.
+*None.*
 
 ### Low
-- **F-L1 (`src/summary/messages.ts:3`)**: `export const DETERMINISTIC_FALLBACK_RU` is never imported or used. `summaryScheduler.ts` calls `buildDeterministicFallback` from `recommendationGuard.ts` instead, which generates a different numeric fallback message. Remove the dead export.
-  - *Responsible role:* Executor.
-  - *Suggested remediation:* Delete the unused export.
+*None.*
 
-- **F-L2 (`tests/summary/summaryScheduler.test.ts:337`)**: The blocked-recommendation test asserts `deps.logger.warn` was called but does not assert the specific KPI event name `summary_recommendation_blocked`. A future refactor could move the emission to a different log level or helper without breaking this test, silently losing the AC coverage for the named event.
-  - *Responsible role:* Executor.
-  - *Suggested remediation:* Add an assertion such as `expect(deps.logger.warn).toHaveBeenCalledWith("summary_recommendation_blocked", expect.anything())` or verify the emitted event object contains `event_name: "summary_recommendation_blocked"`.
+## Iter-1 findings resolved in iter-2
+
+- **F-M1 (resolved)**: `computePeriodBounds` was rewritten to use pure calendar math (`parseLocalDate`, `dayOfWeekUtc`, `normalizeDate`, `daysInMonth`, `isLeapYear`) instead of `new Date(referenceDate + "T00:00:00")` host-timezone-dependent construction. The `timezone` parameter is now validated via `validateTimezone` at entry. Weekly/monthly boundaries are computed deterministically from the parsed calendar date, eliminating runtime-timezone drift. New tests cover `validateTimezone` acceptance/rejection and leap-year February.
+  - *Verified*: `src/summary/summaryScheduler.ts` lines 37–120; `tests/summary/summaryScheduler.test.ts` lines 99–177.
+
+- **F-L1 (resolved)**: Dead export `DETERMINISTIC_FALLBACK_RU` removed from `src/summary/messages.ts`.
+  - *Verified*: file now contains only the used `NO_MEAL_NUDGE_RU` export.
+
+- **F-L2 (resolved)**: Blocked-recommendation test now asserts the specific KPI event name via `expect(deps.logger.warn).toHaveBeenCalledWith(expect.stringContaining("summary_recommendation_blocked"), expect.anything())`.
+  - *Verified*: `tests/summary/summaryScheduler.test.ts` lines 396–399.
 
 ## Red-team probes (Reviewer must address each)
 - **Error paths — DB lock / LLM timeout / transport failure?**
-  - LLM timeout/transport failure: `summaryScheduler.ts:244` catches any exception from `doLlmCall` and returns deterministic fallback with `blockedReason: "llm_call_failed"`.
-  - LLM non-success outcome: `summaryScheduler.ts:262` checks `llmResult.outcome !== "success"` and returns deterministic fallback.
+  - LLM timeout/transport failure: `summaryScheduler.ts` catches any exception from `doLlmCall` and returns deterministic fallback with `blockedReason: "llm_call_failed"`.
+  - LLM non-success outcome: `summaryScheduler.ts` checks `llmResult.outcome !== "success"` and returns deterministic fallback.
   - DB-level conflict: `tenantStore.ts:682` uses `ON CONFLICT (user_id, idempotency_key) DO UPDATE`, ensuring exactly one durable row per idempotency key even under concurrent writes.
   - No Telegram / OpenFoodFacts / Whisper calls in this PR.
 
@@ -88,5 +92,5 @@ Recommendation to PO: `approve & merge with noted changes` — the medium findin
 | 4 | `summaryScheduler.test.ts` | `"duplicate cron events produce one summary_records row per idempotency key"` | `mockLlm` ×1, second run `skipped: true` |
 | 5 | `summaryScheduler.test.ts` | `"zero-meal periods send deterministic Russian nudge without LLM call"` | `mockLlm` ×0, mode `"no_meal_nudge"` |
 | 6 | `recommendationGuard.test.ts` | `it.each(forbiddenRuCases)` + `it.each(forbiddenEnCases)` | 16 RU + 16 EN stems blocked |
-| 7 | `summaryScheduler.test.ts` | `"blocked recommendation sends deterministic numeric KBJU fallback and emits summary_recommendation_blocked"` | Fallback contains `"ккал"`, mode `"deterministic_fallback"`, `logger.warn` called |
+| 7 | `summaryScheduler.test.ts` | `"blocked recommendation sends deterministic numeric KBJU fallback and emits summary_recommendation_blocked"` | Fallback contains `"ккал"`, mode `"deterministic_fallback"`, `logger.warn` called with `"summary_recommendation_blocked"` |
 | 8 | `personaLoader.test.ts` | `"throws and logs critical when PERSONA_PATH is missing"` | Throws `"C9 startup failed..."` |
