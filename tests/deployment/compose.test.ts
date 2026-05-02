@@ -9,13 +9,8 @@ function readCompose(): string {
   return readFileSync(COMPOSE_PATH, "utf-8");
 }
 
-function parseYamlLines(content: string): string[] {
-  return content.split("\n");
-}
-
 describe("docker-compose.yml", () => {
   const content = readCompose();
-  const lines = parseYamlLines(content);
 
   it("exists and is non-empty", () => {
     expect(content.length).toBeGreaterThan(0);
@@ -29,8 +24,12 @@ describe("docker-compose.yml", () => {
     expect(content).toContain("openclaw_state:");
   });
 
+  it("mounts openclaw_state into a service", () => {
+    expect(content).toMatch(/openclaw_state:\/[^\s]+/);
+  });
+
   it("does not use host bind mounts for production data", () => {
-    const bindMountPattern = /\/[a-zA-Z]:/.test(content) ? /- [./~]/ : null;
+    const lines = content.split("\n");
     const volumeLines = lines.filter(
       (line) => line.trim().startsWith("- ") && line.includes(":") && !line.includes("${")
     );
@@ -53,14 +52,19 @@ describe("docker-compose.yml", () => {
     expect(content).not.toMatch(/network_mode:\s*host/);
   });
 
-  it("metrics bind to loopback/internal network only (no 0.0.0.0)", () => {
-    const wildcardPatterns = ["0.0.0.0", '"::"', "[::]"];
-    const metricsSection = content;
-    for (const pat of wildcardPatterns) {
-      expect(
-        metricsSection,
-        `metrics or any service binds to wildcard address: ${pat}`
-      ).not.toContain(pat);
+  it("metrics service binds to host loopback only via ports", () => {
+    expect(content).toMatch(/127\.0\.0\.1:9464:9464/);
+  });
+
+  it("does not expose metrics on wildcard host addresses", () => {
+    const portLines = content
+      .split("\n")
+      .filter((l) => l.trim().startsWith("- ") && l.includes(":9464"));
+    for (const line of portLines) {
+      expect(line, `wildcard port mapping found: ${line}`).not.toMatch(
+        /-\s*"0\.0\.0\.0:9464/
+      );
+      expect(line, `wildcard port mapping found: ${line}`).not.toMatch(/-\s*":::9464/);
     }
   });
 
@@ -79,7 +83,6 @@ describe("docker-compose.yml", () => {
   });
 
   it("postgres uses the named volume kbju_pgdata", () => {
-    const pgSection = content;
-    expect(pgSection).toContain("kbju_pgdata:/var/lib/postgresql/data");
+    expect(content).toContain("kbju_pgdata:/var/lib/postgresql/data");
   });
 });

@@ -17,6 +17,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - openclaw_state:/app/state
     networks:
       - internal
     logging:
@@ -51,8 +53,10 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["node", "-e", "require('./dist/deployment/healthCheck.js').startMetricsServer()"]
     environment:
-      METRICS_HOST: "127.0.0.1"
+      METRICS_HOST: "0.0.0.0"
       METRICS_PORT: "9464"
+    ports:
+      - "127.0.0.1:9464:9464"
     networks:
       - internal
     logging:

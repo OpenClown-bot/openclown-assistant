@@ -28,14 +28,20 @@ LAST_GOOD_COMMIT="$1"
 
 # --- §10.5.1 Pre-flight checks ---
 
-echo "[1/4] Pre-flight: verifying last-good commit..."
+echo "[1/5] Pre-flight: checking working tree is clean..."
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "ERROR: working tree has uncommitted changes; aborting rollback" >&2
+  exit 1
+fi
+
+echo "[2/5] Pre-flight: verifying last-good commit..."
 git fetch origin
 if ! git log --oneline "${LAST_GOOD_COMMIT}" -1 >/dev/null 2>&1; then
   echo "ERROR: commit ${LAST_GOOD_COMMIT} not reachable" >&2
   exit 1
 fi
 
-echo "[2/4] Pre-flight: snapshotting current DB before rollback..."
+echo "[3/5] Pre-flight: snapshotting current DB before rollback..."
 mkdir -p backups
 PRE_ROLLBACK_DUMP="backups/pre-rollback-$(date -u +%Y%m%dT%H%M%SZ).dump"
 docker compose exec -T postgres \
@@ -52,7 +58,7 @@ docker compose exec -T postgres pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_
 
 # --- §10.5.2 Code rollback ---
 
-echo "[3/4] Rolling back code to ${LAST_GOOD_COMMIT}..."
+echo "[4/5] Rolling back code to ${LAST_GOOD_COMMIT}..."
 git checkout "${LAST_GOOD_COMMIT}"
 docker compose pull
 docker compose up -d --remove-orphans
@@ -60,9 +66,10 @@ docker compose ps
 
 # --- §10.5.2 Health-check loop ---
 
-echo "[4/4] Health check: waiting for metrics endpoint at http://127.0.0.1:9464/metrics..."
+MAX_RETRIES="${ROLLBACK_HEALTH_RETRIES:-30}"
+echo "[5/5] Health check: waiting for metrics endpoint at http://127.0.0.1:9464/metrics..."
 HEALTHY=false
-for i in $(seq 1 30); do
+for i in $(seq 1 "${MAX_RETRIES}"); do
   if curl -fsS --max-time 2 http://127.0.0.1:9464/metrics > /dev/null 2>&1; then
     echo "  metrics endpoint healthy after ${i}s"
     HEALTHY=true

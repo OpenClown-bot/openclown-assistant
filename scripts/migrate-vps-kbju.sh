@@ -38,13 +38,8 @@ df -h /
 
 # --- §10.6.2 Stop, snapshot, transfer ---
 
-echo "[1/5] Stopping user-facing skills on OLD VPS..."
-docker compose stop \
-  kbju-telegram-entrypoint \
-  kbju-onboarding \
-  kbju-meal-logging \
-  kbju-history-privacy \
-  kbju-summary
+echo "[1/5] Stopping user-facing app on OLD VPS..."
+docker compose stop app
 
 echo "[2/5] Snapshotting Postgres to ${DUMP_PATH}..."
 mkdir -p backups
@@ -89,15 +84,27 @@ HOOK_INFO="$(curl -fsS \
 
 echo "getWebhookInfo response: ${HOOK_INFO}"
 
-# Fail fast if getWebhookInfo reports an error
-LAST_ERROR=$(echo "${HOOK_INFO}" | grep -oE '"last_error_date"[[:space:]]*:[[:space:]]*[0-9]+' | grep -oE '[0-9]+$' || true)
-if [[ -n "${LAST_ERROR}" ]]; then
-  echo "ERROR: getWebhookInfo reports last_error_date is set — webhook not functioning" >&2
+# Fail fast if getWebhookInfo reports an error using Node JSON parsing
+# (Node is already part of the deployment stack; no new dependency)
+LAST_ERROR_DATE="$(node -e "
+  const info = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  const desc = info.description || '';
+  if (desc) process.stderr.write('Webhook description: ' + desc + '\n');
+  const led = info.result && info.result.last_error_date;
+  process.stdout.write(led != null ? String(led) : '');
+" <<< "${HOOK_INFO}")"
+
+if [[ -n "${LAST_ERROR_DATE}" ]]; then
+  echo "ERROR: getWebhookInfo reports last_error_date=${LAST_ERROR_DATE} — webhook not functioning" >&2
   echo "${HOOK_INFO}" >&2
   exit 1
 fi
 
-HOOK_URL=$(echo "${HOOK_INFO}" | grep -oE '"url"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -oE '"[^"]*"$' | tr -d '"' || true)
+HOOK_URL="$(node -e "
+  const info = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  process.stdout.write((info.result && info.result.url) || '');
+" <<< "${HOOK_INFO}")"
+
 if [[ "${HOOK_URL}" != "${NEW_WEBHOOK_URL}" ]]; then
   echo "ERROR: getWebhookInfo url does not match ${NEW_WEBHOOK_URL} (got: ${HOOK_URL})" >&2
   echo "${HOOK_INFO}" >&2
@@ -107,5 +114,5 @@ fi
 echo
 echo "Migration complete. Manual checklist (ARCH-001@0.4.0 §10.6.5):"
 echo "  - Send a /start ping from PO Telegram and confirm a Russian reply within 5s"
-echo "  - ssh ${NEW_VPS} 'docker compose logs --since=2m kbju-telegram-entrypoint | grep telegram_update_received'"
+echo "  - ssh ${NEW_VPS} 'docker compose logs --since=2m app | grep telegram_update_received'"
 echo "  - Put the OLD VPS into read-only mode (docker compose down, close port 443)"
