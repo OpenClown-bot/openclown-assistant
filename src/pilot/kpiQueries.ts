@@ -83,8 +83,9 @@ export interface K3LatencyResult {
 export function queryK3VoiceLatency(
   metrics: MetricEventRow[],
   windowDays: number,
+  nowUtc = new Date().toISOString(),
 ): K3LatencyResult {
-  const now = new Date();
+  const now = new Date(nowUtc);
   const cutoff = new Date(now.getTime() - windowDays * 86_400_000)
     .toISOString()
     .slice(0, 10);
@@ -92,7 +93,9 @@ export function queryK3VoiceLatency(
     (m) =>
       m.event_name === "voice_transcription_completed" &&
       m.created_at >= cutoff &&
-      m.latency_ms != null,
+      m.latency_ms != null &&
+      typeof m.metadata.audio_duration_seconds === "number" &&
+      m.metadata.audio_duration_seconds <= 15,
   );
   if (voiceMetrics.length === 0) {
     return { p95Ms: null, p100Ms: null };
@@ -222,7 +225,7 @@ export function queryK7Accuracy(
     if (calError <= calorieTolerance) mealsWithinCal++;
     if (maxMacroError <= macroTolerance) mealsWithinMacro++;
 
-    const day = label.meal_id;
+    const day = label.created_at.slice(0, 10);
     const existing = dailyCalMap.get(day) ?? { totalError: 0, count: 0 };
     dailyCalMap.set(day, {
       totalError: existing.totalError + calError,

@@ -10,10 +10,14 @@ export interface PilotReadinessData {
   k3VoiceLatency: K3LatencyResult;
   k4CrossUserAudit: { crossUserReferences: number; passed: boolean };
   k5Spend: K5SpendResult;
-  k6WeeklyRetentions: Record<string, { activeDaysInWeek: number; daysInWeek: number; metThreshold: boolean }>;
+  k6WeeklyRetentions: Record<
+    string,
+    { activeDaysInWeek: number; daysInWeek: number; metThreshold: boolean }
+  >;
   k7Accuracy: K7AccuracyResult;
   totalUsers: number;
   reportGeneratedAtUtc: string;
+  diagnostics?: unknown;
 }
 
 const FORBIDDEN_PATTERNS = [
@@ -24,6 +28,12 @@ const FORBIDDEN_PATTERNS = [
   /["']?username["']?\s*:\s*["'][^"']+["']/gi,
   /["']?first_name["']?\s*:\s*["'][^"']+["']/gi,
   /["']?last_name["']?\s*:\s*["'][^"']+["']/gi,
+  /raw[_-]?meal[_-]?text[^\n]*/gi,
+  /transcript[_-]?text[^\n]*/gi,
+  /provider[_-]?prompt[^\n]*/gi,
+  /provider[_-]?(key|token)[^\n]*/gi,
+  /raw[_-]?media[^\n]*/gi,
+  /sk-[A-Za-z0-9_-]+/g,
 ];
 
 function redactValue(value: string): string {
@@ -86,7 +96,9 @@ export function formatPilotReadinessReport(data: PilotReadinessData): string {
 
   lines.push("--- K6: Weekly Retention ---");
   for (const [userId, retention] of Object.entries(data.k6WeeklyRetentions)) {
-    lines.push(`  ${redactValue(userId)}: ${retention.activeDaysInWeek}/${retention.daysInWeek} days — ${retention.metThreshold ? "PASS" : "FAIL"}`);
+    lines.push(
+      `  ${redactValue(userId)}: ${retention.activeDaysInWeek}/${retention.daysInWeek} days - ${retention.metThreshold ? "PASS" : "FAIL"}`,
+    );
   }
   lines.push("");
 
@@ -106,5 +118,5 @@ export function formatPilotReadinessReport(data: PilotReadinessData): string {
     data.k7Accuracy.withinK7Targets;
 
   lines.push(`=== OVERALL: ${allPass ? "READY" : "NOT READY"} ===`);
-  return lines.join("\n");
+  return redactValue(lines.join("\n"));
 }

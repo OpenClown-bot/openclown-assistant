@@ -89,6 +89,11 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 <!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: status ready -> in_progress commit -->
 <!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: implementation commit c1c97f2 -->
 <!-- 2026-05-02 14:24 qwen-3.6-plus via OmniRoute: opened PR -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: iter-2 takeover after Qwen stalled; reset local undelivered partial work to origin/PR HEAD 91d4718 -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts — 20/20 pass -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run lint — PASS -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run typecheck — PASS -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
 
 
 ---

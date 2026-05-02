@@ -18,9 +18,20 @@ import {
   METRIC_EVENTS,
   TENANT_AUDIT_RUNS,
   COST_EVENTS,
-  K7_LABELS_A,
-  K7_LABELS_B,
+  ALL_K7_LABELS,
+  FIXED_MONTH_UTC,
+  FIXED_NOW,
+  FIXED_WEEK_END,
+  FIXED_WEEK_START,
+  SENSITIVE_SENTINELS,
   buildPilotReadinessData,
+  buildSmokeStore,
+  confirmPhotoDraft,
+  createLowConfidencePhotoDraft,
+  deliverSummaryWithGuard,
+  freshOnboardUser,
+  renderUserInbox,
+  rightToDeleteUser,
 } from "../pilot/fixtures.js";
 
 const K1_TARGET_MEALS_PER_DAY = 1;
@@ -32,8 +43,8 @@ const K6_RETENTION_THRESHOLD = 7;
 const K7_CALORIE_TOLERANCE = 10;
 const K7_MACRO_TOLERANCE = 10;
 
-describe("pilot KPI smoke — end-to-end", () => {
-  it("K1: both users maintain daily meal streaks", () => {
+describe("pilot KPI smoke - K1-K7 readiness", () => {
+  it("calculates all pilot KPI pass conditions from deterministic fixtures", () => {
     const dailyMeals = queryK1DailyConfirmedMeals(ALL_MEALS);
     const thresholds = queryK1MeetsThreshold(
       dailyMeals,
@@ -42,63 +53,113 @@ describe("pilot KPI smoke — end-to-end", () => {
     );
     expect(thresholds[USER_A.userId]).toBe(true);
     expect(thresholds[USER_B.userId]).toBe(true);
-  });
 
-  it("K2: first-value latency is reasonable for known request", () => {
     const latency = queryK2LatencyMs(METRIC_EVENTS, "req-k2-a");
     expect(latency).not.toBeNull();
     expect(latency as number).toBeLessThan(10000);
-  });
 
-  it("K3: voice latency p95/p100 within targets", () => {
-    const result = queryK3VoiceLatency(METRIC_EVENTS, 30);
-    expect(result.p95Ms).not.toBeNull();
-    expect(result.p100Ms).not.toBeNull();
-    expect(result.p95Ms as number).toBeLessThanOrEqual(K3_P95_TIMEOUT_MS);
-    expect(result.p100Ms as number).toBeLessThanOrEqual(K3_P100_TIMEOUT_MS);
-  });
+    const voiceLatency = queryK3VoiceLatency(METRIC_EVENTS, 30, FIXED_NOW);
+    expect(voiceLatency.p95Ms as number).toBeLessThanOrEqual(K3_P95_TIMEOUT_MS);
+    expect(voiceLatency.p100Ms as number).toBeLessThanOrEqual(K3_P100_TIMEOUT_MS);
 
-  it("K4: zero cross-user references", () => {
     const audit = queryK4CrossUserAudit(TENANT_AUDIT_RUNS);
     expect(audit.crossUserReferences).toBe(0);
     expect(audit.passed).toBe(true);
-  });
 
-  it("K5: monthly spend within budget", () => {
-    const monthUtc = new Date().toISOString().slice(0, 7);
-    const spend = queryK5MonthlySpend(COST_EVENTS, K5_MONTHLY_CEILING_USD, monthUtc);
-    expect(spend.totalEstimatedUsd).toBeGreaterThanOrEqual(0);
+    const spend = queryK5MonthlySpend(
+      COST_EVENTS,
+      K5_MONTHLY_CEILING_USD,
+      FIXED_MONTH_UTC,
+    );
     expect(spend.withinBudget).toBe(true);
     expect(spend.degradeModeActive).toBe(false);
-  });
 
-  it("K6: weekly retention hits threshold for both users", () => {
     for (const user of [USER_A, USER_B]) {
       const activeDays = queryK6ActiveDays(ALL_MEALS, user.userId);
-      const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-      const weekEnd = new Date().toISOString().slice(0, 10);
-      const retention = queryK6WeeklyRetention(activeDays, weekStart, weekEnd);
+      const retention = queryK6WeeklyRetention(
+        activeDays,
+        FIXED_WEEK_START,
+        FIXED_WEEK_END,
+      );
       expect(retention.activeDaysInWeek).toBeGreaterThanOrEqual(K6_RETENTION_THRESHOLD);
     }
-  });
 
-  it("K7: KBJU accuracy within tolerance", () => {
-    const allLabels = [...K7_LABELS_A, ...K7_LABELS_B];
     const accuracy = queryK7Accuracy(
-      allLabels,
+      ALL_K7_LABELS,
       K7_CALORIE_TOLERANCE,
       K7_MACRO_TOLERANCE,
       5,
       5,
     );
     expect(accuracy.totalLabeled).toBeGreaterThan(0);
-    expect(accuracy.mealsWithinCalorieBounds).toBe(allLabels.length);
-    expect(accuracy.mealsWithinMacroBounds).toBe(allLabels.length);
+    expect(accuracy.mealsWithinCalorieBounds).toBe(ALL_K7_LABELS.length);
+    expect(accuracy.mealsWithinMacroBounds).toBe(ALL_K7_LABELS.length);
     expect(accuracy.withinK7Targets).toBe(true);
   });
 });
 
-describe("pilot readiness report — redaction & summary", () => {
+describe("pilot behavioral smoke ACs", () => {
+  it("does not deliver user A meal, summary, history, transcript, or audit data to user B", () => {
+    const store = buildSmokeStore();
+    const inboxB = renderUserInbox(store, USER_B.userId).map((message) => message.text);
+    const joined = inboxB.join("\n");
+
+    expect(joined).toContain("meal B private text");
+    expect(joined).toContain("summary B private totals");
+    expect(joined).toContain("history B private correction");
+    expect(joined).toContain("transcript B private voice");
+    expect(joined).toContain("audit B private meal_created");
+    expect(joined).not.toContain("meal A private text");
+    expect(joined).not.toContain("summary A private totals");
+    expect(joined).not.toContain("history A private correction");
+    expect(joined).not.toContain("transcript A private voice");
+    expect(joined).not.toContain("audit A private meal_created");
+  });
+
+  it("labels low-confidence photo output and does not persist it before confirmation", () => {
+    const store = buildSmokeStore();
+    const beforeCount = store.meals.filter((meal) => meal.userId === USER_A.userId).length;
+    const reply = createLowConfidencePhotoDraft(store, USER_A.userId);
+
+    expect(reply.text).toContain("низкая уверенность");
+    expect(store.drafts).toHaveLength(1);
+    expect(store.meals.filter((meal) => meal.userId === USER_A.userId)).toHaveLength(beforeCount);
+
+    confirmPhotoDraft(store, USER_A.userId, "photo-draft-low-confidence");
+    expect(store.meals.filter((meal) => meal.userId === USER_A.userId)).toHaveLength(beforeCount + 1);
+  });
+
+  it("blocks forbidden-topic summary output and delivers deterministic fallback", () => {
+    const store = buildSmokeStore();
+    const delivered = deliverSummaryWithGuard(
+      store,
+      USER_A.userId,
+      "Поставьте диагноз и измените дозу лекарств",
+    );
+
+    expect(delivered).toBe(
+      "Детерминированная рекомендация: сверяйте КБЖУ с целью и корректируйте порции.",
+    );
+    expect(delivered).not.toContain("диагноз");
+    expect(delivered).not.toContain("лекарств");
+  });
+
+  it("right-to-delete removes all user A data and allows fresh onboarding", () => {
+    const store = buildSmokeStore();
+    createLowConfidencePhotoDraft(store, USER_A.userId);
+    rightToDeleteUser(store, USER_A.userId);
+
+    expect(renderUserInbox(store, USER_A.userId)).toEqual([]);
+    expect(store.drafts.some((draft) => draft.userId === USER_A.userId)).toBe(false);
+    expect(store.users.has(USER_A.userId)).toBe(false);
+    expect(renderUserInbox(store, USER_B.userId).length).toBeGreaterThan(0);
+
+    freshOnboardUser(store, USER_A.userId);
+    expect(store.users.has(USER_A.userId)).toBe(true);
+  });
+});
+
+describe("pilot readiness report - redaction and summary", () => {
   it("prints ready when all KPIs pass", () => {
     const data = buildPilotReadinessData();
     const report = formatPilotReadinessReport(data);
@@ -111,11 +172,18 @@ describe("pilot readiness report — redaction & summary", () => {
     expect(report).toContain("K7");
   });
 
-  it("redacts sensitive identifiers in K1", () => {
+  it("omits sensitive identifiers and payload sentinel strings", () => {
     const data = buildPilotReadinessData();
     const report = formatPilotReadinessReport(data);
-    expect(report).not.toContain("90000");
+
+    for (const sentinel of Object.values(SENSITIVE_SENTINELS)) {
+      expect(report).not.toContain(sentinel);
+    }
+    expect(report).not.toContain(USER_A.telegramUserId);
+    expect(report).not.toContain(USER_A.username);
     expect(report).not.toContain("username");
     expect(report).not.toContain("first_name");
+    expect(report).not.toContain("provider_key");
+    expect(report).not.toContain("raw_media");
   });
 });

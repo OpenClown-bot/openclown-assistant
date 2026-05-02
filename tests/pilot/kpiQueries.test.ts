@@ -17,25 +17,26 @@ import {
   METRIC_EVENTS,
   TENANT_AUDIT_RUNS,
   COST_EVENTS,
-  K7_LABELS_A,
-  K7_LABELS_B,
+  ALL_K7_LABELS,
   K1_DAILY_COUNTS,
-  buildPilotReadinessData,
+  FIXED_MONTH_UTC,
+  FIXED_NOW,
+  FIXED_WEEK_END,
+  FIXED_WEEK_START,
 } from "../pilot/fixtures.js";
+import type { KbjuAccuracyLabelRow, MetricEventRow } from "../../src/store/types.js";
 
-describe("K1 — daily confirmed meals", () => {
+describe("K1 - daily confirmed meals", () => {
   it("counts only non-deleted meals per user per day", () => {
     const counts = queryK1DailyConfirmedMeals(ALL_MEALS);
     const userACounts = counts.filter((c) => c.userId === USER_A.userId);
     const userBCount = counts.filter((c) => c.userId === USER_B.userId);
 
-    // User A: 8 non-deleted meals across 8 unique days (DELETED_MEAL_A is excluded)
-    const uniqueDaysA = new Set(userACounts.map((c) => c.mealLocalDate));
-    expect(uniqueDaysA.size).toBe(8);
-
-    // User B: 8 meals across 8 unique days
-    const uniqueDaysB = new Set(userBCount.map((c) => c.mealLocalDate));
-    expect(uniqueDaysB.size).toBe(8);
+    expect(new Set(userACounts.map((c) => c.mealLocalDate)).size).toBe(8);
+    expect(new Set(userBCount.map((c) => c.mealLocalDate)).size).toBe(8);
+    expect(
+      userACounts.find((c) => c.mealLocalDate === "2026-05-02")?.count,
+    ).toBe(1);
   });
 
   it("meets threshold for active users", () => {
@@ -45,22 +46,67 @@ describe("K1 — daily confirmed meals", () => {
   });
 });
 
-describe("K2 — time-to-first-value", () => {
+describe("K2 - time-to-first-value", () => {
   it("calculates latency between meal_content_received and draft_reply_sent", () => {
-    const latency = queryK2LatencyMs(METRIC_EVENTS, "req-k2-a");
-    expect(latency).toBe(5000);
+    expect(queryK2LatencyMs(METRIC_EVENTS, "req-k2-a")).toBe(5000);
+  });
+
+  it("returns null when timestamps are missing", () => {
+    const missingTimestamp: MetricEventRow[] = [
+      {
+        id: "missing-start",
+        user_id: USER_A.userId,
+        request_id: "req-missing",
+        event_name: "meal_content_received",
+        component: "C4",
+        latency_ms: null,
+        outcome: "success",
+        metadata: {},
+        created_at: "",
+      },
+      {
+        id: "missing-end",
+        user_id: USER_A.userId,
+        request_id: "req-missing",
+        event_name: "draft_reply_sent",
+        component: "C4",
+        latency_ms: 1000,
+        outcome: "success",
+        metadata: {},
+        created_at: "2026-05-02T10:00:01.000Z",
+      },
+    ];
+    expect(queryK2LatencyMs(missingTimestamp, "req-missing")).toBeNull();
+  });
+
+  it("uses the first matching events for duplicate out-of-order rows", () => {
+    expect(queryK2LatencyMs(METRIC_EVENTS, "req-k2-duplicates")).toBe(7000);
   });
 });
 
-describe("K3 — voice latency", () => {
-  it("calculates p95 and p100 correctly", () => {
-    const result = queryK3VoiceLatency(METRIC_EVENTS, 30);
+describe("K3 - voice latency", () => {
+  it("calculates p95 and p100 for <=15s voice messages only", () => {
+    const result = queryK3VoiceLatency(METRIC_EVENTS, 30, FIXED_NOW);
     expect(result.p95Ms).toBe(7000);
     expect(result.p100Ms).toBe(7000);
   });
+
+  it("returns empty metrics when there are no eligible <=15s voice rows", () => {
+    const onlyLongClips = METRIC_EVENTS.filter(
+      (m) => m.request_id === "req-k3-long-clip",
+    );
+    expect(queryK3VoiceLatency(onlyLongClips, 30, FIXED_NOW)).toEqual({
+      p95Ms: null,
+      p100Ms: null,
+    });
+    expect(queryK3VoiceLatency([], 30, FIXED_NOW)).toEqual({
+      p95Ms: null,
+      p100Ms: null,
+    });
+  });
 });
 
-describe("K4 — cross-user audit", () => {
+describe("K4 - cross-user audit", () => {
   it("passes when no cross-user references", () => {
     const result = queryK4CrossUserAudit(TENANT_AUDIT_RUNS);
     expect(result.crossUserReferences).toBe(0);
@@ -68,52 +114,71 @@ describe("K4 — cross-user audit", () => {
   });
 
   it("fails with missing audit runs", () => {
-    const result = queryK4CrossUserAudit([]);
-    expect(result.crossUserReferences).toBe(-1);
-    expect(result.passed).toBe(false);
+    expect(queryK4CrossUserAudit([])).toEqual({
+      crossUserReferences: -1,
+      passed: false,
+    });
   });
 });
 
-describe("K5 — monthly spend", () => {
-  it("calculates total estimated USD and budget status", () => {
-    const now = new Date();
-    const monthUtc = now.toISOString().slice(0, 7);
-    const result = queryK5MonthlySpend(COST_EVENTS, 10, monthUtc);
-    // twoDaysAgo is Apr 30 so falls outside monthUtc "2026-05"; only 3 of 4 events match
+describe("K5 - monthly spend", () => {
+  it("calculates total estimated USD and budget status for a fixed month", () => {
+    const result = queryK5MonthlySpend(COST_EVENTS, 10, FIXED_MONTH_UTC);
     expect(result.totalEstimatedUsd).toBeCloseTo(0.18, 2);
     expect(result.withinBudget).toBe(true);
     expect(result.degradeModeActive).toBe(false);
   });
 });
 
-describe("K6 — weekly retention", () => {
-  it("counts active days correctly", () => {
+describe("K6 - weekly retention", () => {
+  it("counts active days in a fixed week", () => {
     const activeDays = queryK6ActiveDays(ALL_MEALS, USER_A.userId);
-    // 8 unique non-deleted meal dates for user A
-    expect(activeDays.size).toBe(8);
-
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
-
     const retention = queryK6WeeklyRetention(
       activeDays,
-      sevenDaysAgo,
-      today
+      FIXED_WEEK_START,
+      FIXED_WEEK_END,
     );
 
+    expect(activeDays.size).toBe(8);
+    expect(retention.activeDaysInWeek).toBe(7);
     expect(retention.metThreshold).toBe(true);
   });
 });
 
-describe("K7 — KBJU accuracy", () => {
-  it("calculates accuracy against tolerance", () => {
-    const allLabels = [...K7_LABELS_A, ...K7_LABELS_B];
-    const result = queryK7Accuracy(allLabels, 10, 10, 5, 5);
+describe("K7 - KBJU accuracy", () => {
+  it("groups daily calorie accuracy by calendar date", () => {
+    const result = queryK7Accuracy(ALL_K7_LABELS, 10, 10, 5, 5);
 
-    expect(result.totalLabeled).toBe(4);
-    expect(result.mealsWithinCalorieBounds).toBe(4);
-    expect(result.mealsWithinMacroBounds).toBe(4);
+    expect(result.totalLabeled).toBe(6);
+    expect(result.mealsWithinCalorieBounds).toBe(6);
+    expect(result.mealsWithinMacroBounds).toBe(6);
+    expect(result.dailyCalorieAccuracy.get("2026-05-02")).toEqual({
+      totalError: 6.83,
+      count: 3,
+    });
+    expect(result.dailyCalorieAccuracy.get("2026-05-01")).toEqual({
+      totalError: 5.16,
+      count: 3,
+    });
     expect(result.withinK7Targets).toBe(true);
+  });
+
+  it("fails K7 targets for out-of-tolerance values", () => {
+    const badLabels: KbjuAccuracyLabelRow[] = [
+      {
+        ...ALL_K7_LABELS[0],
+        id: "bad-label-1",
+        calorie_error_pct: 30,
+      },
+      {
+        ...ALL_K7_LABELS[1],
+        id: "bad-label-2",
+        protein_error_pct: 35,
+      },
+    ];
+    const result = queryK7Accuracy(badLabels, 10, 10, 5, 5);
+    expect(result.mealsWithinCalorieBounds).toBe(1);
+    expect(result.mealsWithinMacroBounds).toBe(1);
+    expect(result.withinK7Targets).toBe(false);
   });
 });

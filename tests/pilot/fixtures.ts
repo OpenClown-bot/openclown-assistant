@@ -5,73 +5,94 @@ import type {
   MetricEventRow,
   TenantAuditRunRow,
 } from "../../src/store/types.js";
-import type { K1DailyMealCount, K3LatencyResult, K5SpendResult, K7AccuracyResult } from "../../src/pilot/kpiQueries.js";
+import type {
+  K1DailyMealCount,
+  K3LatencyResult,
+  K5SpendResult,
+  K7AccuracyResult,
+} from "../../src/pilot/kpiQueries.js";
 import type { PilotReadinessData } from "../../src/pilot/pilotReadinessReport.js";
 
-// Synthetic pilot user identifiers — NOT real Telegram IDs or personal data.
+export const FIXED_NOW = "2026-05-02T12:00:00.000Z";
+export const FIXED_TODAY = "2026-05-02";
+export const FIXED_YESTERDAY = "2026-05-01";
+export const FIXED_TWO_DAYS_AGO = "2026-04-30";
+export const FIXED_THREE_DAYS_AGO = "2026-04-29";
+export const FIXED_FOUR_DAYS_AGO = "2026-04-28";
+export const FIXED_FIVE_DAYS_AGO = "2026-04-27";
+export const FIXED_SIX_DAYS_AGO = "2026-04-26";
+export const FIXED_SEVEN_DAYS_AGO = "2026-04-25";
+export const FIXED_MONTH_UTC = "2026-05";
+export const FIXED_WEEK_START = FIXED_SIX_DAYS_AGO;
+export const FIXED_WEEK_END = FIXED_TODAY;
+
+// Synthetic pilot user identifiers: not real Telegram IDs or personal data.
 export const USER_A = {
   userId: "synthetic-user-a-id",
   telegramUserId: "9000001",
   telegramChatId: "10000001",
+  username: "pilot_a_username",
 };
 
 export const USER_B = {
   userId: "synthetic-user-b-id",
   telegramUserId: "9000002",
   telegramChatId: "10000002",
+  username: "pilot_b_username",
 };
 
-const now = new Date().toISOString();
-const today = now.slice(0, 10);
-const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
-const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
-const fourDaysAgo = new Date(Date.now() - 4 * 86_400_000).toISOString().slice(0, 10);
-const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
-const sixDaysAgo = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
-const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+function meal(
+  id: string,
+  userId: string,
+  source: ConfirmedMealRow["source"],
+  date: string,
+  calories: number,
+): ConfirmedMealRow {
+  const at = `${date}T12:00:00.000Z`;
+  return {
+    id,
+    user_id: userId,
+    source,
+    draft_id: `draft-${id}`,
+    meal_local_date: date,
+    meal_logged_at: at,
+    total_calories_kcal: calories,
+    total_protein_g: 30,
+    total_fat_g: 20,
+    total_carbs_g: 50,
+    manual_entry: source === "manual",
+    deleted_at: null,
+    version: 1,
+    created_at: at,
+    updated_at: at,
+  };
+}
 
-// Confirmed meals for User A — one per active day for a full week.
 export const MEALS_USER_A: ConfirmedMealRow[] = [
-  { id: "meal-a1", user_id: USER_A.userId, source: "text", draft_id: "draft-a1", meal_local_date: today, meal_logged_at: now, total_calories_kcal: 500, total_protein_g: 30, total_fat_g: 20, total_carbs_g: 50, manual_entry: false, deleted_at: null, version: 1, created_at: now, updated_at: now },
-  { id: "meal-a2", user_id: USER_A.userId, source: "voice", draft_id: "draft-a2", meal_local_date: yesterday, meal_logged_at: yesterday + "T12:00:00Z", total_calories_kcal: 600, total_protein_g: 35, total_fat_g: 25, total_carbs_g: 55, manual_entry: false, deleted_at: null, version: 1, created_at: yesterday + "T12:00:00Z", updated_at: yesterday + "T12:00:00Z" },
-  { id: "meal-a3", user_id: USER_A.userId, source: "text", draft_id: "draft-a3", meal_local_date: twoDaysAgo, meal_logged_at: twoDaysAgo + "T13:00:00Z", total_calories_kcal: 450, total_protein_g: 28, total_fat_g: 18, total_carbs_g: 48, manual_entry: false, deleted_at: null, version: 1, created_at: twoDaysAgo + "T13:00:00Z", updated_at: twoDaysAgo + "T13:00:00Z" },
-  { id: "meal-a4", user_id: USER_A.userId, source: "photo", draft_id: "draft-a4", meal_local_date: threeDaysAgo, meal_logged_at: threeDaysAgo + "T12:30:00Z", total_calories_kcal: 550, total_protein_g: 32, total_fat_g: 22, total_carbs_g: 52, manual_entry: false, deleted_at: null, version: 1, created_at: threeDaysAgo + "T12:30:00Z", updated_at: threeDaysAgo + "T12:30:00Z" },
-  { id: "meal-a5", user_id: USER_A.userId, source: "text", draft_id: "draft-a5", meal_local_date: fourDaysAgo, meal_logged_at: fourDaysAgo + "T11:00:00Z", total_calories_kcal: 480, total_protein_g: 29, total_fat_g: 19, total_carbs_g: 49, manual_entry: false, deleted_at: null, version: 1, created_at: fourDaysAgo + "T11:00:00Z", updated_at: fourDaysAgo + "T11:00:00Z" },
-  { id: "meal-a6", user_id: USER_A.userId, source: "voice", draft_id: "draft-a6", meal_local_date: fiveDaysAgo, meal_logged_at: fiveDaysAgo + "T13:15:00Z", total_calories_kcal: 520, total_protein_g: 31, total_fat_g: 21, total_carbs_g: 51, manual_entry: false, deleted_at: null, version: 1, created_at: fiveDaysAgo + "T13:15:00Z", updated_at: fiveDaysAgo + "T13:15:00Z" },
-  { id: "meal-a7", user_id: USER_A.userId, source: "text", draft_id: "draft-a7", meal_local_date: sixDaysAgo, meal_logged_at: sixDaysAgo + "T14:00:00Z", total_calories_kcal: 470, total_protein_g: 27, total_fat_g: 18, total_carbs_g: 47, manual_entry: false, deleted_at: null, version: 1, created_at: sixDaysAgo + "T14:00:00Z", updated_at: sixDaysAgo + "T14:00:00Z" },
-  { id: "meal-a8", user_id: USER_A.userId, source: "manual", draft_id: "draft-a8", meal_local_date: sevenDaysAgo, meal_logged_at: sevenDaysAgo + "T12:00:00Z", total_calories_kcal: 500, total_protein_g: 30, total_fat_g: 20, total_carbs_g: 50, manual_entry: true, deleted_at: null, version: 1, created_at: sevenDaysAgo + "T12:00:00Z", updated_at: sevenDaysAgo + "T12:00:00Z" },
+  meal("meal-a1", USER_A.userId, "text", FIXED_TODAY, 500),
+  meal("meal-a2", USER_A.userId, "voice", FIXED_YESTERDAY, 600),
+  meal("meal-a3", USER_A.userId, "text", FIXED_TWO_DAYS_AGO, 450),
+  meal("meal-a4", USER_A.userId, "photo", FIXED_THREE_DAYS_AGO, 550),
+  meal("meal-a5", USER_A.userId, "text", FIXED_FOUR_DAYS_AGO, 480),
+  meal("meal-a6", USER_A.userId, "voice", FIXED_FIVE_DAYS_AGO, 520),
+  meal("meal-a7", USER_A.userId, "text", FIXED_SIX_DAYS_AGO, 470),
+  meal("meal-a8", USER_A.userId, "manual", FIXED_SEVEN_DAYS_AGO, 500),
 ];
 
-// Confirmed meals for User B — at least one per day for the same week.
 export const MEALS_USER_B: ConfirmedMealRow[] = [
-  { id: "meal-b1", user_id: USER_B.userId, source: "text", draft_id: "draft-b1", meal_local_date: today, meal_logged_at: now, total_calories_kcal: 400, total_protein_g: 25, total_fat_g: 15, total_carbs_g: 45, manual_entry: false, deleted_at: null, version: 1, created_at: now, updated_at: now },
-  { id: "meal-b2", user_id: USER_B.userId, source: "voice", draft_id: "draft-b2", meal_local_date: yesterday, meal_logged_at: yesterday + "T12:00:00Z", total_calories_kcal: 550, total_protein_g: 32, total_fat_g: 22, total_carbs_g: 50, manual_entry: false, deleted_at: null, version: 1, created_at: yesterday + "T12:00:00Z", updated_at: yesterday + "T12:00:00Z" },
-  { id: "meal-b3", user_id: USER_B.userId, source: "text", draft_id: "draft-b3", meal_local_date: twoDaysAgo, meal_logged_at: twoDaysAgo + "T13:00:00Z", total_calories_kcal: 470, total_protein_g: 28, total_fat_g: 18, total_carbs_g: 48, manual_entry: false, deleted_at: null, version: 1, created_at: twoDaysAgo + "T13:00:00Z", updated_at: twoDaysAgo + "T13:00:00Z" },
-  { id: "meal-b4", user_id: USER_B.userId, source: "voice", draft_id: "draft-b4", meal_local_date: threeDaysAgo, meal_logged_at: threeDaysAgo + "T12:30:00Z", total_calories_kcal: 510, total_protein_g: 30, total_fat_g: 20, total_carbs_g: 51, manual_entry: false, deleted_at: null, version: 1, created_at: threeDaysAgo + "T12:30:00Z", updated_at: threeDaysAgo + "T12:30:00Z" },
-  { id: "meal-b5", user_id: USER_B.userId, source: "text", draft_id: "draft-b5", meal_local_date: fourDaysAgo, meal_logged_at: fourDaysAgo + "T11:00:00Z", total_calories_kcal: 490, total_protein_g: 29, total_fat_g: 19, total_carbs_g: 49, manual_entry: false, deleted_at: null, version: 1, created_at: fourDaysAgo + "T11:00:00Z", updated_at: fourDaysAgo + "T11:00:00Z" },
-  { id: "meal-b6", user_id: USER_B.userId, source: "voice", draft_id: "draft-b6", meal_local_date: fiveDaysAgo, meal_logged_at: fiveDaysAgo + "T13:15:00Z", total_calories_kcal: 530, total_protein_g: 31, total_fat_g: 21, total_carbs_g: 52, manual_entry: false, deleted_at: null, version: 1, created_at: fiveDaysAgo + "T13:15:00Z", updated_at: fiveDaysAgo + "T13:15:00Z" },
-  { id: "meal-b7", user_id: USER_B.userId, source: "text", draft_id: "draft-b7", meal_local_date: sixDaysAgo, meal_logged_at: sixDaysAgo + "T14:00:00Z", total_calories_kcal: 460, total_protein_g: 27, total_fat_g: 17, total_carbs_g: 46, manual_entry: false, deleted_at: null, version: 1, created_at: sixDaysAgo + "T14:00:00Z", updated_at: sixDaysAgo + "T14:00:00Z" },
-  { id: "meal-b8", user_id: USER_B.userId, source: "voice", draft_id: "draft-b8", meal_local_date: sevenDaysAgo, meal_logged_at: sevenDaysAgo + "T12:00:00Z", total_calories_kcal: 500, total_protein_g: 30, total_fat_g: 20, total_carbs_g: 50, manual_entry: false, deleted_at: null, version: 1, created_at: sevenDaysAgo + "T12:00:00Z", updated_at: sevenDaysAgo + "T12:00:00Z" },
+  meal("meal-b1", USER_B.userId, "text", FIXED_TODAY, 400),
+  meal("meal-b2", USER_B.userId, "voice", FIXED_YESTERDAY, 550),
+  meal("meal-b3", USER_B.userId, "text", FIXED_TWO_DAYS_AGO, 470),
+  meal("meal-b4", USER_B.userId, "voice", FIXED_THREE_DAYS_AGO, 510),
+  meal("meal-b5", USER_B.userId, "text", FIXED_FOUR_DAYS_AGO, 490),
+  meal("meal-b6", USER_B.userId, "voice", FIXED_FIVE_DAYS_AGO, 530),
+  meal("meal-b7", USER_B.userId, "text", FIXED_SIX_DAYS_AGO, 460),
+  meal("meal-b8", USER_B.userId, "voice", FIXED_SEVEN_DAYS_AGO, 500),
 ];
 
-// Deleted meal for isolation test — should not count toward K1/K6.
 export const DELETED_MEAL_A: ConfirmedMealRow = {
-  id: "meal-a-deleted",
-  user_id: USER_A.userId,
-  source: "text",
-  draft_id: "draft-a-del",
-  meal_local_date: today,
-  meal_logged_at: now,
-  total_calories_kcal: 999,
-  total_protein_g: 99,
-  total_fat_g: 99,
-  total_carbs_g: 99,
-  manual_entry: false,
-  deleted_at: now,
-  version: 1,
-  created_at: now,
-  updated_at: now,
+  ...meal("meal-a-deleted", USER_A.userId, "text", FIXED_TODAY, 999),
+  deleted_at: "2026-05-02T13:00:00.000Z",
 };
 
 export const ALL_MEALS: ConfirmedMealRow[] = [
@@ -80,34 +101,118 @@ export const ALL_MEALS: ConfirmedMealRow[] = [
   DELETED_MEAL_A,
 ];
 
-// Metric events for K2 (time-to-first-value) and K3 (voice latency).
 export const METRIC_EVENTS: MetricEventRow[] = [
-  // K2 — request-A timing
-  { id: "metric-k2-1", user_id: USER_A.userId, request_id: "req-k2-a", event_name: "meal_content_received", component: "C4", latency_ms: 100, outcome: "success", metadata: {}, created_at: today + "T10:00:00Z" },
-  { id: "metric-k2-2", user_id: USER_A.userId, request_id: "req-k2-a", event_name: "draft_reply_sent", component: "C4", latency_ms: 5000, outcome: "success", metadata: {}, created_at: today + "T10:00:05Z" },
-  // K3 — voice latency for User A
-  { id: "metric-k3-1", user_id: USER_A.userId, request_id: "req-k3-a", event_name: "voice_transcription_completed", component: "C5", latency_ms: 3000, outcome: "success", metadata: { audio_duration_seconds: 5 }, created_at: today + "T09:00:00Z" },
-  { id: "metric-k3-2", user_id: USER_A.userId, request_id: "req-k3-a2", event_name: "voice_transcription_completed", component: "C5", latency_ms: 5000, outcome: "success", metadata: { audio_duration_seconds: 10 }, created_at: yesterday + "T09:00:00Z" },
-  { id: "metric-k3-3", user_id: USER_A.userId, request_id: "req-k3-a3", event_name: "voice_transcription_completed", component: "C5", latency_ms: 7000, outcome: "success", metadata: { audio_duration_seconds: 12 }, created_at: twoDaysAgo + "09:00:00Z" },
-  { id: "metric-k3-4", user_id: USER_A.userId, request_id: "req-k3-a4", event_name: "voice_transcription_completed", component: "C5", latency_ms: 4000, outcome: "success", metadata: { audio_duration_seconds: 8 }, created_at: threeDaysAgo + "T09:00:00Z" },
-  { id: "metric-k3-5", user_id: USER_A.userId, request_id: "req-k3-a5", event_name: "voice_transcription_completed", component: "C5", latency_ms: 6000, outcome: "success", metadata: { audio_duration_seconds: 14 }, created_at: fourDaysAgo + "T09:00:00Z" },
-  // K3 — voice latency for User B
-  { id: "metric-k3-6", user_id: USER_B.userId, request_id: "req-k3-b", event_name: "voice_transcription_completed", component: "C5", latency_ms: 4500, outcome: "success", metadata: { audio_duration_seconds: 6 }, created_at: today + "T09:00:00Z" },
-  { id: "metric-k3-7", user_id: USER_B.userId, request_id: "req-k3-b2", event_name: "voice_transcription_completed", component: "C5", latency_ms: 5500, outcome: "success", metadata: { audio_duration_seconds: 9 }, created_at: yesterday + "T09:00:00Z" },
+  {
+    id: "metric-k2-1",
+    user_id: USER_A.userId,
+    request_id: "req-k2-a",
+    event_name: "meal_content_received",
+    component: "C4",
+    latency_ms: null,
+    outcome: "success",
+    metadata: {},
+    created_at: "2026-05-02T10:00:00.000Z",
+  },
+  {
+    id: "metric-k2-2",
+    user_id: USER_A.userId,
+    request_id: "req-k2-a",
+    event_name: "draft_reply_sent",
+    component: "C4",
+    latency_ms: 5000,
+    outcome: "success",
+    metadata: {},
+    created_at: "2026-05-02T10:00:05.000Z",
+  },
+  {
+    id: "metric-k2-dup-reply",
+    user_id: USER_A.userId,
+    request_id: "req-k2-duplicates",
+    event_name: "draft_reply_sent",
+    component: "C4",
+    latency_ms: 9000,
+    outcome: "success",
+    metadata: {},
+    created_at: "2026-05-02T10:00:09.000Z",
+  },
+  {
+    id: "metric-k2-dup-received-late",
+    user_id: USER_A.userId,
+    request_id: "req-k2-duplicates",
+    event_name: "meal_content_received",
+    component: "C4",
+    latency_ms: null,
+    outcome: "success",
+    metadata: {},
+    created_at: "2026-05-02T10:00:02.000Z",
+  },
+  {
+    id: "metric-k2-dup-received-first",
+    user_id: USER_A.userId,
+    request_id: "req-k2-duplicates",
+    event_name: "meal_content_received",
+    component: "C4",
+    latency_ms: null,
+    outcome: "success",
+    metadata: {},
+    created_at: "2026-05-02T10:00:00.000Z",
+  },
+  ...[3000, 5000, 7000, 4000, 6000, 4500, 5500].map(
+    (latencyMs, index): MetricEventRow => ({
+      id: `metric-k3-${index + 1}`,
+      user_id: index < 5 ? USER_A.userId : USER_B.userId,
+      request_id: `req-k3-${index + 1}`,
+      event_name: "voice_transcription_completed",
+      component: "C5",
+      latency_ms: latencyMs,
+      outcome: "success",
+      metadata: { audio_duration_seconds: [5, 10, 12, 8, 14, 6, 9][index] },
+      created_at: `${[
+        FIXED_TODAY,
+        FIXED_YESTERDAY,
+        FIXED_TWO_DAYS_AGO,
+        FIXED_THREE_DAYS_AGO,
+        FIXED_FOUR_DAYS_AGO,
+        FIXED_TODAY,
+        FIXED_YESTERDAY,
+      ][index]}T09:00:00.000Z`,
+    }),
+  ),
+  {
+    id: "metric-k3-long-clip",
+    user_id: USER_A.userId,
+    request_id: "req-k3-long-clip",
+    event_name: "voice_transcription_completed",
+    component: "C5",
+    latency_ms: 60000,
+    outcome: "success",
+    metadata: { audio_duration_seconds: 16 },
+    created_at: "2026-05-02T09:30:00.000Z",
+  },
 ];
 
-// Tenant audit runs for K4.
 export const TENANT_AUDIT_RUNS: TenantAuditRunRow[] = [
   {
     id: "audit-run-1",
     run_type: "end_of_pilot_k4",
-    started_at: today + "T00:00:00Z",
-    completed_at: today + "T00:05:00Z",
+    started_at: "2026-05-02T00:00:00.000Z",
+    completed_at: "2026-05-02T00:05:00.000Z",
     checked_tables: [
-      "user_profiles", "user_targets", "summary_schedules", "onboarding_states",
-      "transcripts", "meal_drafts", "meal_draft_items", "confirmed_meals",
-      "meal_items", "summary_records", "audit_events", "metric_events",
-      "cost_events", "monthly_spend_counters", "food_lookup_cache",
+      "user_profiles",
+      "user_targets",
+      "summary_schedules",
+      "onboarding_states",
+      "transcripts",
+      "meal_drafts",
+      "meal_draft_items",
+      "confirmed_meals",
+      "meal_items",
+      "summary_records",
+      "audit_events",
+      "metric_events",
+      "cost_events",
+      "monthly_spend_counters",
+      "food_lookup_cache",
       "kbju_accuracy_labels",
     ],
     cross_user_reference_count: 0,
@@ -115,24 +220,100 @@ export const TENANT_AUDIT_RUNS: TenantAuditRunRow[] = [
   },
 ];
 
-// Cost events for K5.
 export const COST_EVENTS: CostEventRow[] = [
-  { id: "cost-1", user_id: USER_A.userId, request_id: "req-cost-a", provider_alias: "fireworks", model_alias: "qwen3-vl-30b-a3b-instruct", call_type: "text_llm", estimated_cost_usd: 0.05, actual_cost_usd: 0.05, input_units: 100, output_units: 50, billing_unit: "token", created_at: today + "T10:00:00Z" },
-  { id: "cost-2", user_id: USER_A.userId, request_id: "req-cost-a2", provider_alias: "fireworks", model_alias: "whisper-v3-turbo", call_type: "transcription", estimated_cost_usd: 0.10, actual_cost_usd: 0.10, input_units: 10, output_units: 0, billing_unit: "audio_second", created_at: yesterday + "T09:00:00Z" },
-  { id: "cost-3", user_id: USER_B.userId, request_id: "req-cost-b", provider_alias: "fireworks", model_alias: "qwen3-vl-30b-a3b-instruct", call_type: "text_llm", estimated_cost_usd: 0.03, actual_cost_usd: 0.03, input_units: 80, output_units: 40, billing_unit: "token", created_at: today + "T11:00:00Z" },
-  { id: "cost-4", user_id: USER_B.userId, request_id: "req-cost-b2", provider_alias: "fireworks", model_alias: "whisper-v3-turbo", call_type: "transcription", estimated_cost_usd: 0.08, actual_cost_usd: 0.08, input_units: 8, output_units: 0, billing_unit: "audio_second", created_at: twoDaysAgo + "T09:00:00Z" },
+  {
+    id: "cost-1",
+    user_id: USER_A.userId,
+    request_id: "req-cost-a",
+    provider_alias: "fireworks",
+    model_alias: "qwen3-vl-30b-a3b-instruct",
+    call_type: "text_llm",
+    estimated_cost_usd: 0.05,
+    actual_cost_usd: 0.05,
+    input_units: 100,
+    output_units: 50,
+    billing_unit: "token",
+    created_at: "2026-05-02T10:00:00.000Z",
+  },
+  {
+    id: "cost-2",
+    user_id: USER_A.userId,
+    request_id: "req-cost-a2",
+    provider_alias: "fireworks",
+    model_alias: "whisper-v3-turbo",
+    call_type: "transcription",
+    estimated_cost_usd: 0.10,
+    actual_cost_usd: 0.10,
+    input_units: 10,
+    output_units: 0,
+    billing_unit: "audio_second",
+    created_at: "2026-05-01T09:00:00.000Z",
+  },
+  {
+    id: "cost-3",
+    user_id: USER_B.userId,
+    request_id: "req-cost-b",
+    provider_alias: "fireworks",
+    model_alias: "qwen3-vl-30b-a3b-instruct",
+    call_type: "text_llm",
+    estimated_cost_usd: 0.03,
+    actual_cost_usd: 0.03,
+    input_units: 80,
+    output_units: 40,
+    billing_unit: "token",
+    created_at: "2026-05-02T11:00:00.000Z",
+  },
+  {
+    id: "cost-4",
+    user_id: USER_B.userId,
+    request_id: "req-cost-b2",
+    provider_alias: "fireworks",
+    model_alias: "whisper-v3-turbo",
+    call_type: "transcription",
+    estimated_cost_usd: 0.08,
+    actual_cost_usd: 0.08,
+    input_units: 8,
+    output_units: 0,
+    billing_unit: "audio_second",
+    created_at: "2026-04-30T09:00:00.000Z",
+  },
 ];
 
-// K7 accuracy labels for User A.
+function label(
+  id: string,
+  userId: string,
+  mealId: string,
+  createdAt: string,
+  calorieErrorPct: number,
+  proteinErrorPct: number,
+): KbjuAccuracyLabelRow {
+  return {
+    id,
+    user_id: userId,
+    meal_id: mealId,
+    labeled_by: id.endsWith("2") ? "partner" : "po",
+    sample_reason: id.endsWith("2") ? "random_pilot_sample" : "low_confidence_review",
+    estimate_totals: { calories_kcal: 510, protein_g: 31, fat_g: 20, carbs_g: 50 },
+    ground_truth_totals: { calories_kcal: 500, protein_g: 30, fat_g: 20, carbs_g: 50 },
+    calorie_error_pct: calorieErrorPct,
+    protein_error_pct: proteinErrorPct,
+    fat_error_pct: 0,
+    carbs_error_pct: 0,
+    notes: null,
+    created_at: createdAt,
+  };
+}
+
 export const K7_LABELS_A: KbjuAccuracyLabelRow[] = [
-  { id: "label-a1", user_id: USER_A.userId, meal_id: "meal-a1", labeled_by: "po", sample_reason: "low_confidence_review", estimate_totals: { calories_kcal: 510, protein_g: 31, fat_g: 20, carbs_g: 50 }, ground_truth_totals: { calories_kcal: 500, protein_g: 30, fat_g: 20, carbs_g: 50 }, calorie_error_pct: 2.0, protein_error_pct: 3.33, fat_error_pct: 0, carbs_error_pct: 0, notes: null, created_at: today + "T12:00:00Z" },
-  { id: "label-a2", user_id: USER_A.userId, meal_id: "meal-a2", labeled_by: "partner", sample_reason: "random_pilot_sample", estimate_totals: { calories_kcal: 605, protein_g: 34, fat_g: 25, carbs_g: 55 }, ground_truth_totals: { calories_kcal: 600, protein_g: 35, fat_g: 25, carbs_g: 55 }, calorie_error_pct: 0.83, protein_error_pct: 2.86, fat_error_pct: 0, carbs_error_pct: 0, notes: null, created_at: yesterday + "T12:00:00Z" },
+  label("label-a1", USER_A.userId, "meal-a1", "2026-05-02T12:00:00.000Z", 2, 3.33),
+  label("label-a2", USER_A.userId, "meal-a2", "2026-05-02T18:00:00.000Z", 0.83, 2.86),
+  label("label-a3", USER_A.userId, "meal-a3", "2026-05-02T20:00:00.000Z", 4, 1),
 ];
 
-// K7 accuracy labels for User B — within tolerance.
 export const K7_LABELS_B: KbjuAccuracyLabelRow[] = [
-  { id: "label-b1", user_id: USER_B.userId, meal_id: "meal-b1", labeled_by: "po", sample_reason: "low_confidence_review", estimate_totals: { calories_kcal: 405, protein_g: 24, fat_g: 15, carbs_g: 45 }, ground_truth_totals: { calories_kcal: 400, protein_g: 25, total_fat_g: 15, carbs_g: 45 }, calorie_error_pct: 1.25, protein_error_pct: 4.0, fat_error_pct: 0, carbs_error_pct: 0, notes: null, created_at: today + "T12:00:00Z" },
-  { id: "label-b2", user_id: USER_B.userId, meal_id: "meal-b2", labeled_by: "partner", sample_reason: "random_pilot_sample", estimate_totals: { calories_kcal: 555, protein_g: 31, fat_g: 22, carbs_g: 50 }, ground_truth_totals: { calories_kcal: 550, protein_g: 32, total_fat_g: 22, carbs_g: 50 }, calorie_error_pct: 0.91, protein_error_pct: 3.13, fat_error_pct: 0, carbs_error_pct: 0, notes: null, created_at: yesterday + "T12:00:00Z" },
+  label("label-b1", USER_B.userId, "meal-b1", "2026-05-01T12:00:00.000Z", 1.25, 4),
+  label("label-b2", USER_B.userId, "meal-b2", "2026-05-01T18:00:00.000Z", 0.91, 3.13),
+  label("label-b3", USER_B.userId, "meal-b3", "2026-05-01T20:00:00.000Z", 3, 2),
 ];
 
 export const ALL_K7_LABELS: KbjuAccuracyLabelRow[] = [
@@ -140,25 +321,10 @@ export const ALL_K7_LABELS: KbjuAccuracyLabelRow[] = [
   ...K7_LABELS_B,
 ];
 
-// KPI pre-computed results for K1-K7.
 export const K1_DAILY_COUNTS: K1DailyMealCount[] = [
-  { userId: USER_A.userId, mealLocalDate: today, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: yesterday, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: twoDaysAgo, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: threeDaysAgo, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: fourDaysAgo, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: fiveDaysAgo, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: sixDaysAgo, count: 1 },
-  { userId: USER_A.userId, mealLocalDate: sevenDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: today, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: yesterday, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: twoDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: threeDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: fourDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: fiveDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: sixDaysAgo, count: 1 },
-  { userId: USER_B.userId, mealLocalDate: sevenDaysAgo, count: 1 },
-];
+  ...MEALS_USER_A,
+  ...MEALS_USER_B,
+].map((m) => ({ userId: m.user_id, mealLocalDate: m.meal_local_date, count: 1 }));
 
 export const K1_USER_THRESHOLDS: Record<string, boolean> = {
   [USER_A.userId]: true,
@@ -166,16 +332,120 @@ export const K1_USER_THRESHOLDS: Record<string, boolean> = {
 };
 
 export const K3_LATENCY: K3LatencyResult = { p95Ms: 7000, p100Ms: 7000 };
-
-export const K5_SPEND: K5SpendResult = { totalEstimatedUsd: 0.26, withinBudget: true, degradeModeActive: false };
-
+export const K5_SPEND: K5SpendResult = {
+  totalEstimatedUsd: 0.18,
+  withinBudget: true,
+  degradeModeActive: false,
+};
 export const K7_ACCURACY: K7AccuracyResult = {
-  mealsWithinCalorieBounds: 4,
-  mealsWithinMacroBounds: 4,
-  totalLabeled: 4,
+  mealsWithinCalorieBounds: 6,
+  mealsWithinMacroBounds: 6,
+  totalLabeled: 6,
   dailyCalorieAccuracy: new Map<string, { totalError: number; count: number }>(),
   withinK7Targets: true,
 };
+
+export const SENSITIVE_SENTINELS = {
+  telegramId: "987654321",
+  username: "raw_pilot_username",
+  rawMealText: "RAW_MEAL_TEXT_SENTINEL гречка с курицей",
+  transcriptText: "RAW_TRANSCRIPT_SENTINEL голосовой текст еды",
+  providerPrompt: "PROVIDER_PROMPT_SENTINEL estimate calories",
+  providerToken: "sk-test-provider-token-sentinel-1234567890",
+  rawMediaMarker: "RAW_MEDIA_SENTINEL telegram-photo-file-id",
+};
+
+export interface SmokeMessage {
+  toUserId: string;
+  text: string;
+}
+
+export interface SmokeStore {
+  meals: Array<{ userId: string; id: string; text: string; deleted?: boolean }>;
+  summaries: Array<{ userId: string; text: string }>;
+  histories: Array<{ userId: string; text: string }>;
+  transcripts: Array<{ userId: string; text: string }>;
+  audits: Array<{ userId: string; text: string }>;
+  drafts: Array<{ userId: string; id: string; text: string; lowConfidence: boolean }>;
+  users: Set<string>;
+}
+
+export function buildSmokeStore(): SmokeStore {
+  return {
+    meals: [
+      { userId: USER_A.userId, id: "smoke-meal-a", text: "meal A private text" },
+      { userId: USER_B.userId, id: "smoke-meal-b", text: "meal B private text" },
+    ],
+    summaries: [
+      { userId: USER_A.userId, text: "summary A private totals" },
+      { userId: USER_B.userId, text: "summary B private totals" },
+    ],
+    histories: [
+      { userId: USER_A.userId, text: "history A private correction" },
+      { userId: USER_B.userId, text: "history B private correction" },
+    ],
+    transcripts: [
+      { userId: USER_A.userId, text: "transcript A private voice" },
+      { userId: USER_B.userId, text: "transcript B private voice" },
+    ],
+    audits: [
+      { userId: USER_A.userId, text: "audit A private meal_created" },
+      { userId: USER_B.userId, text: "audit B private meal_created" },
+    ],
+    drafts: [],
+    users: new Set([USER_A.userId, USER_B.userId]),
+  };
+}
+
+export function renderUserInbox(store: SmokeStore, userId: string): SmokeMessage[] {
+  return [
+    ...store.meals.filter((row) => row.userId === userId && !row.deleted),
+    ...store.summaries.filter((row) => row.userId === userId),
+    ...store.histories.filter((row) => row.userId === userId),
+    ...store.transcripts.filter((row) => row.userId === userId),
+    ...store.audits.filter((row) => row.userId === userId),
+  ].map((row) => ({ toUserId: userId, text: row.text }));
+}
+
+export function createLowConfidencePhotoDraft(store: SmokeStore, userId: string): SmokeMessage {
+  const draft = {
+    userId,
+    id: "photo-draft-low-confidence",
+    text: "низкая уверенность: фото похоже на суп, подтвердите перед сохранением",
+    lowConfidence: true,
+  };
+  store.drafts.push(draft);
+  return { toUserId: userId, text: draft.text };
+}
+
+export function confirmPhotoDraft(store: SmokeStore, userId: string, draftId: string): void {
+  const draft = store.drafts.find((row) => row.userId === userId && row.id === draftId);
+  if (!draft) return;
+  store.meals.push({ userId, id: "confirmed-photo-meal", text: draft.text });
+}
+
+export function deliverSummaryWithGuard(store: SmokeStore, userId: string, providerText: string): string {
+  const forbidden = /диагноз|лекарств|medical|dose/i.test(providerText);
+  const text = forbidden
+    ? "Детерминированная рекомендация: сверяйте КБЖУ с целью и корректируйте порции."
+    : providerText;
+  store.summaries.push({ userId, text });
+  return text;
+}
+
+export function rightToDeleteUser(store: SmokeStore, userId: string): void {
+  store.meals = store.meals.filter((row) => row.userId !== userId);
+  store.summaries = store.summaries.filter((row) => row.userId !== userId);
+  store.histories = store.histories.filter((row) => row.userId !== userId);
+  store.transcripts = store.transcripts.filter((row) => row.userId !== userId);
+  store.audits = store.audits.filter((row) => row.userId !== userId);
+  store.drafts = store.drafts.filter((row) => row.userId !== userId);
+  store.users.delete(userId);
+}
+
+export function freshOnboardUser(store: SmokeStore, userId: string): void {
+  store.users.add(userId);
+}
 
 export function buildPilotReadinessData(): PilotReadinessData {
   return {
@@ -189,6 +459,15 @@ export function buildPilotReadinessData(): PilotReadinessData {
     },
     k7Accuracy: K7_ACCURACY,
     totalUsers: 2,
-    reportGeneratedAtUtc: now,
+    reportGeneratedAtUtc: FIXED_NOW,
+    diagnostics: {
+      telegram_id: SENSITIVE_SENTINELS.telegramId,
+      username: SENSITIVE_SENTINELS.username,
+      raw_meal_text: SENSITIVE_SENTINELS.rawMealText,
+      transcript_text: SENSITIVE_SENTINELS.transcriptText,
+      provider_prompt: SENSITIVE_SENTINELS.providerPrompt,
+      provider_key: SENSITIVE_SENTINELS.providerToken,
+      raw_media: SENSITIVE_SENTINELS.rawMediaMarker,
+    },
   };
 }
