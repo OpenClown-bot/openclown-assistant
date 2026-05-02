@@ -191,6 +191,31 @@ describe("validateRecommendationOutput", () => {
     expect(result.valid).toBe(false);
     expect(result.blockedReason).toContain("forbidden_topic_en:fitness");
   });
+
+  it("blocks English forbidden term with Cyrillic homoglyph і (U+0456) in vitamin", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Take vіtamіn supplements."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_en:vitamin");
+  });
+
+  it("blocks English forbidden term with Cyrillic homoglyph о in medication", () => {
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Use medicatiоn."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_en:medication");
+  });
+
+  it("blocks Russian forbidden stem with Latin homoglyph e in фитнес", () => {
+    const textWithLatinE = `фитн${"e"}с`;
+    const result = validateRecommendationOutput(
+      `{"recommendation_ru": "Займись ${textWithLatinE}."}`,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.blockedReason).toContain("forbidden_topic_ru:фитнес");
+  });
 });
 
 describe("buildDeterministicFallback", () => {

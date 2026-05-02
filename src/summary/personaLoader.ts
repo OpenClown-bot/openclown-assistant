@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import type { OpenClawLogger } from "../shared/types.js";
 
 let cachedPersona: string | null = null;
+let cachedPersonaPath: string | null = null;
 
 export function loadPersona(personaPath: string, logger: OpenClawLogger): string {
-  if (cachedPersona !== null) {
+  if (cachedPersona !== null && cachedPersonaPath === personaPath) {
     return cachedPersona;
   }
   try {
@@ -13,10 +14,12 @@ export function loadPersona(personaPath: string, logger: OpenClawLogger): string
       throw new Error(`PERSONA_PATH file is empty: ${personaPath}`);
     }
     cachedPersona = content;
+    cachedPersonaPath = personaPath;
     logger.info("summary_persona_loaded", { persona_path: personaPath });
     return cachedPersona;
   } catch (err: unknown) {
     cachedPersona = null;
+    cachedPersonaPath = null;
     const message = err instanceof Error ? err.message : String(err);
     logger.critical("summary_persona_load_failed", { persona_path: personaPath, error: message });
     throw new Error(`C9 startup failed: cannot load PERSONA_PATH="${personaPath}": ${message}`);
@@ -25,4 +28,5 @@ export function loadPersona(personaPath: string, logger: OpenClawLogger): string
 
 export function resetPersonaCache(): void {
   cachedPersona = null;
+  cachedPersonaPath = null;
 }

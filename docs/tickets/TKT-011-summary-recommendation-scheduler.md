@@ -110,3 +110,4 @@ Implement scheduled KBJU summary generation with guarded recommendations.
 | 2026-05-02T01:01Z | iter-3 fix pushed | Observability metadata: blocked_reason → error_code (allowlisted key) so blocked reason survives log redaction |
 | 2026-05-02T01:10Z | iter-4 fix pushed | PR-Agent: harden recommendation guard with NFKC normalization + zero-width stripping |
 | 2026-05-02T01:18Z | iter-5 fix pushed | PR-Agent: isolate persona in summary prompt with `<persona>` delimiters |
+| 2026-05-02T01:33Z | iter-6 fix pushed | PR-Agent: close homoglyph bypass (Cyrillic↔Latin) + persona cache by path |

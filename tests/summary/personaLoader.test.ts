@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { loadPersona, resetPersonaCache } from "../../src/summary/personaLoader.js";
+import { writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 beforeEach(() => {
   resetPersonaCache();
@@ -72,5 +74,41 @@ describe("loadPersona", () => {
       threw = true;
     }
     expect(threw).toBe(true);
+  });
+
+  it("loads different content when called with a different personaPath", () => {
+    const altPath = join("/tmp", "test-persona-alt.md");
+    writeFileSync(altPath, "Альтернативный персонаж.", "utf-8");
+    try {
+      const logger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        critical: vi.fn(),
+      };
+      const first = loadPersona(
+        "docs/personality/PERSONA-001-kbju-coach.md",
+        logger,
+      );
+      expect(first).toContain("КБЖУ-тренер");
+
+      const second = loadPersona(altPath, logger);
+      expect(second).toContain("Альтернативный персонаж");
+      expect(second).not.toBe(first);
+
+      expect(logger.info).toHaveBeenCalledTimes(2);
+      expect(logger.info).toHaveBeenNthCalledWith(
+        1,
+        "summary_persona_loaded",
+        expect.objectContaining({ persona_path: "docs/personality/PERSONA-001-kbju-coach.md" }),
+      );
+      expect(logger.info).toHaveBeenNthCalledWith(
+        2,
+        "summary_persona_loaded",
+        expect.objectContaining({ persona_path: altPath }),
+      );
+    } finally {
+      if (existsSync(altPath)) unlinkSync(altPath);
+    }
   });
 });

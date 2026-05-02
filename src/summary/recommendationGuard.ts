@@ -45,8 +45,34 @@ const FORBIDDEN_TOPICS_EN: readonly string[] = [
 
 const ZERO_WIDTH_RE = /[\u200B-\u200D\uFEFF\u00AD\u2060-\u2064\u206A-\u206F]/g;
 
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x",
+  "і": "i", "ї": "i", "ң": "h", "ҟ": "k",
+};
+
+const LATIN_TO_CYRILLIC: Record<string, string> = {
+  "a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "y": "у", "x": "х",
+  "i": "і", "h": "ң", "k": "ҟ",
+};
+
+function mapChars(text: string, mapping: Record<string, string>): string {
+  let result = "";
+  for (const ch of text) {
+    result += mapping[ch] ?? ch;
+  }
+  return result;
+}
+
 export function normalizeForValidation(text: string): string {
   return text.normalize("NFKC").replace(ZERO_WIDTH_RE, "").toLowerCase();
+}
+
+function toLatinVariant(text: string): string {
+  return mapChars(normalizeForValidation(text), CYRILLIC_TO_LATIN);
+}
+
+function toCyrillicVariant(text: string): string {
+  return mapChars(normalizeForValidation(text), LATIN_TO_CYRILLIC);
 }
 
 export function buildRecommendationPrompt(
@@ -117,8 +143,11 @@ export function validateRecommendationOutput(rawOutput: string): {
   }
 
   const normalized = normalizeForValidation(text);
+  const cyrillicVariant = toCyrillicVariant(text);
+  const latinVariant = toLatinVariant(text);
+
   for (const stem of FORBIDDEN_TOPICS_RU) {
-    if (normalized.includes(stem)) {
+    if (normalized.includes(stem) || cyrillicVariant.includes(stem)) {
       return {
         valid: false,
         recommendationTextRu: null,
@@ -128,7 +157,7 @@ export function validateRecommendationOutput(rawOutput: string): {
   }
 
   for (const stem of FORBIDDEN_TOPICS_EN) {
-    if (normalized.includes(stem)) {
+    if (normalized.includes(stem) || latinVariant.includes(stem)) {
       return {
         valid: false,
         recommendationTextRu: null,
