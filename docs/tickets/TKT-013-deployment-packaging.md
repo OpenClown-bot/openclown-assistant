@@ -91,6 +91,7 @@ Package the KBJU Coach stack for portable Docker Compose deployment.
 2026-05-02 08:51 glm-5.1: all §5 Outputs implemented; tests (14/14), lint, typecheck, docker compose config, validate_docs all pass
 <!-- 2026-05-02 08:52 glm-5.1: opened PR #80 -->
 2026-05-02 09:35 glm-5.1: iter-3 pushed — fixed F-H1 (metrics reachable via loopback port mapping), F-H2 (shell-script tests added), F-M1 (openclaw_state mounted), F-M2/F-L2 (migrate service names aligned), F-L1 (uptime from serverStartTime), F-PA-1 (healthCheck validates env vars + Dockerfile queries /healthz), F-PA-2 (node -e JSON parsing), F-PA-3 (dirty-tree pre-flight), F-PA-4 (dead code removed)
+2026-05-02 09:51 glm-5.1: iter-4 pushed — fixed F-M3 (removed image-level HEALTHCHECK from Dockerfile, added service-specific healthcheck on metrics only; app has no healthcheck)
 
 ---
 
