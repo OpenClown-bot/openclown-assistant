@@ -41,6 +41,8 @@ describe("buildRecommendationPrompt", () => {
       "Ты КБЖУ-тренер.",
       input,
     );
+    expect(systemPrompt).toContain("<persona>");
+    expect(systemPrompt).toContain("</persona>");
     expect(systemPrompt).toContain("КБЖУ-тренер");
     expect(systemPrompt).toContain("ЗАПРЕЩЁННЫЕ ТЕМЫ");
     expect(userContent).toContain("1800 ккал");
