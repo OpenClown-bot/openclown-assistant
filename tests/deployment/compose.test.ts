@@ -90,12 +90,34 @@ describe("docker-compose.yml", () => {
     expect(content).toMatch(/metrics:[\s\S]*healthcheck:[\s\S]*\/healthz/);
   });
 
+  it("metrics METRICS_HOST is not a wildcard address", () => {
+    expect(content).not.toMatch(/METRICS_HOST:\s*"0\.0\.0\.0"/);
+    expect(content).not.toMatch(/METRICS_HOST:\s*"::"/);
+    expect(content).not.toMatch(/METRICS_HOST:\s*"\[::\]"/);
+    const hostMatch = content.match(/METRICS_HOST:\s*"([^"]+)"/);
+    expect(hostMatch, "METRICS_HOST not found").not.toBeNull();
+    const host = hostMatch![1];
+    expect(
+      host === "127.0.0.1" || host === "::1" || /^[a-zA-Z]/.test(host),
+      `METRICS_HOST "${host}" is neither loopback nor Docker-internal hostname`
+    ).toBe(true);
+  });
+
+  it("metrics healthcheck uses container-internal hostname, not loopback", () => {
+    const healthcheckLine = content
+      .split("\n")
+      .find((l) => l.includes("healthz") && l.includes("metrics:9464"));
+    expect(healthcheckLine, "no healthcheck line with metrics:9464 found").toBeDefined();
+    expect(healthcheckLine!).toContain("http://metrics:9464/healthz");
+  });
+
   it("app service does not inherit a metrics-port healthcheck", () => {
-    const appMatch = content.match(/^  app:[\s\S]*?(?=\n  \w|(?<!\n)$)/m);
-    expect(appMatch, "app service section not found").not.toBeNull();
-    const appSection = appMatch![0];
+    const appStart = content.indexOf("  app:");
+    const nextService = content.indexOf("\n  ", appStart + 1);
+    const appSection = content.substring(appStart, nextService > appStart ? nextService : content.length);
     expect(appSection).not.toContain("9464/healthz");
     expect(appSection).not.toContain("9464/metrics");
+    expect(appSection).not.toContain("healthcheck:");
   });
 });
 

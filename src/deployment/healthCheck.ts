@@ -50,12 +50,13 @@ export function startMetricsServer(): void {
   });
 
   if (
+    METRICS_HOST === "0.0.0.0" ||
     METRICS_HOST === "::" ||
     METRICS_HOST === "[::]" ||
     METRICS_HOST === "::ffff:0.0.0.0"
   ) {
     console.error(
-      "Metrics server must bind to loopback or internal host; IPv6/IPv4-mapped wildcard addresses forbidden per ARCH-001@0.3.0 §8.2"
+      "Metrics server must bind to loopback or Docker-internal host; wildcard addresses (0.0.0.0, ::, [::]) forbidden per ARCH-001@0.4.0 §8.2/§11 C10"
     );
     process.exit(1);
   }
