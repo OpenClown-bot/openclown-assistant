@@ -85,4 +85,25 @@ describe("docker-compose.yml", () => {
   it("postgres uses the named volume kbju_pgdata", () => {
     expect(content).toContain("kbju_pgdata:/var/lib/postgresql/data");
   });
+
+  it("metrics service has a healthcheck querying /healthz", () => {
+    expect(content).toMatch(/metrics:[\s\S]*healthcheck:[\s\S]*\/healthz/);
+  });
+
+  it("app service does not inherit a metrics-port healthcheck", () => {
+    const appMatch = content.match(/^  app:[\s\S]*?(?=\n  \w|(?<!\n)$)/m);
+    expect(appMatch, "app service section not found").not.toBeNull();
+    const appSection = appMatch![0];
+    expect(appSection).not.toContain("9464/healthz");
+    expect(appSection).not.toContain("9464/metrics");
+  });
+});
+
+describe("Dockerfile", () => {
+  const dockerfilePath = resolve(ROOT, "Dockerfile");
+  const dockerfileContent = readFileSync(dockerfilePath, "utf-8");
+
+  it("does not define image-level HEALTHCHECK", () => {
+    expect(dockerfileContent).not.toContain("HEALTHCHECK");
+  });
 });

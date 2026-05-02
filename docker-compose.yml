@@ -57,6 +57,12 @@ services:
       METRICS_PORT: "9464"
     ports:
       - "127.0.0.1:9464:9464"
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://127.0.0.1:9464/healthz',(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.exit(JSON.parse(d).status==='ok'?0:1)}catch{process.exit(1)}});r.on('error',()=>process.exit(1))});req.on('error',()=>process.exit(1));req.setTimeout(3000,()=>{req.destroy();process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     networks:
       - internal
     logging:
