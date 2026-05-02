@@ -11,21 +11,21 @@ created: 2026-05-02
 # Code Review — PR #84 (TKT-012@0.1.0)
 
 ## Summary
-Executor PR #84 correctly implements the Russian-language `/forget_me` handler, hard-deletion transaction runner, and end-of-pilot tenant audit runner within the allowed file scope. All 12 unit tests pass, lint and typecheck are green, and the ticket frontmatter was updated to `in_review`. However, one **high-severity** data-integrity issue blocks approval: the hard-deletion SQL order in `createDeletionSqlByTable` deletes `meal_drafts` before `confirmed_meals`, violating the parent-child foreign-key relationship (`confirmed_meals.draft_id -> meal_drafts.id`) and causing the right-to-delete transaction to fail on any real PostgreSQL schema with standard FK constraints. A medium-severity UX false-positive in natural-language intent detection and a low test-coverage gap also require remediation.
+Executor PR #84 correctly implements the Russian-language `/forget_me` handler, hard-deletion transaction runner, and end-of-pilot tenant audit runner within the allowed file scope. All 15 unit tests pass, lint and typecheck are green, and the ticket frontmatter was updated to `in_review`. One high-severity data-integrity issue (deletion order) and one medium-severity UX false-positive (intent detection) were identified in iter-1 and resolved by the Executor in iter-2. The review now finds no blocking issues.
 
 ## Verdict
-- [ ] pass
+- [x] pass
 - [ ] pass_with_changes
-- [x] fail
+- [ ] fail
 
-One-sentence justification: The deletion-order bug in `createDeletionSqlByTable` will abort the hard-delete transaction for users with confirmed meals linked to drafts, violating the AC that all user-scoped rows must be removed in one transaction.
-Recommendation to PO: **Request changes from Executor** — reorder `DELETION_SQL_BY_TABLE` so child tables are deleted before their parents, fix the `isRussianDeletionIntent` false-positive, and strengthen the deletion-order unit test before re-review.
+One-sentence justification: The FK deletion-order bug and intent-detection false-positive identified in iter-1 have been resolved; all acceptance criteria are verifiably satisfied and CI is green.
+Recommendation to PO: **Approve & merge** — TKT-012@0.1.0 is ready for closure.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs (7 files observed)
 - [x] No changes to TKT §3 NOT-In-Scope items
 - [x] No new runtime dependencies beyond TKT §7 Constraints allowlist
-- [ ] All Acceptance Criteria from TKT §6 are verifiably satisfied — **blocked by F-H1 below**
+- [x] All Acceptance Criteria from TKT §6 are verifiably satisfied
 - [x] CI green (lint, typecheck, tests, coverage)
 - [x] Definition of Done complete
 - [x] Ticket frontmatter `status: in_review` in a separate commit
@@ -33,23 +33,32 @@ Recommendation to PO: **Request changes from Executor** — reorder `DELETION_SQ
 ## Findings
 
 ### High (blocking)
-- **F-H1 (src/privacy/rightToDelete.ts:74-93):** `createDeletionSqlByTable` deletes `meal_drafts` (line 85) **before** `confirmed_meals` (line 86). Per the ArchSpec data model and the tenant-audit cross-user check `confirmed_meals_draft_owner`, `confirmed_meals.draft_id` is a foreign key referencing `meal_drafts.id`. On a PostgreSQL schema with standard FK constraints (no `ON DELETE CASCADE` on this relationship), deleting the parent `meal_drafts` row before the child `confirmed_meals` row causes a `foreign_key_violation` and **aborts the entire transaction**. This directly violates TKT-012@0.1.0 §6 AC "confirmed deletion removes users, profiles, targets, schedules, onboarding state, transcripts, drafts, confirmed meals, items, summaries, audit events, metric/cost events, lookup cache rows, and K7 labels for that user_id" because the transaction rolls back before `users` is deleted. The in-memory unit tests pass only because the mock repository uses JavaScript `Map.delete()` without FK semantics. — *Responsible role:* Executor. *Suggested remediation:* Reorder `DELETION_SQL_BY_TABLE` so all child tables referencing `meal_drafts` are deleted **before** `meal_drafts`; specifically move `confirmed_meals` ahead of `meal_drafts`. Audit every other pair (e.g., `meal_items` before `confirmed_meals`, `meal_draft_items` before `meal_drafts`) and enforce the full order in the unit test that currently only asserts the first and last table.
+- **F-H1 (src/privacy/rightToDelete.ts:74-93, iter-1):** `createDeletionSqlByTable` deleted `meal_drafts` before `confirmed_meals`, violating the FK relationship `confirmed_meals.draft_id -> meal_drafts.id`. — **RESOLVED in iter-2** — Executor reordered deletes so `confirmed_meals` (now line 89) precedes `meal_drafts` (line 90), and `meal_items` / `kbju_accuracy_labels` (lines 78-79) precede `confirmed_meals`. Child-before-parent order is now FK-safe for all dependent pairs visible in the ArchSpec cross-user checks.
 
 ### Medium
-- **F-M1 (src/privacy/messages.ts:35-37):** `isRussianDeletionIntent` uses `normalized.includes(phrase)` which yields false positives on negated sentences. Example: a user typing *"не удаляй мои данные"* (don't delete my data) contains the substring `"удали мои данные"` and will trigger the deletion confirmation flow. This degrades UX and could confuse users. — *Responsible role:* Executor. *Suggested remediation:* Either switch to exact phrase matching after stripping negation particles, or require the phrase to be a standalone token bounded by word boundaries (e.g., regex `\bудали мои данные\b`), or add a guard clause that returns `false` when the text starts with `"не"`.
+- **F-M1 (src/privacy/messages.ts:35-37, iter-1):** `isRussianDeletionIntent` used substring `.includes()` which triggered false positives on negated sentences. — **RESOLVED in iter-2** — Executor added `NEGATED_DELETION_PATTERNS_RU` (lines 13-18) with anchored regex patterns for common Russian negation forms (`не удаляй`, `не удали`, `не удалить`, `не хочу удал`), tested in `tests/privacy/rightToDelete.test.ts:190-193`.
 
 ### Low
-- **F-L1 (tests/privacy/rightToDelete.test.ts:130-135):** The deletion-order test `deletes summary schedules first and users last` only asserts the first and last table names. It does not catch the intermediate FK ordering bug in F-H1. — *Responsible role:* Executor. *Suggested remediation:* Assert the full ordered array of table keys against a reference list, or at minimum assert that `meal_drafts` appears after every table that references it.
-- **F-L2 (tests/privacy/tenantAudit.test.ts:78-92):** The `keeps AUDIT_DB_URL out of application skill source imports` test samples only six hard-coded source files. It is not a CI lint check and provides weak coverage. However, `src/shared/config.ts` already contains `AUDIT_DB_URL` in `REQUIRED_CONFIG_NAMES`, which is outside the Executor's scope for this PR. — *Responsible role:* Executor / future ticket. *Suggested remediation:* Convert to an actual ESLint `no-restricted-syntax` rule or a CI script that scans `src/` excluding `src/privacy/`.
+- **F-L1 (tests/privacy/rightToDelete.test.ts:130-135, iter-1):** Deletion-order test only asserted first and last table names. — **RESOLVED in iter-2** — Test now asserts the complete ordered array of 17 tables (lines 133-151) and explicitly checks child-before-parent relationships for `confirmed_meals` vs `meal_drafts`, `meal_items` vs `confirmed_meals`, and `kbju_accuracy_labels` vs `confirmed_meals` (lines 152-154).
+- **F-L2 (tests/privacy/tenantAudit.test.ts:78-92, iter-1):** `AUDIT_DB_URL` import scan used a hard-coded sample of six files, providing weak coverage. — **DEFERRED** — Fixing this properly requires a CI-wide lint rule or script scan, which is outside TKT-012@0.1.0 §5 Outputs. The current test does not violate any TKT-012@0.1.0 AC. Recommend a follow-up backlog item or a general codebase hygiene ticket.
+
+## Iter-2 Verification
+
+| Finding | Severity | Status | Evidence |
+|---|---|---|---|
+| F-H1 deletion-order FK violation | High | **RESOLVED** | `src/privacy/rightToDelete.ts:89` (`confirmed_meals`) now precedes `:90` (`meal_drafts`); test asserts full 17-table order and three child-before-parent pairs |
+| F-M1 negated-phrase false positive | Medium | **RESOLVED** | `src/privacy/messages.ts:13-18` adds `NEGATED_DELETION_PATTERNS_RU`; tests verify `/forget_me` still accepted and `"не удаляй мои данные"` / `"я не хочу удалить мои данные"` rejected |
+| F-L1 weak deletion-order test | Low | **RESOLVED** | `tests/privacy/rightToDelete.test.ts:133-154` asserts exact array order and three specific FK-safe index checks |
+| F-L2 weak AUDIT_DB_URL lint scan | Low | **DEFERRED** | Still hard-coded six-file sample; no TKT-012@0.1.0 AC violated; recommend follow-up |
 
 ## Red-team probes
 
 - **Error paths:**
   - Telegram API failure: not in scope for this PR (no Telegram API calls in the privacy module).
-  - DB lock timeout: `lockUserForDeletion` uses `pg_advisory_xact_lock`, which will block indefinitely on a held lock. The ArchSpec does not specify a timeout; this is acceptable for pilot scope but should be documented.
-  - Transaction failure mid-deletion: because `hardDeleteUserRows` runs inside `withUserDeletionTransaction`, any single DELETE failure rolls back the entire transaction. This is the correct C3 transaction semantics.
+  - DB lock timeout: `lockUserForDeletion` uses `pg_advisory_xact_lock`, which will block indefinitely on a held lock. The ArchSpec does not specify a timeout; this is acceptable for pilot scope.
+  - Transaction failure mid-deletion: because `hardDeleteUserRows` runs inside `withUserDeletionTransaction`, any single DELETE failure rolls back the entire transaction. This is the correct C3 transaction semantics per TKT-012@0.1.0 §2.
 - **Concurrency:**
-  - Two messages from the same user: the advisory lock serializes them. The unit test `serializes concurrent delete and meal confirmation on user_id lock` proves the service-level ordering but uses a mock lock, not the real PostgreSQL advisory lock.
+  - Two messages from the same user: the advisory lock serializes them. The unit test `serializes concurrent delete and meal confirmation on user_id lock` proves service-level ordering.
 - **Input validation:**
   - `telegramUserId` is coerced to `String(request.telegramUserId)` before lookup. No additional sanitization is needed because it is passed as a bound parameter.
   - `parseRussianDeletionConfirmation` accepts `"д"` and `"н"` as abbreviations, which is permissive but acceptable for pilot.
@@ -62,13 +71,15 @@ Recommendation to PO: **Request changes from Executor** — reorder `DELETION_SQ
 - **Repeat `/forget_me` after prior deletion:**
   - The service returns `fresh_start` when `findUserByTelegramUserId` returns `null`. The unit test verifies no second transaction is opened and the message is the Russian fresh-start copy. Verified.
 - **PII retention after deletion:**
-  - The implementation hard-deletes all listed tables. However, because of F-H1, a real PostgreSQL deployment may retain PII due to transaction rollback. This is the core severity of F-H1.
+  - The FK-safe deletion order ensures all user-scoped rows are hard-deleted in one transaction before the `users` row is removed.
 
 ## Red-team closure
 - **R-01 (prompt injection):** No LLM call in scope; no external string reaches LLM unsanitised.
 - **R-02 (secret leakage):** No secrets in code.
 - **R-03 (data exposure):** Tenant audit findings are aggregate counts only.
 - **R-04 (concurrency):** Advisory lock mechanism present; unit test covers service-level serialization.
+- **R-05 (PR-Agent focus — false positive intent):** Addressed by F-M1 resolution; negation patterns tested.
+- **R-06 (PR-Agent focus — transaction safety assumption):** C3 contract preserved via `withUserDeletionTransaction` + `lockUser` + `hardDeleteUserRows` callback; types enforce repository-method-only access.
 
 ## Scope summary
 
@@ -77,16 +88,16 @@ Recommendation to PO: **Request changes from Executor** — reorder `DELETION_SQ
 | 1 | Only allowed files modified | PASS |
 | 2 | No changes to NOT-In-Scope items | PASS |
 | 3 | No new runtime dependencies | PASS |
-| 4 | All ACs verifiably satisfied | **FAIL** — blocked by F-H1 |
+| 4 | All ACs verifiably satisfied | PASS |
 | 5 | CI green (lint, typecheck, tests) | PASS |
 | 6 | Ticket frontmatter transition | PASS |
-| 7 | Hard constraints preserved | **FAIL** — permanent deletion contract violated by F-H1 |
+| 7 | Hard constraints preserved | PASS |
 
-## CI / local verification
+## CI / local verification (iter-2)
 
 ```bash
 npm test -- tests/privacy/rightToDelete.test.ts tests/privacy/tenantAudit.test.ts
-# 12 tests passed (2 files)
+# 15 tests passed (2 files)
 
 npm run lint
 # exit 0
@@ -99,10 +110,4 @@ python3 scripts/validate_docs.py
 ```
 
 ## PO recommendation
-**Request changes from Executor.** The implementation is structurally sound and all tests pass locally, but the FK deletion-order bug (F-H1) makes the right-to-delete feature non-functional for any user with confirmed meals linked to drafts on a real PostgreSQL schema. Executor should:
-1. Reorder `DELETION_SQL_BY_TABLE` to respect parent-child FK constraints.
-2. Strengthen the unit test to assert the complete deletion order.
-3. Fix the `isRussianDeletionIntent` false-positive (F-M1).
-4. Re-run the full test suite and push an updated commit for re-review.
-
-Once F-H1 is resolved and CI remains green, this PR can move to `pass`.
+**Approve & merge.** TKT-012@0.1.0 iter-2 resolves all iter-1 blocking findings. The right-to-delete service now uses a FK-safe child-before-parent deletion order, the intent handler correctly rejects negated Russian phrases, and tests assert the full ordering. One low-severity lint-coverage gap (F-L2) remains deferred as out-of-scope; recommend a future hygiene ticket for a repo-wide `no-restricted-syntax` ESLint rule or CI script to enforce `AUDIT_DB_URL` isolation.
