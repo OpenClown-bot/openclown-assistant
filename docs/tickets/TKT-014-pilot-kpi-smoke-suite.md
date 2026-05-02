@@ -81,8 +81,22 @@ Implement the pilot KPI smoke suite for end-to-end readiness evidence.
 <!-- Q1 (YYYY-MM-DD, model-id): question text — see docs/questions/Q-TKT-014-NN.md -->
 
 ## 10. Execution Log (Executor fills as work proceeds)
-<!-- YYYY-MM-DD HH:MM model-id: started -->
-<!-- YYYY-MM-DD HH:MM model-id: opened PR #NN -->
+<!-- 2026-05-02 14:13 qwen-3.6-plus via OmniRoute: started -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm test — 18/18 pass -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm run lint — PASS -->
+<!-- 2026-05-02 14:22 qwen-3.6-plus via OmniRoute: npm run typecheck — PASS -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: status ready -> in_progress commit -->
+<!-- 2026-05-02 14:23 qwen-3.6-plus via OmniRoute: implementation commit c1c97f2 -->
+<!-- 2026-05-02 14:24 qwen-3.6-plus via OmniRoute: opened PR -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: iter-2 takeover after Qwen stalled; reset local undelivered partial work to origin/PR HEAD 91d4718 -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts — 20/20 pass -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run lint — PASS -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: npm run typecheck — PASS -->
+<!-- 2026-05-02 16:36 Codex GPT-5.5 high via OmniRoute: python3 scripts/validate_docs.py — 62/62 OK -->
+<!-- 2026-05-02 17:00 Codex GPT-5.5 high via OmniRoute: iter-3 fixes for RV-CODE-014 — K1 vacuous pass fix, K1 regression tests, pilotSmoke.test.ts rewritten with actual production imports (HistoryService, RightToDeleteService, recommendationGuard, photoConfidence, tenantAudit) — npm test tests/pilot/ 26/26 pass, lint PASS, typecheck PASS -->
+<!-- 2026-05-02 17:12 Codex GPT-5.5 high via OmniRoute: iter-4 fixes for PR-Agent — Cyrillic homoglyph normalization in redactValue (HOMOGLYPH_MAP а→a е→e о→o р→p с→c х→x у→y + uppercase), merge overlapping ranges, remove dead code redactK1Report; pilotSmoke.test.ts adds Cyrillic homoglyph redaction test with U+0430 — npm test tests/pilot/ 27/27 pass, lint PASS, typecheck PASS, validate_docs.py 62/62 OK -->
+<!-- 2026-05-02 17:32 Codex GPT-5.5 high via OmniRoute: iter-5 fixes for PR-Agent final-head findings — expanded Cyrillic homoglyph redaction map, K7 daily macro tolerance enforcement, K2 timestamp-order pairing, K4 latest completed_at selection -->
 
 ---
 
