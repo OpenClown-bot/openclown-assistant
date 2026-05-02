@@ -78,11 +78,11 @@ Recommendation to PO: Request changes from Executor — add missing smoke-test c
 # Iter-2 Verification
 
 ## Executor delta reviewed
-- Executor branch: `tkt/TKT-014-pilot-kpi-smoke-suite`
+- Executor branch: `tkt/TKT-014@0.1.0-pilot-kpi-smoke-suite`
 - Iter-1 HEAD: `91d47180522264eaf3de44a64469607601935826`
 - Iter-2 HEAD: `dd1de85125b4ec36b9a10cfbcc494821b4fff92f`
-- Iter-2 commit: `dd1de85 TKT-014: resolve iter-1 review findings`
-- Files changed: `docs/tickets/TKT-014-pilot-kpi-smoke-suite.md` (execution log only), `src/pilot/kpiQueries.ts`, `src/pilot/pilotReadinessReport.ts`, `tests/pilot/fixtures.ts`, `tests/pilot/kpiQueries.test.ts`, `tests/pilot/pilotSmoke.test.ts`
+- Iter-2 commit: `dd1de85 TKT-014@0.1.0: resolve iter-1 review findings`
+- Files changed: `docs/tickets/TKT-014@0.1.0-pilot-kpi-smoke-suite.md` (execution log only), `src/pilot/kpiQueries.ts`, `src/pilot/pilotReadinessReport.ts`, `tests/pilot/fixtures.ts`, `tests/pilot/kpiQueries.test.ts`, `tests/pilot/pilotSmoke.test.ts`
 
 ## Checks run (iter-2)
 - `npm test -- tests/pilot/kpiQueries.test.ts tests/pilot/pilotSmoke.test.ts`: 20/20 pass (up from 18/18)
