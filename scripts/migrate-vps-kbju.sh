@@ -90,14 +90,16 @@ HOOK_INFO="$(curl -fsS \
 echo "getWebhookInfo response: ${HOOK_INFO}"
 
 # Fail fast if getWebhookInfo reports an error
-if echo "${HOOK_INFO}" | grep -q '"last_error_date":[0-9]'; then
+LAST_ERROR=$(echo "${HOOK_INFO}" | grep -oE '"last_error_date"[[:space:]]*:[[:space:]]*[0-9]+' | grep -oE '[0-9]+$' || true)
+if [[ -n "${LAST_ERROR}" ]]; then
   echo "ERROR: getWebhookInfo reports last_error_date is set — webhook not functioning" >&2
   echo "${HOOK_INFO}" >&2
   exit 1
 fi
 
-if ! echo "${HOOK_INFO}" | grep -q "\"url\":\"${NEW_WEBHOOK_URL}\""; then
-  echo "ERROR: getWebhookInfo url does not match ${NEW_WEBHOOK_URL}" >&2
+HOOK_URL=$(echo "${HOOK_INFO}" | grep -oE '"url"[[:space:]]*:[[:space:]]*"[^"]*"' | grep -oE '"[^"]*"$' | tr -d '"' || true)
+if [[ "${HOOK_URL}" != "${NEW_WEBHOOK_URL}" ]]; then
+  echo "ERROR: getWebhookInfo url does not match ${NEW_WEBHOOK_URL} (got: ${HOOK_URL})" >&2
   echo "${HOOK_INFO}" >&2
   exit 1
 fi
