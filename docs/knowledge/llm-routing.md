@@ -30,16 +30,18 @@ Sources:
 
 ## Model assignment (project default; ADR may revise per ticket)
 
+> **Updated 2026-05-02** per research-PR #93 (`docs/knowledge/llm-model-evaluation-2026-05.md`) and successor PR #94. Two displacements: Executor parallel slot Qwen 3.6 Plus → DeepSeek V4 Pro (PO Q1); Reviewer auto Qwen 3.6 Plus → GPT-5.3 Codex (PO Q5). All other rows unchanged. **Architect: when designing TKT §7 / ADR routing decisions that mention DeepSeek V4 Pro or GPT-5.3 Codex, consult `docs/knowledge/llm-model-evaluation-2026-05.md` §4.1 Architect Quick Reference Card** — both are recent models that may post-date your training-data cutoff (DeepSeek V4 Pro released 2026-04-24; GPT-5.3 Codex within OpenAI's GPT-5.x family update cycle). The card is authoritative; do not extrapolate from older similarly-named models.
+
 | Role | Model | Where the model is hosted | Why |
 |---|---|---|---|
 | Business Planner | GPT-5.5 thinking | ChatGPT Plus (web) | #1 on Expert-SWE-style long-context reasoning per OpenAI's GPT-5.5 announcement (Apr 2026); PO uses web UI and copy-pastes |
 | Architect (primary) | GPT-5.5 xhigh | Codex CLI | #1 on Terminal-Bench 2.0 per same announcement; Codex CLI is more reliable for long shell sessions than Windsurf |
 | Architect (backup) | Opus 4.6 thinking | Windsurf | Strong but Windsurf sessions sometimes break on long shell work — keep sessions short |
-| Executor (default) | GLM 5.1 | opencode + OmniRoute → Fireworks | Cheap, fast, good enough for ≈70% of tickets |
-| Executor (parallel) | Qwen 3.6 Plus | opencode + OmniRoute → Fireworks | Independent family from GLM — runs alongside without correlated failures |
-| Executor (specialist) | Codex GPT-5.5 | opencode + OmniRoute → Fireworks (OpenAI route, empirically verified TKT-012@0.1.0 2026-05-02) | Reserved for security / typing-heavy tickets (Architect justifies in TKT §7) |
-| Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute → Fireworks | Different family from Architect (GPT) and Executor (GLM / Qwen / Codex) — uncorrelated judgment |
-| Reviewer (auto) | Qodo PR-Agent (Qwen 3.6 Plus) | GitHub Actions via OmniRoute | Second reviewer; runs on every PR automatically (Devin Review deprecated 2026-04-30 per AGENTS.md — ACU exhaustion) |
+| Executor (default) | GLM 5.1 | opencode + OmniRoute → Fireworks | Cheap, fast, good enough for ≈70% of tickets; 3-of-3 successful Executor pilots TKT-010 / TKT-011 / TKT-013 |
+| Executor (parallel) | DeepSeek V4 Pro | opencode + OmniRoute → Fireworks | Independent family from GLM — runs alongside without correlated failures; **1M context** (largest of all candidates) fixes Qwen 3.6 Plus 128K-context Executor failure (BACKLOG-011 §qwen-context); BenchLM Coding 73.8 / Knowledge 62.6 (highest non-GPT). Not yet piloted in repo; first executor-parallel-slot ticket assigned here counts as empirical pilot. **New model — released 2026-04-24, see `docs/knowledge/llm-model-evaluation-2026-05.md` §4.1 spec card** |
+| Executor (specialist) | Codex GPT-5.5 | opencode + OmniRoute → Fireworks (OpenAI route, empirically verified TKT-012@0.1.0 2026-05-02) | Reserved for security / typing-heavy tickets (Architect justifies in TKT §7). Kept on GPT-5.5 (NOT downgraded to GPT-5.3 Codex) to preserve tier-level uncorrelation with PR-Agent which now also uses Codex family |
+| Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute → Fireworks | Different family from Architect (GPT) and Executor (GLM / DeepSeek / Codex) — uncorrelated judgment; 5-of-5 successful Reviewer pilots, zero deferred findings on TKT-014 |
+| Reviewer (auto) | Qodo PR-Agent (GPT-5.3 Codex) | GitHub Actions via OmniRoute (OpenAI Codex route) | Second reviewer; runs on every PR automatically (Devin Review deprecated 2026-04-30 per AGENTS.md — ACU exhaustion). **Swapped from Qwen 3.6 Plus on 2026-05-02** (Qwen exhibited 5-of-5 hard-timeout stalls in pilots, INDEPENDENT of Executor authorship — see `docs/backlog/deployment-followups.md` §pr-agent-ci-tail-latency Update pt3). GPT-5.3 Codex BenchLM 88 / Coding 63.1 closes the quality gap with primary Reviewer Kimi K2.6 (BenchLM 84). **New tier — see `docs/knowledge/llm-model-evaluation-2026-05.md` §4.1 spec card** |
 
 ## Cost envelope (sanity reference; PRD §7 must restate concrete numbers)
 

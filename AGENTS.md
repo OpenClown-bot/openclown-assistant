@@ -6,11 +6,11 @@ This repository is managed by a **multi-LLM pipeline** with strict role separati
 |---|---|---|---|
 | Business Planner | `docs/prompts/business-planner.md` | GPT-5.5 thinking / Claude Opus 4.7 thinking | ChatGPT Plus (web) / Devin |
 | Technical Architect | `docs/prompts/architect.md` | GPT-5.5 xhigh / GPT-5.5 thinking / Opus 4.6 thinking | Codex CLI / opencode CLI / Windsurf |
-| Code Executor | `docs/prompts/executor.md` | GLM 5.1 (default), Qwen 3.6 Plus (parallel), Codex GPT-5.5 (specialist) | opencode + OmniRoute |
+| Code Executor | `docs/prompts/executor.md` | GLM 5.1 (default), DeepSeek V4 Pro (parallel), Codex GPT-5.5 (specialist) | opencode + OmniRoute |
 | Reviewer | `docs/prompts/reviewer.md` | Kimi K2.6 | opencode + OmniRoute |
 | Ticket Orchestrator | `docs/prompts/ticket-orchestrator.md` | GPT-5.5 thinking / Codex CLI + ChatGPT Plus (fallback) | opencode (PO's Windows PC) / Codex CLI |
 
-**Qodo PR-Agent** (Qwen 3.6 Plus through OmniRoute) auto-reviews every PR; it is a **second** reviewer alongside Kimi, not a replacement. See `.pr_agent.toml` for its configuration. (Devin Review was the prior supplementary reviewer; deprecated 2026-04-30 due to ACU exhaustion.)
+**Qodo PR-Agent** (GPT-5.3 Codex through OmniRoute) auto-reviews every PR; it is a **second** reviewer alongside Kimi, not a replacement. See `.pr_agent.toml` for its configuration. (Swapped from Qwen 3.6 Plus on 2026-05-02 per research-PR #93 + #94; rationale in `docs/knowledge/llm-model-evaluation-2026-05.md` §4 + §4.1 + §6 Q5; root cause for the swap is BACKLOG-009 §pr-agent-ci-tail-latency. Devin Review was the prior supplementary reviewer; deprecated 2026-04-30 due to ACU exhaustion.)
 
 The **Devin Orchestrator** is a separate, PO-delegated coordination role outside the pipeline above. Its full role prompt lives in `docs/meta/devin-session-handoff.md`; its formal write-zone is defined in `CONTRIBUTING.md` § Roles; its session-handoff continuity (cold / warm / opencode templates + auto-cold-after-each-closed-TKT-cycle rule) is in `docs/session-log/`. If you are running as the Devin Orchestrator, load `docs/meta/devin-session-handoff.md` first, then check `docs/session-log/` for the latest snapshot.
 
