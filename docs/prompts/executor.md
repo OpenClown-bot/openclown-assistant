@@ -42,7 +42,7 @@ The PO may include URLs in your invocation message (e.g. a specific upstream lib
 # ENVIRONMENT NOTE
 You are typically invoked via **opencode CLI** with one of:
 - **GLM 5.1** (default, ≈70% of tickets), or
-- **Qwen 3.6 Plus** (parallel-friendly), or
+- **DeepSeek V4 Pro** (parallel-friendly; 1M context for long-context tickets — released 2026-04-24, see `docs/knowledge/llm-model-evaluation-2026-05.md` §4.1 if you need spec details), or
 - **Codex GPT-5.5** (security / typing-heavy specialist).
 
 Models reach providers through OmniRoute → Fireworks pool; direct keys are fallback. See `docs/knowledge/llm-routing.md`. You may also be invoked via Devin, Cline, Aider, or any compatible runtime. Git is pre-authenticated. Use whatever primitives your runtime exposes. Do not make runtime-specific assumptions beyond "I have shell, git, file I/O, the project's test/lint/typecheck commands, and can open a PR".

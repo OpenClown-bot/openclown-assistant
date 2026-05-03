@@ -1,19 +1,38 @@
 [config]
-# Model: Qwen 3.6 Plus through OmniRoute (Fireworks endpoint).
-# Plus is the latest flagship; matches our GLM/Kimi tier and is OmniRoute-billed.
+# Model: GPT-5.3 Codex through OmniRoute (OpenAI Codex endpoint).
+# Swapped from Qwen 3.6 Plus on 2026-05-02 per PO Q5 authorisation in
+# research-PR #93 round-trip («вот об этом я говорил, мб будем 5.3
+# использовать как пр-агент?»). Rationale captured in
+# `docs/knowledge/llm-model-evaluation-2026-05.md` §4 + §4.1 (Architect
+# Quick Reference Card) + §6 Q5; root cause for the swap is BACKLOG-009
+# §pr-agent-ci-tail-latency (Qwen 5-of-5 stall pattern, INDEPENDENT of
+# Executor authorship) plus the BenchLM-88 vs MiniMax-64 quality gap.
+#
 # `openai/` prefix is required by LiteLLM (PR-Agent's underlying client) to route
 # this call through the OpenAI-compatible custom endpoint defined by `OPENAI.API_BASE`
 # (set in .github/workflows/pr_agent.yml). Without `openai/`, LiteLLM tries to
-# parse the first path segment as a provider (e.g. `fireworks` → fails as "LLM Provider
-# NOT provided" because the canonical Fireworks provider in LiteLLM is `fireworks_ai`,
-# and even that bypasses our OmniRoute proxy). Ref:
-# https://litellm.vercel.app/docs/providers/openai_compatible
-model = "openai/accounts/fireworks/models/qwen3p6-plus"
-# 128k context window — Qwen Plus's native limit.
-custom_model_max_tokens = 131072
-# 3 minutes — Qwen on OmniRoute can be slower than gpt-5.4 family.
+# parse the first path segment as a provider — see the ADR-002@0.1.0 OmniRoute-First
+# routing topology for why everything goes through the operator-managed router.
+# Ref: https://litellm.vercel.app/docs/providers/openai_compatible
+#
+# OmniRoute upstream identifier verified by PO 2026-05-02 from the OpenAI
+# Codex provider page (omniroute.infinitycore.space:8443/dashboard/providers/codex):
+# `cx/gpt-5.3-codex` (BUILT-IN). Sibling tiers exposed by OmniRoute under the
+# same provider include cx/gpt-5.3-codex-spark, cx/gpt-5.5-{xhigh,high,mini,low},
+# cx/gpt-5.4, cx/gpt-5.4-mini, cx/gpt-5.2, plus cx/codex-auto-review.
+# Full LiteLLM-prefixed model identifier:
+model = "openai/cx/gpt-5.3-codex"
+# 400K context window — GPT-5.3 Codex tier limit per OpenAI Codex CLI spec
+# (research note §4.1). Substantially larger than Qwen's 128K cap and easily
+# accommodates the largest pilot-era PR diff (TKT-014 cumulative review-context
+# stayed under 100K).
+custom_model_max_tokens = 400000
+# 3 minutes — Codex CLI route is typically faster than Qwen's was, but keep
+# the same timeout as a conservative starting point. Re-baseline once 3–5
+# real PR-Agent runs land empirical data (recorded under research note §5.2
+# Telemetry to capture).
 ai_timeout = 180
-# More patch context lets Qwen reason about callers/callees per chunk.
+# More patch context lets the reviewer reason about callers/callees per chunk.
 patch_extra_lines_before = 8
 patch_extra_lines_after = 3
 allow_dynamic_context = true
@@ -39,8 +58,8 @@ extra_instructions = """\
 This repo is a docs-as-code KBJU coach (Telegram bot) managed by a multi-LLM \
 pipeline (Architect, Code Executor, Reviewer Kimi K2.6) — see AGENTS.md.
 
-You are the supplementary second reviewer alongside Kimi K2.6. Focus on issues \
-Kimi may underweight:
+You (GPT-5.3 Codex through OmniRoute) are the supplementary second reviewer \
+alongside Kimi K2.6. Focus on issues Kimi may underweight:
 
 1. AC traceability: every Ticket PR (title 'TKT-NNN: ...') lists Acceptance \
    Criteria with file:line 'Proof' links in the description. Verify each cited \

@@ -150,7 +150,7 @@ Produce the Ticket set using `scripts/new_artifact.py ticket "…"`. Rules:
 - `depends_on` DAG is acyclic and verifiable.
 - `assigned_executor`:
   - `glm-5.1` — default (≈70% of tickets).
-  - `qwen-3.6-plus` — when the ticket is independent and parallelisable with other Qwen / GLM tickets.
+  - `deepseek-v4-pro` — when the ticket is independent and parallelisable with other DeepSeek / GLM tickets, OR when the ticket needs >200K effective context (DeepSeek V4 Pro 1M context vs GLM 5.1 ~203K). **New model — see `docs/knowledge/llm-model-evaluation-2026-05.md` §4.1 spec card** (released 2026-04-24; replaces Qwen 3.6 Plus in this slot per research-PR #93 + #94 + PO Q1 authorisation).
   - `codex-gpt-5.5` — **only** for security-critical, algorithmically dense, or typing-heavy tickets (auth, payments, complex async, DB migrations, edge-case type work). Justify in §7 Constraints why GLM cannot.
 - Each Ticket §4 Inputs MUST reference specific ArchSpec / ADR sections with version pinning.
 

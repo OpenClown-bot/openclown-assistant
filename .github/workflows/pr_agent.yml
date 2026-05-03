@@ -39,8 +39,15 @@ jobs:
           OPENAI.API_BASE: "https://omniroute.infinitycore.space:8443/v1"
           OPENAI.API_TYPE: "openai"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          config.model: "openai/accounts/fireworks/models/qwen3p6-plus"
-          config.custom_model_max_tokens: "131072"
+          # Swapped from "openai/accounts/fireworks/models/qwen3p6-plus" to
+          # GPT-5.3 Codex on 2026-05-02 per PO Q5 authorisation (research-PR
+          # #93 round-trip; rationale in docs/knowledge/llm-model-evaluation-2026-05.md
+          # §4 + §4.1 + §6). OmniRoute upstream identifier verified by PO
+          # from OpenAI Codex provider page (cx/gpt-5.3-codex BUILT-IN);
+          # full LiteLLM-prefixed identifier below. Keep in sync with the
+          # `model = ...` line in .pr_agent.toml.
+          config.model: "openai/cx/gpt-5.3-codex"
+          config.custom_model_max_tokens: "400000"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
           github_action_config.auto_improve: "true"
