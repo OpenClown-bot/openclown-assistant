@@ -15,14 +15,13 @@
 # routing topology for why everything goes through the operator-managed router.
 # Ref: https://litellm.vercel.app/docs/providers/openai_compatible
 #
-# NOTE TO PO: the exact OmniRoute upstream identifier for GPT-5.3 Codex is
-# operator-managed (see infra/omniroute/README.md — config is outside the repo).
-# The placeholder `openai/openai/gpt-5-3-codex` follows the same prefixed-path
-# convention as the Fireworks model identifier it replaces; if OmniRoute's
-# actual route differs (e.g. `openai/gpt-5.3-codex`, `openai/codex/gpt-5-3`),
-# update both this line and the matching `config.model` env override in
-# `.github/workflows/pr_agent.yml` to keep them in sync.
-model = "openai/openai/gpt-5-3-codex"
+# OmniRoute upstream identifier verified by PO 2026-05-02 from the OpenAI
+# Codex provider page (omniroute.infinitycore.space:8443/dashboard/providers/codex):
+# `cx/gpt-5.3-codex` (BUILT-IN). Sibling tiers exposed by OmniRoute under the
+# same provider include cx/gpt-5.3-codex-spark, cx/gpt-5.5-{xhigh,high,mini,low},
+# cx/gpt-5.4, cx/gpt-5.4-mini, cx/gpt-5.2, plus cx/codex-auto-review.
+# Full LiteLLM-prefixed model identifier:
+model = "openai/cx/gpt-5.3-codex"
 # 400K context window — GPT-5.3 Codex tier limit per OpenAI Codex CLI spec
 # (research note §4.1). Substantially larger than Qwen's 128K cap and easily
 # accommodates the largest pilot-era PR diff (TKT-014 cumulative review-context
