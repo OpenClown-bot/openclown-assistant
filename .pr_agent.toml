@@ -1,53 +1,81 @@
 [config]
-# Model: GPT-5.3 Codex through OmniRoute (OpenAI Codex endpoint).
-# Swapped from Qwen 3.6 Plus on 2026-05-02 per PO Q5 authorisation in
-# research-PR #93 round-trip («вот об этом я говорил, мб будем 5.3
-# использовать как пр-агент?»). Rationale captured in
-# `docs/knowledge/llm-model-evaluation-2026-05.md` §4 + §4.1 (Architect
-# Quick Reference Card) + §6 Q5; root cause for the swap is BACKLOG-009
-# §pr-agent-ci-tail-latency (Qwen 5-of-5 stall pattern, INDEPENDENT of
-# Executor authorship) plus the BenchLM-88 vs MiniMax-64 quality gap.
+# Model: DeepSeek V4 Pro through OmniRoute (Fireworks upstream).
+# Swapped from `openai/cx/gpt-5.3-codex` (GPT-5.3 Codex) on 2026-05-04 per PO
+# authorisation chat 2026-05-04 («в соседнем репо девелопер-ассистант мы поняли,
+# что кодекс плоховато работает с пр-агентом, нужны доп настройки. поэтому
+# проще поставить дипсик 4 про и эффективнее»). Replicates the validated
+# config from sibling repo `OpenClown-bot/developer-assistant` (.pr_agent.toml
+# + .github/workflows/pr_agent.yml + session-log/2026-05-04-session-1.md
+# §LLM stack confirming DeepSeek V4 Pro is the working baseline). Rationale
+# captured in `docs/knowledge/llm-model-evaluation-2026-05.md` §4 + §4.1 +
+# BACKLOG-009 §pr-agent-ci-tail-latency-investigation-CRITICAL.
+#
+# Root-cause analysis of the prior Codex silent failure (PRs #93/#94/#95/#96/#100):
+# the env-var notation `OPENAI.API_BASE` (DOT) in .github/workflows/pr_agent.yml
+# was silently ignored by GitHub Actions (dots are invalid in shell env var
+# names), so LiteLLM never received the OmniRoute base URL and fell back to
+# default routing, which mis-parsed `cx/gpt-5.3-codex` and emitted
+# `litellm.BadRequestError: No credentials for provider: openrouter`. The
+# notation is fixed in the same PR (`OPENAI__API_BASE` with double underscores
+# per https://qodo-merge-docs.qodo.ai/usage-guide/changing_a_model/), and the
+# model swap to DeepSeek V4 Pro adopts the sibling repo's empirically
+# validated config to avoid layering Codex idiosyncrasies on top of the
+# notation fix.
 #
 # `openai/` prefix is required by LiteLLM (PR-Agent's underlying client) to route
-# this call through the OpenAI-compatible custom endpoint defined by `OPENAI.API_BASE`
-# (set in .github/workflows/pr_agent.yml). Without `openai/`, LiteLLM tries to
-# parse the first path segment as a provider — see the ADR-002@0.1.0 OmniRoute-First
-# routing topology for why everything goes through the operator-managed router.
+# this call through the OpenAI-compatible custom endpoint defined by
+# `OPENAI__API_BASE` (set in .github/workflows/pr_agent.yml). Without `openai/`,
+# LiteLLM tries to parse the first path segment as a provider (e.g. `fireworks`
+# fails as "LLM Provider NOT provided" because the canonical Fireworks provider
+# in LiteLLM is `fireworks_ai`, and even that bypasses our OmniRoute proxy).
 # Ref: https://litellm.vercel.app/docs/providers/openai_compatible
 #
-# OmniRoute upstream identifier verified by PO 2026-05-02 from the OpenAI
-# Codex provider page (omniroute.infinitycore.space:8443/dashboard/providers/codex):
-# `cx/gpt-5.3-codex` (BUILT-IN). Sibling tiers exposed by OmniRoute under the
-# same provider include cx/gpt-5.3-codex-spark, cx/gpt-5.5-{xhigh,high,mini,low},
-# cx/gpt-5.4, cx/gpt-5.4-mini, cx/gpt-5.2, plus cx/codex-auto-review.
-# Full LiteLLM-prefixed model identifier:
-model = "openai/cx/gpt-5.3-codex"
-# 400K context window — GPT-5.3 Codex tier limit per OpenAI Codex CLI spec
-# (research note §4.1). Substantially larger than Qwen's 128K cap and easily
-# accommodates the largest pilot-era PR diff (TKT-014 cumulative review-context
-# stayed under 100K).
-custom_model_max_tokens = 400000
-# 3 minutes — Codex CLI route is typically faster than Qwen's was, but keep
-# the same timeout as a conservative starting point. Re-baseline once 3–5
-# real PR-Agent runs land empirical data (recorded under research note §5.2
-# Telemetry to capture).
+# Full LiteLLM-prefixed model identifier (must stay in sync with the
+# `config.model` line in .github/workflows/pr_agent.yml):
+model = "openai/fireworks/accounts/fireworks/models/deepseek-v4-pro"
+# 64K effective context. In practice we rarely need more than ~30-40K for
+# review/describe even on large diffs (TKT-014 cumulative review-context
+# stayed under 100K), and this keeps PR-Agent calls smaller and more
+# predictable while still leaving room for ticket context. Sibling repo
+# `developer-assistant` uses the same value; matches the empirical baseline.
+custom_model_max_tokens = 65536
+# 3 minutes — enough for normal PR-Agent calls while still failing fast on
+# upstream routing stalls. Sibling-repo calibrated value.
 ai_timeout = 180
 # More patch context lets the reviewer reason about callers/callees per chunk.
 patch_extra_lines_before = 8
 patch_extra_lines_after = 3
 allow_dynamic_context = true
-# Skip noise: orchestrator clerical / session-log / auto-cold PRs are low-signal.
-ignore_pr_title = ["^\\[Auto\\]", "^Auto", "^session-log:", "^clerical:"]
+# Skip noise: orchestrator clerical / session-log / auto-cold / chore / docs-only
+# PRs are low-signal. Mirrors the workflow-level skip filter for consistency
+# (workflow `if:` is the load-bearing skip; this is belt-and-suspenders).
+ignore_pr_title = ["^\\[Auto\\]", "^Auto", "^session-log:", "^clerical:", "^chore/", "^docs-only:"]
 # English review output to match the repo convention (Russian for PO chat only).
 response_language = "en-US"
 
+[litellm]
+# Drop provider-unsupported OpenAI params instead of failing the PR-Agent run.
+# Sibling-repo standard.
+drop_params = true
+
 [pr_reviewer]
 # Mandate the most useful checks for our threat model + scope discipline.
+# Security and tests are LOAD-BEARING and stay on (they catch the highest-impact
+# misses our human/LLM process must not let through).
+#
+# can_be_split, estimate_effort, and ticket_analysis are advisory analyses that
+# each cost an additional LLM call but rarely produce actionable output for
+# this repo's PR style (small ticket-scoped diffs, ticket already linked,
+# effort already pre-estimated by the Architect at ticket creation time).
+# Disabled to cut typical PR-Agent run latency by ~30-50% per the sibling-repo
+# empirical finding. If a future PR is big enough that any of these would
+# actually help, the PO can manually trigger via /review with the appropriate
+# flag.
 require_security_review = true
 require_tests_review = true
-require_estimate_effort_to_review = true
-require_can_be_split_review = true
-require_ticket_analysis_review = true
+require_estimate_effort_to_review = false
+require_can_be_split_review = false
+require_ticket_analysis_review = false
 # Up from default 3 — we want PR-Agent to surface more as the supplementary reviewer.
 num_max_findings = 6
 publish_output_no_suggestions = true
@@ -58,7 +86,7 @@ extra_instructions = """\
 This repo is a docs-as-code KBJU coach (Telegram bot) managed by a multi-LLM \
 pipeline (Architect, Code Executor, Reviewer Kimi K2.6) — see AGENTS.md.
 
-You (GPT-5.3 Codex through OmniRoute) are the supplementary second reviewer \
+You (DeepSeek V4 Pro through OmniRoute) are the supplementary second reviewer \
 alongside Kimi K2.6. Focus on issues Kimi may underweight:
 
 1. AC traceability: every Ticket PR (title 'TKT-NNN: ...') lists Acceptance \
@@ -99,7 +127,12 @@ add_original_user_description = true
 generate_ai_title = false
 use_bullet_points = true
 enable_pr_type = true
-enable_pr_diagram = true
+# Diagram generation is an additional slow LLM call that produces mermaid diagrams.
+# On PRs that are mostly docs/tickets/specs (most of our governance work) the
+# resulting diagrams are uninformative. Disabled to cut another ~1-2 min per run.
+# Enable per-PR via /describe --diagram if a specific PR would benefit. Sibling-
+# repo preference.
+enable_pr_diagram = false
 enable_large_pr_handling = true
 collapsible_file_list = "adaptive"
 collapsible_file_list_threshold = 6
