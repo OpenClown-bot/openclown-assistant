@@ -53,8 +53,14 @@ ARCH-001@0.3.1 C2 and C6 need deterministic target calculation plus meal KBJU es
 - Cons: Phase 0 found it covers only calories/protein and lacks fat/carbs, Russian parsing, tenant isolation, and confirmation gates. Porting Python 3.7 logic conflicts with Node 24 TypeScript skill runtime.
 - Cost / latency / ops burden: $0 provider cost; high rewrite/port burden for incomplete domain coverage.
 
+### Option F: Fork Calorie Visualizer local `foods.json` plus USDA fallback pattern
+- Description: Use the MIT `lwashington/calorie-visualizer` `foods.json` shape as a local common-food seed list, then call USDA FoodData Central when the local JSON misses.
+- Pros: SPIKE-002@0.1.0 found the data shape matches KBJU needs (`calories`, `protein`, `carbs`, `fat`, serving fields) and the local-first pattern reduces latency/provider calls for common foods.
+- Cons: Python implementation is not reusable in the Node 24 sidecar; the observed food list is tiny (~20-30 items) and not Russian-localized. Photo recognition claims in the README are aspirational, not implemented code.
+- Cost / latency / ops burden: $0 for MIT data if attribution is preserved; low ops for vendored JSON; still requires USDA key/config and TypeScript normalization.
+
 ## Decision
-We will use **Option A: Open Food Facts + USDA FoodData Central lookup with LLM fallback**.
+We will use **Option A: Open Food Facts + USDA FoodData Central lookup with LLM fallback**, supplemented by Option F's local-first `foods.json` seed pattern if license attribution and data normalization are preserved.
 
 Target calculation for onboarding uses Mifflin-St Jeor BMR, activity multiplier, and a disclosed calorie delta from selected pace. PubMed records the Mifflin equations and reports Harris-Benedict overestimated measured REE by 5% in that study (<https://pubmed.ncbi.nlm.nih.gov/2305711/>). NIDDK Body Weight Planner is a reference for exposing sex, age, height, weight, physical activity, goal weight, and minimum-calorie warnings in a non-medical planning flow (<https://www.niddk.nih.gov/bwp>), but v0.1 implements deterministic local math, not a medical planner.
 
@@ -65,6 +71,7 @@ Why the losers lost:
 - Option C: Dedicated APIs are plausible later, but pricing/licensing uncertainty conflicts with the $10 pilot cap.
 - Option D: LLM-only is the degrade path, not the primary path requested by PRD-001@0.2.0 §7.
 - Option E: The audited skill is a reference only; it misses required KBJU fields and runtime constraints.
+- Option F: Accepted as a seed-data/pattern supplement, not as a runtime implementation replacement.
 
 ## Decision Detail: KBJU Formula Parameters
 
@@ -130,6 +137,7 @@ The downstream code MUST persist `formula_version = "mifflin_st_jeor_v1_2026_04"
 - Positive: The estimator has source attribution for common foods and a cost-free lookup leg before LLM fallback.
 - Negative / trade-offs accepted: Portion estimation remains approximate, especially for photos and home-cooked mixed dishes; the UX must present drafts as estimates and require confirmation.
 - Follow-up work: ARCH-001@0.3.1 Phase 6 must define item source fields (`off`, `usda_fdc`, `llm_fallback`, `manual_entry`), confidence, correction deltas, and lookup-cache retention.
+- SPIKE-002@0.1.0 follow-up: if `foods.json` is vendored, include MIT attribution and add `local_food_seed` as an item source before `usda_fdc` / `off` / `llm_fallback`.
 - Audit impact: C2 must persist the formula-version field on each `user_targets` calculation so target rows can be traced to this ADR amendment during K7 and tenant audits.
 
 ## References

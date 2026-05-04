@@ -13,6 +13,8 @@ synthesis_inputs:
   - "PR-A: arch/ARCH-001-v0.5.0-integration-layer-and-observability (gpt-5.5-xhigh)"
   - "PR-B: arch/ARCH-001-v0.5.0-deepseek-deep-context-design (deepseek-v4-pro)"
   - "PR-C: arch/ARCH-001-v0.5.0-alternatives-design (deepseek-v4-pro)"
+  - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
+  - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
 created: 2026-04-26
 updated: 2026-05-04
 adrs:
@@ -65,14 +67,14 @@ Sources audited before design: local runtime notes in `docs/knowledge/openclaw.m
 | PRD requirement | OpenClaw built-in that closes infrastructure | Remaining KBJU Coach gap |
 |---|---|---|
 | PRD-001@0.2.0 §7 Telegram-only channel; PRD-001@0.2.0 §5 US-1 through US-8 Telegram UX | Gateway/channel support includes Telegram and media-capable messaging surfaces per docs (<https://docs.openclaw.ai>) and source README (<https://github.com/openclaw/openclaw>). | Russian onboarding, commands, inline confirm/edit/delete affordances, typing indicator behavior, and all bot copy. |
-| PRD-001@0.2.0 §5 US-2 voice logging; §2 G3 voice latency | Voice/media routing can pass voice input to a skill; local runtime notes identify `VoiceWake` pre-routing to a transcription skill. | Actual Russian transcription provider adapter, retry/fallback policy, transcript retention, and latency/cost measurement. |
-| PRD-001@0.2.0 §5 US-4 photo logging | OpenClaw media transport passes photo input into skills; sandbox isolates the skill process. | Meal-photo recognition, low-confidence threshold, mandatory confirmation UX, raw photo deletion after extraction. |
-| PRD-001@0.2.0 §5 US-5 summaries | `cron-tools` / scheduled triggers are a built-in OpenClaw path for periodic skill invocation. | User-local schedule definitions, summary aggregation, Russian recommendation prompt, and no-meal nudge content. |
+| PRD-001@0.2.0 §5 US-2 voice logging; §2 G3 voice latency | Voice/media routing can produce transcribed content before the KBJU bridge plugin claims the channel turn. | Actual Russian transcription provider adapter, retry/fallback policy, transcript retention, and latency/cost measurement. |
+| PRD-001@0.2.0 §5 US-4 photo logging | OpenClaw media transport can produce described content before the bridge plugin claims the channel turn. | Meal-photo recognition, low-confidence threshold, mandatory confirmation UX, raw photo deletion after extraction. |
+| PRD-001@0.2.0 §5 US-5 summaries | Gateway cron can dispatch a bounded bridge tool path to the sidecar. | User-local schedule definitions, summary aggregation, Russian recommendation prompt, and no-meal nudge content. |
 | PRD-001@0.2.0 §2 G2/G3/K2/K3 latency measurement; §7 observability minimums | OpenClaw observability hooks expose per-skill logs, latency metrics, and token spend. | Concrete log schema, metric names, user-scoped correlation IDs, and end-of-pilot KPI queries. |
 | PRD-001@0.2.0 §2 G5 cost ceiling | OpenClaw model failover retries providers on errors; OpenClaw supports provider config/fallbacks per docs/source. | Monthly spend accumulator, hard per-call token budgets, auto-degrade trigger, and PO alert. |
 | PRD-001@0.2.0 §2 G4 and §5 US-9 tenant isolation | OpenClaw sandbox/process isolation separates the skill process from the host. | Storage-level `user_id` scoping, no unscoped queries, per-user audit log, and end-of-pilot cross-user audit query. |
 | PRD-001@0.2.0 §7 secrets | OpenClaw injects secrets through runtime context / env-var style secret handling per local runtime notes and docs. | `.env.example` schema, secret names, least-privilege API keys, and no raw key logging. |
-| PRD-001@0.2.0 §7 Node 24 TypeScript runtime | OpenClaw skills are TypeScript on Node 24 per local runtime notes and source README (<https://github.com/openclaw/openclaw>). | Domain implementation must stay in TypeScript; Python/Rust/CLI skills can be referenced but not directly embedded without a later ADR. |
+| PRD-001@0.2.0 §7 Node 24 TypeScript runtime | OpenClaw plugins/skills are TypeScript on Node 24 per local runtime notes and source README (<https://github.com/openclaw/openclaw>). | Bridge and domain implementation must stay in TypeScript; Python/Rust/CLI skills can be referenced but not directly embedded without a later ADR. |
 
 ### 0.2 Skill audit (awesome-openclaw-skills)
 | Candidate skill (URL) | Matches which PRD §/Goal | Verdict | Rationale |
@@ -127,7 +129,7 @@ Capability E - Scheduling / timezone support for reports.
 
 ### 0.3 Build-vs-fork-vs-reuse decision summary
 
-Phase 0 produces zero direct forks for v0.1. All audited candidates are either wrong-language for the locked TypeScript/Node 24 skill runtime, too generic, not Russian/tenant-aware, unavailable at current source, externally account-bound, or outside PRD-001@0.2.0 scope. The Executor should build the KBJU domain logic, tenant-scoped storage, confirmation/edit/delete flows, photo confidence handling, right-to-delete, and spend-degrade logic from scratch inside OpenClaw skills; the architecture may reference `mh-openai-whisper-api` for hosted Whisper request shape, `faster-whisper` for a future provider abstraction, `opencal` for per-100g nutrition scaling, `google-gemini-media` for image-understanding request routing, `health-summary` for period aggregation shape, and `cron-scheduling` / `temporal-cortex-datetime` for DST/idempotency considerations.
+Phase 0 produces zero direct community-skill forks for v0.1. All audited candidates are either wrong-language for the locked TypeScript/Node 24 runtime, too generic, not Russian/tenant-aware, unavailable at current source, externally account-bound, or outside PRD-001@0.2.0 scope. The Executor should build the KBJU domain logic, tenant-scoped storage, confirmation/edit/delete flows, photo confidence handling, right-to-delete, and spend-degrade logic from scratch in the KBJU sidecar and OpenClaw bridge plugin; the architecture may reference `mh-openai-whisper-api` for hosted Whisper request shape, `faster-whisper` for a future provider abstraction, `opencal` for per-100g nutrition scaling, `google-gemini-media` for image-understanding request routing, `health-summary` for period aggregation shape, and `cron-scheduling` / `temporal-cortex-datetime` for DST/idempotency considerations.
 
 Capabilities with no suitable fork-candidate: Russian onboarding and target calculation; tenant-isolated meal/audit/transcript storage; Russian confirm/edit/delete UX; photo-to-macro estimation with a numeric low-confidence threshold; monthly cost guard and auto-degrade; right-to-delete; end-of-pilot cross-user audit.
 
@@ -206,8 +208,12 @@ User voice → OpenClaw Telegram channel → routes to subagent X via HTTP POST 
 
 **Hybrid viability verdict: PARTIALLY VIABLE WITH CAVEATS** — pattern works but requires custom HTTP bridge per subagent and adds process lifecycle surface.
 
+**Post-SPIKE-001 update:** The OpenClaw-specific bridge seam is now resolved. `inbound_claim` fires before agent dispatch, returns `{ handled: true, reply }`, and can POST to the KBJU sidecar without any LLM routing decision. The canonical bridge is therefore an OpenClaw plugin, not a skill `handle(input, ctx)` implementation.
+
+**Post-SPIKE-002 update:** The community ecosystem does not contain a ready-made Telegram→HTTP bridge, deterministic callback plugin, or nutrition skill that replaces KBJU logic. Community reuse is limited to patterns/supplements: openclown dual-hook capture, SecureClaw kill-switch/failure-mode/cost monitoring, Riphook tool-enforcement patterns, and Calorie Visualizer local `foods.json` + USDA fallback data pattern.
+
 **Three weakest assumptions:**
-1. **(A1)** OpenClaw Gateway can route HTTP to KBJU sidecar without native subagent support — no documented precedent in openclaw source/docs for HTTP POST routing from Telegram handler to external process.
+1. **(A1 — resolved by SPIKE-001)** OpenClaw Gateway can route HTTP to KBJU sidecar through an OpenClaw plugin `inbound_claim` hook without native subagent support. Residual risk moves to callback-query handling, not ordinary Telegram message routing.
 2. **(A2)** Single KBJU sidecar handles concurrent users without per-tenant process isolation — shared heap reintroduces multi-tenancy as runtime concern beyond data-layer RLS.
 3. **(A3)** zeroclaw's Rust `stall_watchdog.rs` ports cleanly to TS middleware — monitors channel keepalive, not LLM token velocity; fundamentally different abstraction layer.
 
@@ -220,7 +226,7 @@ Architect-4 full-read inputs: PR-A diff = 1430 lines, PR-B diff = 1061 lines, PR
 
 | Decision area | PR-A choice | PR-B choice | PR-C choice | Final choice | Source | Rationale |
 |---|---|---|---|---|---|---|
-| OpenClaw integration mechanism | Raw grammY adapter; OpenClaw deferred | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + KBJU sidecar + HTTP bridge | PR-C + PR-B convergence | Keeps PO's OpenClaw constraint while avoiding undocumented TypeScript skill-host assumptions. PR-A's boot concern is real but does not justify dropping OpenClaw. |
+| OpenClaw integration mechanism | Raw grammY adapter; OpenClaw deferred | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + sidecar + HTTP bridge | HYBRID gateway + KBJU sidecar + HTTP bridge plugin | PR-C + PR-B convergence, patched by SPIKE-001 | Keeps PO's OpenClaw constraint. SPIKE-001 resolves the bridge seam: Telegram messages are claimed by an OpenClaw plugin using `inbound_claim`, not by a skill handler or raw grammY. |
 | Boot entry point shape | `src/main.ts` grammY executable | `src/main.ts` sidecar HTTP server | `src/main.ts` sidecar HTTP server | `src/main.ts` sidecar HTTP server | PR-B/PR-C | Current `src/index.ts` is a barrel and Docker runs the wrong path; sidecar entrypoint is the smallest HYBRID-compatible correction. |
 | Subagent topology | None | Gateway → sidecar | Gateway → sidecar, with hermes/nanobot patterns as references | Single KBJU sidecar, no mesh | PR-C | Mesh was rejected; one sidecar gives a versioned boundary without rewriting 15 merged tickets. |
 | TKT decomposition | TKT-016@0.1.0 boot + PRD-002@0.2.1 TKTs | TKT-016@0.1.0..TKT-020@0.1.0 split by G1-G4 | TKT-016@0.1.0..TKT-020@0.1.0 split by boot/G1/G2/G3/G4 | TKT-016@0.1.0..TKT-020@0.1.0 split by boot/G1/G2/G3/G4 | PR-C | Atomic enough for Executor/reviewer cycles; no additional ticket needed because registry/delegation remain deferred. |
@@ -231,7 +237,9 @@ Architect-4 full-read inputs: PR-A diff = 1430 lines, PR-B diff = 1061 lines, PR
 | §11 boot-smoke test placement | Tests for process startup | Tests implied by TKT-016@0.1.0 | Boot-smoke mandated in TKT-016@0.1.0 | `tests/deployment/bootEntrypoint.test.ts` or equivalent deployment boot-smoke | Synthesis | BACKLOG-011 process-retro mandate is non-negotiable for boot-path files; deployment tests already host process-start checks. |
 | Telegram runtime dependency | `grammy` direct | OpenClaw bundled gateway | OpenClaw Gateway, sidecar never calls Bot API | OpenClaw Gateway owns Telegram; sidecar uses HTTP envelopes only | PR-B/PR-C | Preserves OpenClaw in load-bearing capacity; no direct Telegram dependency is required in KBJU sidecar. |
 | Migration / coexistence with deployed OpenClaw VPS | Raw app coexists as separate bot process | Add `kbju-sidecar` next to gateway | Add `kbju-sidecar` next to gateway | Coexist behind internal Docker network; gateway health-gates sidecar | PR-B/PR-C | Avoids rewiring current OpenClaw deploy until sidecar health and bridge tests pass. |
-| HTTP bridge contract | None | Four endpoints | Four endpoints with schemas/version header/error codes | Four endpoints with `X-Kbju-Bridge-Version: 1.0`, schemas, 400/403/500/503 | PR-C | PR-C has the most complete contract; PR-B validates endpoint set. |
+| HTTP bridge contract | None | Four endpoints | Four endpoints with schemas/version header/error codes | Four endpoints with `X-Kbju-Bridge-Version: 1.0`, schemas, 400/403/500/503 | PR-C + SPIKE-001 | PR-C has the most complete sidecar contract; SPIKE-001 maps it to `inbound_claim` + `kbju_cron` / `kbju_callback` registered tools. |
+| Bridge implementation mechanism | Raw grammY app | Assumed gateway bridge | Assumed gateway bridge | OpenClaw plugin with `inbound_claim` + registered tools | SPIKE-001 | `inbound_claim` runs in classify/preflight and skips the agent for text/voice/photo messages. Cron and callbacks are bounded by bridge tools if no lower-level callback hook is available. |
+| Community reuse boundary | n/a | n/a | skills/runtime alternatives | Build own bridge; reference/adopt selected community security/data patterns | SPIKE-002 | No existing plugin implements `inbound_claim → HTTP`; SecureClaw/Riphook/Calorie Visualizer improve security/data surfaces but do not replace HYBRID. |
 | Subagent-delegation pattern | None | Not emphasized | Reference hermes `delegate_tool.py:1836-1878` | Reference only; no generic subagent registry in v0.5.0 | PR-C | Useful schema precedent but generic delegation is outside PRD-002@0.2.1. |
 | Skill registry | Deferred | Deferred | ironclaw reference, deferred | Deferred | PR-C | No PRD-002@0.2.1 goal requires runtime skill discovery; defer to modalities/proactive-coaching PRDs. |
 
@@ -252,8 +260,8 @@ Architect-4 full-read inputs: PR-A diff = 1430 lines, PR-B diff = 1061 lines, PR
 
 ### 0.9 Architect-4 weakest assumptions
 
-1. **Bridge adapter evidence gap:** The final design assumes the OpenClaw Gateway can be configured or lightly extended to translate Telegram/channel turns into the sidecar HTTP bridge without forking OpenClaw internals. If Executor discovers only unstable internal APIs, TKT-016@0.1.0 must stop and raise an ADR amendment rather than silently replacing the gateway with raw grammY.
-2. **Two-process observability correlation:** The final design assumes a single `request_id` and redaction contract can be preserved across OpenClaw Gateway logs, sidecar logs, C3 durable metrics, and PO alerts. If gateway logs cannot carry the sidecar `request_id`, G1/G2 incident reconstruction may be weaker than PRD-002@0.2.1 expects.
+1. **Callback determinism seam:** SPIKE-001 proves zero-LLM routing for Telegram text/voice/photo messages through `inbound_claim`, but callback queries are a separate OpenClaw Telegram path. TKT-016@0.1.0 must either prove a plugin-level callback interception path or route callbacks through the restricted `kbju_callback` tool and record the one-hop LLM trade-off explicitly.
+2. **Two-process observability correlation:** The final design assumes a single `request_id` and redaction contract can be preserved across OpenClaw Gateway plugin logs, sidecar logs, C3 durable metrics, and PO alerts. If gateway logs cannot carry the sidecar `request_id`, G1/G2 incident reconstruction may be weaker than PRD-002@0.2.1 expects.
 3. **CI telemetry ownership boundary:** The final design assumes PR-Agent tail-latency metrics can be captured from CI/log surfaces without modifying `.github/**` in this Architect PR and without committing generated telemetry artifacts. TKT-019@0.1.0 must prove the CI surface before any Ready-for-Review promotion of implementation work.
 
 ## 1. Context
@@ -296,15 +304,15 @@ Every PRD Goal MUST appear. Every component MUST trace back to ≥1 PRD row.
 
 OpenClaw owns Telegram transport, sandboxing, cron dispatch, secret injection, and runtime orchestration. The KBJU Coach implementation runs as one cohesive TypeScript sidecar with internal modules so meal logging, onboarding, summaries, and privacy/history operations can evolve independently without a single all-purpose handler.
 
-**HYBRID topology (v0.5.0, ADR-011@0.1.0):** OpenClaw Gateway retains Telegram channel + agent orchestration + cron triggers + voice-call + phone-control surfaces. KBJU business logic runs as a separate sidecar Node 24 process bridged via HTTP (`POST /kbju/message`, `/kbju/callback`, `/kbju/cron`, `GET /kbju/health`). The sidecar imports existing `src/` modules directly — zero rewrite cost. OpenClaw Gateway + KBJU sidecar are colocated in the same Docker Compose network with localhost-level latency.
+**HYBRID topology (v0.5.0, ADR-011@0.1.0):** OpenClaw Gateway retains Telegram channel + bounded agent/tool orchestration + cron triggers + voice-call + phone-control surfaces. KBJU business logic runs as a separate sidecar Node 24 process bridged via HTTP (`POST /kbju/message`, `/kbju/callback`, `/kbju/cron`, `GET /kbju/health`) by a repo-owned OpenClaw plugin. The sidecar imports existing `src/` modules directly — zero rewrite cost. OpenClaw Gateway + KBJU sidecar are colocated in the same Docker Compose network with localhost-level latency.
 
 Module mapping within the HYBRID topology:
 
 | Runtime module | Components |
 |---|---|
-| OpenClaw Gateway bridge adapter | Telegram/channel/cron ingress, no KBJU persistence |
+| OpenClaw Gateway `kbju-bridge` plugin | `inbound_claim` Telegram message bridge, bounded cron/callback tools, no KBJU persistence |
 | `src/main.ts` KBJU sidecar HTTP server | Bridge endpoints, dependency factory, health/readiness |
-| `src/telegram/entrypoint.ts` and C1 adapter | C1 Access-Controlled Telegram Entrypoint |
+| C1 adapter and business handlers | C1 Access-Controlled Telegram Entrypoint behind sidecar HTTP envelopes |
 | onboarding modules | C2 Onboarding and Target Calculator |
 | meal logging modules | C4 Meal Logging Orchestrator; C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider |
 | history/privacy modules | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
@@ -321,6 +329,9 @@ Telegram Bot API webhook
   |
   v
 OpenClaw Gateway (TS/Node 24)          KBJU Sidecar (TS/Node 24, HTTP server)
+  |  kbju-bridge plugin:
+  |  inbound_claim for messages
+  |  kbju_cron / kbju_callback tools
   |                                      |
   |-- POST /kbju/message -------------->|  C1 Entrypoint + C2-C11 business logic
   |    {telegram_id, text, source}       |  C12 Breach Detector (every access)
@@ -328,7 +339,8 @@ OpenClaw Gateway (TS/Node 24)          KBJU Sidecar (TS/Node 24, HTTP server)
   |<-- 200 {reply_text, needs_conf} ----|  C15 Allowlist (every request)
   |                                      |
   |-- POST /kbju/callback ------------->|  Callback confirm/edit/delete
-  |-- POST /kbju/cron ----------------->|  Daily summary triggers
+  |   (plugin callback hook if proven; restricted kbju_callback tool fallback)
+  |-- POST /kbju/cron ----------------->|  Daily summary triggers via restricted kbju_cron tool
   |-- GET  /kbju/health --------------->|  {status: "ok", uptime, breach_count}
   |
   `--- C14 PR-Agent Telemetry: reads GitHub Actions metadata, emits CI JSON artifact
@@ -336,12 +348,15 @@ OpenClaw Gateway (TS/Node 24)          KBJU Sidecar (TS/Node 24, HTTP server)
 
 ```mermaid
 graph LR
-  A[Telegram update or callback via OpenClaw Gateway] --> B[C1 KBJU sidecar entrypoint]
+  A[Telegram update via OpenClaw Gateway] --> Z[kbju-bridge plugin inbound_claim]
+  AA[OpenClaw cron/callback path] --> ZZ[restricted bridge tool]
+  Z --> B[C1 KBJU sidecar entrypoint]
+  ZZ --> B
   B --> C[C2 onboarding]
   B --> D[C4 meal logging]
   B --> E[C8 history]
   B --> F[C11 delete and audit]
-  G[OpenClaw cron] --> H[C9 summaries]
+  G[OpenClaw cron via kbju_cron] --> H[C9 summaries]
   D --> I[C5 voice transcription]
   D --> J[C7 photo recognition]
   D --> K[C6 KBJU estimator]
@@ -364,8 +379,8 @@ graph LR
 
 ## 3. Components
 ### 3.1 C1 Access-Controlled Telegram Entrypoint
-- Responsibility: Enforce pilot-user access, normalize Telegram updates/callbacks, keep the typing indicator active during processing, and route each Russian UX flow to the correct skill.
-- Inputs: OpenClaw Gateway bridge event for Telegram text/voice/photo/callback/cron; C15 allowlist decision from `config/allowlist.json` with `TELEGRAM_PILOT_USER_IDS` migration fallback; per-user flow state from C3; outgoing response envelope returned to OpenClaw.
+- Responsibility: Enforce pilot-user access, normalize bridge envelopes for Telegram messages/callbacks/cron, keep the typing indicator active during processing, and route each Russian UX flow to the correct sidecar handler.
+- Inputs: OpenClaw Gateway bridge plugin event for Telegram text/voice/photo, restricted bridge-tool event for callback/cron if needed, C15 allowlist decision from `config/allowlist.json` with `TELEGRAM_PILOT_USER_IDS` migration fallback, per-user flow state from C3, and outgoing response envelope returned to OpenClaw.
 - Outputs: Routed command/event to C2, C4, C8, C9, or C11; Russian replies; inline confirm/edit/delete callbacks; typing indicator renewal events while C4/C5/C6/C7 run. Telegram `sendChatAction` typing indicators auto-expire approximately 5 seconds after the last call (per <https://core.telegram.org/bots/api#sendchataction>); C1 renews the indicator every **4 seconds** (`typing_renewal_interval_seconds = 4`) while a downstream provider call is in-flight, so the user sees a continuous indicator without flicker. Renewal stops as soon as the draft reply is sent or the provider call terminates with an error.
 - LLM usage: none.
 - State: No durable state directly; reads/writes conversation state through C3 with `user_id` scope.
@@ -552,13 +567,17 @@ If pilot scope informally expands beyond 2 users before any subscription/billing
 5. Sidecar crash/restart: Docker Compose `restart: unless-stopped` auto-restarts; downtime ~5-10s. During restart, OpenClaw Gateway returns generic recovery `"Бот временно недоступен, попробуйте через минуту."`.
 
 ### 4.10 Gateway-to-sidecar request/response flow (v0.5.0)
-1. OpenClaw Gateway receives Telegram update → ChannelPlugin adapter extracts `telegram_id`, `text`, `source`, `message_id`, `chat_id`.
-2. Gateway POSTs to sidecar `POST /kbju/message` with JSON body, header `X-Kbju-Bridge-Version: 1.0`.
+1. OpenClaw Gateway receives Telegram update → `kbju-bridge` plugin `inbound_claim` extracts `telegram_id`, `text`, `source`, `message_id`, `chat_id`.
+2. Plugin POSTs to sidecar `POST /kbju/message` with JSON body, header `X-Kbju-Bridge-Version: 1.0`, then returns `{ handled: true, reply }` so the agent loop is skipped.
 3. Sidecar C1 entrypoint calls C15 `isAllowed(telegram_id)` — if blocked, returns 403 with `{"error":"tenant_not_allowed"}`.
 4. If allowed, C1 routes to C4 (meal logging) / C2 (onboarding) / C8 (history) / C9 (summary). C12 Breach Detector wraps every C3 access.
 5. C13 Stall Watchdog wraps every LLM provider call within the sidecar.
 6. Sidecar returns 200 with `{"reply_text":"...","needs_confirmation":true,"reply_to_message_id":N}` or `{"reply_text":"...","parse_mode":"HTML"}`.
 7. Gateway delivers the `reply_text` via Telegram Bot API sendMessage.
+
+Callback/cron variants:
+- OpenClaw cron dispatch invokes the restricted `kbju_cron` tool, which POSTs to `/kbju/cron`.
+- Inline button callbacks use a plugin-level callback hook if TKT-016@0.1.0 proves one; otherwise a restricted `kbju_callback` tool POSTs to `/kbju/callback`.
 
 ## 5. Data Model / Schemas (declarative — no runnable code)
 ```yaml
@@ -829,6 +848,8 @@ Schema invariants:
 
 All endpoints are versioned via header `X-Kbju-Bridge-Version: 1.0`. Sidecar runs on internal Docker network only (not exposed to host or internet).
 
+Gateway implementation is an OpenClaw `kbju-bridge` plugin. For Telegram text/voice/photo channel turns, the plugin claims the turn through `inbound_claim`, POSTs the normalized payload to `/kbju/message`, and returns the sidecar reply payload so the OpenClaw agent loop is skipped. Cron dispatch uses a registered `kbju_cron` tool in a restricted agent context. Callback dispatch uses a plugin callback hook if TKT-016@0.1.0 proves one is available; otherwise it uses a registered `kbju_callback` tool in the same restricted context. The sidecar contract below is unchanged by the gateway mechanism.
+
 #### POST /kbju/message
 Primary endpoint for user message handling.
 
@@ -948,7 +969,7 @@ Response (503 — unhealthy):
 ```
 
 ## 7. Tech Stack Decisions (linked ADRs)
-- Language / runtime: OpenClaw TypeScript skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
+- Language / runtime: OpenClaw TypeScript plugin/skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
 - Storage and tenant isolation: PostgreSQL shared tables with `user_id`, composite keys, and row-level security — `ADR-001@0.1.0`.
 - LLM routing: OmniRoute-first Fireworks pool with direct provider keys only as runtime fallback — `ADR-002@0.1.0`.
 - Voice transcription: Fireworks Whisper V3 Turbo hosted transcription — `ADR-003@0.1.0`.
@@ -958,7 +979,7 @@ Response (503 — unhealthy):
 - Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
 - Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
-- Runtime architecture: HYBRID two-process topology — OpenClaw Gateway retains Telegram + agent orchestration; KBJU business logic runs as sidecar Node 24 process bridged via HTTP — `ADR-011@0.1.0`.
+- Runtime architecture: HYBRID two-process topology — OpenClaw Gateway retains Telegram + bounded agent/tool orchestration; KBJU business logic runs as sidecar Node 24 process bridged by an OpenClaw plugin via HTTP — `ADR-011@0.1.0`.
 - Model-stall detection: zeroclaw `stall_watchdog.rs:29-124` forked to TypeScript middleware (C13) — `ADR-012@0.1.0`.
 - Scale-ready access control: hot-reloadable `config/allowlist.json` replaces static env-var allowlist — `ADR-013@0.1.0`.
 
@@ -978,6 +999,11 @@ Response (503 — unhealthy):
 - Durable metric events: C10 writes per-request events to C3 so end-of-pilot analysis can run after log rotation and can be removed by right-to-delete.
 - Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`, `kbju_onboarding_target_floor_clamped`, `kbju_tenant_breach_detected{requester, target, operation}`, `kbju_llm_call_stalled{provider, model, retry_count}`, `kbju_allowlist_reload{count}`, `kbju_allowlist_blocked{telegram_id}`, `kbju_allowlist_size`.
 - ADR-010@0.1.0 §Q4 cross-reference: `kbju_onboarding_target_floor_clamped` is the durable C10 event mandated by ADR-010@0.1.0 for `goal=lose` final-calorie clamps. Field whitelist (no PII): `user_id`, `goal`, `sex`, `raw_calories_kcal`, `floor_calories_kcal`, `formula_version`, `outcome`. Emission is conditional on TKT-015@0.1.0 observability hardening.
+
+### 8.2.1 Community security supplements (SPIKE-002@0.1.0)
+- SecureClaw is recommended as a separately installed OpenClaw plugin for operator kill switch, `safe_mode` / `read_only` / `block_all` failure modes, and cost monitoring around recurring cron jobs. Do not copy AGPL SecureClaw code into the KBJU sidecar.
+- Riphook is a reference for `before_tool_call` enforcement: dangerous shell/tool patterns, secret-like parameters, and severity tiers (`block` / `warn` / `ok`). KBJU implements sidecar-specific enforcement locally where needed instead of taking an npm dependency.
+- Any community plugin adopted for runtime defense is installed/configured as a separate OpenClaw plugin and pinned by version or fork, because SPIKE-002@0.1.0 found high link-rot/archive risk in the community ecosystem.
 
 ### 8.3 KPI Measurement
 - K1: query `confirmed_meals` grouped by `user_id` and `meal_local_date`, excluding `deleted_at IS NOT NULL`.
@@ -1016,6 +1042,11 @@ Response (503 — unhealthy):
 - Outbound egress: Telegram Bot API, OmniRoute, Fireworks fallback path, Open Food Facts, and USDA FoodData Central. No runtime path sends data to observability SaaS in v0.1.
 - Containers must not use host networking. Raw media temp storage is container-local or tmpfs and is not mounted into persistent volumes.
 
+### 9.3.1 Community dependency policy (SPIKE-002@0.1.0)
+- No direct npm dependency on unvetted OpenClaw community plugins in KBJU sidecar code.
+- Security plugins such as SecureClaw/Riphook are installed as separate OpenClaw plugins or forked/pinned outside the sidecar package, not bundled into sidecar runtime code.
+- Permissively licensed data/patterns may be vendored only with license attribution and minimal local surface. The allowed v0.1 candidate is Calorie Visualizer's MIT `foods.json` as a local common-food seed list before USDA/Open Food Facts fallback.
+
 ### 9.4 LLM Prompt-Injection Mitigations
 - C6 meal text: user-provided meal text is serialized as data inside a fixed schema field (`meal_text_ru`) and the system prompt explicitly says user text cannot change instructions, call tools, change output schema, or override PRD-001@0.2.0 NG6/NG7. Output must validate against the structured KBJU schema; malformed or instruction-like output routes to manual entry without retry.
 - C7 photos: any text visible in the image is treated as untrusted image content, not an instruction. The vision prompt requests only food items, portions, and confidence; all photo outputs require user confirmation and cannot persist directly.
@@ -1043,10 +1074,12 @@ Response (503 — unhealthy):
 OpenClaw Gateway + KBJU sidecar run as separate Docker Compose services on the same internal network.
 Sidecar CMD: `node dist/src/main.js` because `tsconfig.json` sets `rootDir: "."` and compiles `src/main.ts` to `dist/src/main.js` (not `dist/index.js`; source: PR-B ADR-011@0.1.0 Q4 plus PR-A boot-path finding).
 Health check: curl GET http://localhost:SERVER_PORT/kbju/health in Docker Compose healthcheck block.
+Gateway bridge: install/register the repo-owned `kbju-bridge` OpenClaw plugin, configure `inbound_claim` message claiming for Telegram, and expose only the registered `kbju_cron` / `kbju_callback` tools to the restricted bridge agent context.
 
 ### 10.2 Runtime Topology
 - Runtime: OpenClaw Gateway on Node 24 plus one KBJU sidecar Node 24 process, Docker Compose on the PO VPS, per ADR-008@0.1.0 and ADR-011@0.1.0.
 - Services: `openclaw-gateway`, `kbju-sidecar`, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
+- Gateway plugins: `kbju-bridge` is required. SecureClaw is recommended as a separate installed plugin for kill switch, safe/read-only failure modes, and cost circuit breaker. Riphook may be installed as defense-in-depth for tool-call enforcement patterns, but the KBJU sidecar must not copy AGPL SecureClaw code.
 - Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, and optional `omniroute_config` if local router config is mounted read-only. No host bind mounts for production data.
 - Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
 
@@ -1125,7 +1158,7 @@ done
 
 # Wait for each user-facing skill to log its Ready line.
 for svc in openclaw-gateway kbju-sidecar; do
-  docker compose logs --since=5m "$svc" | grep -q '"event_name":"skill_ready"' \
+  docker compose logs --since=5m "$svc" | grep -Eq '"event_name":"(bridge_plugin_ready|sidecar_ready|skill_ready)"' \
     || { echo "$svc not ready"; exit 1; }
 done
 
@@ -1135,7 +1168,7 @@ curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" 
   -d text="⏮️ Rolled back to $LAST_GOOD_COMMIT — health checks passing"
 ```
 
-On-failure escalation: if any health check or `skill_ready` log line is missing after 60 seconds, *do not roll forward again automatically*. Instead, restore from `backups/pre-rollback-*.dump` (§10.6.3), send a `⚠️ Rollback failed — see VPS` Telegram alert, and page the PO. Never run a second `docker compose up` against an unknown state without operator review.
+On-failure escalation: if any health check or readiness log line is missing after 60 seconds, *do not roll forward again automatically*. Instead, restore from `backups/pre-rollback-*.dump` (§10.6.3), send a `⚠️ Rollback failed — see VPS` Telegram alert, and page the PO. Never run a second `docker compose up` against an unknown state without operator review.
 
 #### 10.6.3 Database restore (required only if step 1.2 showed forward migrations damaged data)
 If database restore is required, stop user-facing skills first, restore from a known-good dump during a maintenance window, replay any right-to-delete requests recorded after the dump timestamp, then resume skills:
@@ -1259,10 +1292,10 @@ TKT-015@0.1.0 is a focused hardening follow-up from TKT-004@0.1.0 closure and do
 | TKT-013@0.1.0 | Deployment Packaging | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
 | TKT-014@0.1.0 | Pilot KPI Smoke Suite | TKT-003@0.1.0, TKT-005@0.1.0, TKT-009@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0, TKT-012@0.1.0, TKT-013@0.1.0 | qwen-3.6-plus |
 | TKT-015@0.1.0 | Observability Hardening | TKT-003@0.1.0, TKT-004@0.1.0 | glm-5.1 |
-| TKT-016@0.1.0 | KBJU Sidecar Boot Entrypoint | TKT-001@0.1.0 | glm-5.1 |
+| TKT-016@0.1.0 | KBJU Sidecar Boot Entrypoint + Bridge Plugin | TKT-001@0.1.0 | codex-gpt-5.5 |
 | TKT-017@0.1.0 | G1 Breach Detector (C12) | TKT-002@0.1.0, TKT-016@0.1.0 | glm-5.1 |
-| TKT-018@0.1.0 | G2 Stall Watchdog (C13) | TKT-016@0.1.0 | deepseek-v4-pro |
-| TKT-019@0.1.0 | G3 PR-Agent Telemetry (C14) | — | deepseek-v4-pro |
+| TKT-018@0.1.0 | G2 Stall Watchdog (C13) | TKT-016@0.1.0 | glm-5.1 |
+| TKT-019@0.1.0 | G3 PR-Agent Telemetry (C14) | — | glm-5.1 |
 | TKT-020@0.1.0 | G4 Config-Driven Allowlist (C15) | TKT-016@0.1.0 | glm-5.1 |
 
 Execution notes:
@@ -1283,13 +1316,15 @@ Execution notes:
 
 ### 11.1 Mandatory process-startup / boot-smoke tests
 
-Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dockerfile `CMD`, Docker Compose service topology, OpenClaw Gateway bridge adapter, startup config parsing, or the health endpoint MUST add or update a process-startup test. For TKT-016@0.1.0 the canonical placement is `tests/deployment/bootEntrypoint.test.ts` or an equivalent `tests/deployment/**` file that starts the compiled process/HTTP server with test dependencies, asserts `GET /kbju/health` returns HTTP 200 with `X-Kbju-Bridge-Version: 1.0`, and asserts a malformed or missing required env var exits non-zero without hanging. This preserves BACKLOG-011 process-retro: boot-path work is not mergeable on unit tests alone.
+Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dockerfile `CMD`, Docker Compose service topology, OpenClaw Gateway bridge plugin, startup config parsing, or the health endpoint MUST add or update a process-startup test. For TKT-016@0.1.0 the canonical placement is `tests/deployment/bootEntrypoint.test.ts` or an equivalent `tests/deployment/**` file that starts the compiled process/HTTP server with test dependencies, asserts `GET /kbju/health` returns HTTP 200 with `X-Kbju-Bridge-Version: 1.0`, asserts the bridge plugin registers `inbound_claim` / `kbju_cron` / `kbju_callback`, and asserts a malformed or missing required env var exits non-zero without hanging. This preserves BACKLOG-011 process-retro: boot-path work is not mergeable on unit tests alone.
 
 ### 12.1 v0.5.0 Risks (HYBRID + cross-cutting concerns)
 - R7: HYBRID HTTP bridge adds process-boundary latency (~1-5ms localhost) and serialization overhead. Mitigation: colocated containers on same Docker network; keep request payloads under 4 KB; monitor p95 bridge latency.
 - R8: Sidecar crash during active user session returns generic Russian recovery — worse UX than in-process error handling. Mitigation: Docker restart policy `unless-stopped` (downtime ~5-10s); health-check polling for rapid detection.
 - R9: Per-tenant process isolation is lost — shared sidecar heap reintroduces multi-tenancy as runtime concern (weakest assumption A2 from §0.5). Mitigation: C12 Breach Detector wraps every C3 access; C15 Allowlist gates every entrypoint request.
 - R10: LLM stall threshold tuning (default 120000ms per PRD-002@0.2.1 G2) may miss shorter operator-pain stalls, while lower per-role overrides may false-trigger on long-streaming responses. Mitigation: configurable `STALL_THRESHOLD_MS_*` env vars; synthetic tests at 120/300/600s; ≤15s event emission after threshold crossing.
+- R11: Callback queries may require one bounded LLM/tool hop if OpenClaw exposes no plugin-level callback interception. Mitigation: TKT-016@0.1.0 first attempts plugin-level callback handling; fallback agent context has only `kbju_callback` allowed and thinking disabled/minimal.
+- R12: Community plugin ecosystem is volatile (>50% deleted/archived in SPIKE-002). Mitigation: build the bridge ourselves; fork-and-vendor data/patterns only where licenses permit; install SecureClaw/Riphook as separate plugins rather than copying their code.
 - Q_TO_BUSINESS_3: Before HYBRID deploys to production VPS, PO ratifies the 5-ticket v0.5.0 Executor batch (TKT-016@0.1.0..TKT-020@0.1.0) vs deferring to a future sprint.
 
 ---

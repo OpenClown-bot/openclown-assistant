@@ -18,6 +18,7 @@ Wrap every routed streaming LLM call with a token-stall watchdog that alerts wit
 
 ## 2. In Scope
 - Add C13 per-call watchdog middleware around routed streaming LLM calls.
+- Add an operator kill-switch integration compatible with SecureClaw-style file/CLI control, without copying AGPL code into this repo.
 - Use the zeroclaw polling pattern as algorithm inspiration while implementing idiomatic TypeScript.
 - Default threshold is 120000 ms; support per-role overrides.
 - Add synthetic tests for 120 s, 300 s, and 600 s stalls using fake timers.
@@ -27,6 +28,7 @@ Wrap every routed streaming LLM call with a token-stall watchdog that alerts wit
 - No provider-health ping calls that spend extra tokens.
 - No wrapping non-streaming image/batch calls unless they expose streaming token output.
 - No changing model selection policy beyond invoking the existing fallback path on stall.
+- No vendoring SecureClaw source code.
 
 ## 4. Inputs
 - ARCH-001@0.5.0 §0.6, §3.13, §8, §12.
@@ -38,6 +40,7 @@ Wrap every routed streaming LLM call with a token-stall watchdog that alerts wit
 - [ ] `src/observability/stallWatchdog.ts` or equivalent C13 module.
 - [ ] Integration in the LLM-router call path for all streaming text LLM calls.
 - [ ] Metrics/log event for `kbju_llm_call_stalled` with bounded labels.
+- [ ] Kill-switch check that forces fail-closed / safe-mode behavior for Gateway-originated bridge tools when the configured kill-switch file is active.
 - [ ] Synthetic fake-timer tests covering normal streaming, 120 s stall, 300 s stall, 600 s stall, and fallback exhaustion.
 
 ## 6. Acceptance Criteria
@@ -46,10 +49,12 @@ Wrap every routed streaming LLM call with a token-stall watchdog that alerts wit
 - [ ] A fake stream producing token deltas every threshold/4 emits zero stall events.
 - [ ] On first stall, the original request is aborted through `AbortController` or equivalent typed cancellation and the configured fallback path is invoked once.
 - [ ] After `STALL_MAX_RETRIES` fallback stalls, the call fails fast with a typed error and no stale late response is applied.
+- [ ] When the kill-switch file is present, bridge-triggered LLM calls fail closed without spending tokens and emit `kbju_runtime_kill_switch_active`.
 - [ ] `npm run lint`, `npm run typecheck`, targeted tests, and `python3 scripts/validate_docs.py` pass.
 
 ## 7. Constraints
 - Source: PR-B supplies PRD-compatible 120 s default; PR-C supplies zeroclaw algorithm evidence; PR-A contributes no load-bearing G2 topology.
+- Source: SPIKE-002 recommends SecureClaw's kill-switch/failure-mode pattern as an installed plugin or compatible local integration, not as copied source.
 - The watchdog observes token velocity, not channel/WebSocket keepalive.
 - Metric labels must not contain raw prompt text or full user identifiers.
 
@@ -75,4 +80,3 @@ Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appen
 - [x] Acceptance Criteria are machine-checkable.
 - [x] References are version-pinned.
 - [x] `assigned_executor` is justified.
-
