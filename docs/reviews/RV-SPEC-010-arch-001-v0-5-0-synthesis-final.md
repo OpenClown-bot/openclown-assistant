@@ -2,7 +2,7 @@
 id: RV-SPEC-010
 type: spec_review
 target_ref: ARCH-001@0.5.0
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 related: ["RV-SPEC-001", "RV-SPEC-002", "RV-SPEC-003", "RV-SPEC-004", "RV-SPEC-005", "RV-SPEC-006", "RV-SPEC-007", "RV-SPEC-008", "RV-SPEC-009"]
 created: 2026-05-04
@@ -12,9 +12,9 @@ created: 2026-05-04
 
 ## Summary
 
-One **BLOCKER**, two **MAJOR**, one **MINOR**, one **NIT**. All other review questions (12 total) **PASS**.
+**APPROVED** — All findings closed by PR-D #110 closure patch. ARCH-001@0.5.0 is ready for Executor handoff.
 
-The PR-D #110 synthesis correctly preserves OpenClaw load-bearing surfaces, splices PRD-002@0.2.1 C12-C15, maintains machine-checkable acceptance criteria, version-pins upstream PRDs, traces all PRD goals, mandates boot-smoke tests, and stays within write-zone boundaries. However, it **fails to incorporate the single most important finding from SPIKE-001@0.1.0**: the bridge MUST be an OpenClaw plugin using the `inbound_claim` hook + registered tools (`kbju_cron`, `kbju_callback`, `kbju_message`). ADR-011@0.1.0 and ARCH-001@0.5.0 instead describe a generic HTTP sidecar with no OpenClaw plugin contract, leaving the bridge unbuildable. Additionally, deterministic execution mode for cron-triggered runs (SPIKE-001@0.1.0 Q2) is missing.
+Original review: One **BLOCKER**, two **MAJOR**, one **MINOR**, one **NIT**. All other review questions (12 total) **PASS**. The closure patch substantively addressed all five findings: OpenClaw plugin bridge contract (`inbound_claim` + registered tools `kbju_message`/`kbju_cron`/`kbju_callback`), deterministic cron execution mode (`DELEGATE_BLOCKED_TOOLS`), SecureClaw cost-monitor recommendation, and `agent-runtime-comparison.md` backlink. Validation passes (78 artifacts, 0 failures).
 
 ---
 
@@ -134,13 +134,23 @@ The notional `ADR-005@X.Y.Z-telegram-channel-multimodality-v0-2-0.md` file was l
 
 ---
 
-## Next Steps
+## Closure Verification (2026-05-04, closure-patch applied)
 
-1. **Architect-4** must patch ADR-011@0.1.0 §1 and ARCH-001@0.5.0 §6.1 to incorporate:
-   - The OpenClaw plugin bridge contract (`inbound_claim` hook + registered tools).
-   - The deterministic execution mode requirement for cron (`DELEGATE_BLOCKED_TOOLS`).
-2. Re-run `python3 scripts/validate_docs.py` to ensure frontmatter compliance.
-3. Re-request review via PR-D #110 update; do **not** close PR-A/B/C or modify PRD/ARCH-001@0.5.0 source code.
+PR-D #110 closure patch reviewed against `origin/arch/ARCH-001-v0.5.0-synthesis-final` head (commit `1d9066c`).
+
+| Finding | Patch Location | Verdict |
+|---------|---------------|---------|
+| F-B1 | ARCH-001@0.5.0 §4.10 (`inbound_claim` + `kbju_message`/`kbju_cron`/`kbju_callback` registered tools); ADR-011@0.1.0 §1 (plugin manifest + `register(api: PluginApi)`); TKT-016@0.1.0 §2/§5/§6 (plugin source + tests) | **CLOSED** |
+| F-M1 | ARCH-001@0.5.0 §4.6 line 1: cron context MUST run with `DELEGATE_BLOCKED_TOOLS` or equivalent no-tool config permitting only `kbju_cron`; ADR-011@0.1.0 §1: `kbju_cron` registered tool POSTs from deterministic cron context; TKT-016@0.1.0 §2: cron dispatch MUST run in `DELEGATE_BLOCKED_TOOLS` | **CLOSED** |
+| F-M2 | ARCH-001@0.5.0 §4.10: `openclaw.plugin.json`, `register(api: PluginApi)`, `api.on("inbound_claim", ...)`, `api.registerCommand("kbju_message")`, `api.registerCommand("kbju_cron")`, `api.registerCommand("kbju_callback")`; ADR-011@0.1.0 §1: same contract | **CLOSED** |
+| F-m1 | ARCH-001@0.5.0 §9.3.1 line 1025: SecureClaw recommended as separate plugin for kill switch / failure modes / cost monitoring around cron; §10.4 line 1070: exact install command referenced from SPIKE-002@0.1.0 | **CLOSED** |
+| F-n1 | ARCH-001@0.5.0 §0.5 line 175-178: "Full comparison matrix in `docs/knowledge/agent-runtime-comparison.md`" | **CLOSED** |
+
+All five original findings are substantively addressed. `python3 scripts/validate_docs.py` passes (78 artifacts, 0 failures). CI validate-docs passes.
+
+## Final Verdict
+
+**APPROVED** — ARCH-001@0.5.0 is ready for Executor handoff.
 
 ---
 
