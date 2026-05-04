@@ -13,7 +13,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Technical Architect (alternative) | GPT-5.5 thinking | opencode CLI (verify thinking-mode is supported by the runtime) | Same as primary | Same as primary |
 | Technical Architect (backup) | Opus 4.6 thinking | Windsurf | Same as primary | Same as primary |
 | Reviewer (LLM) | Kimi K2.6 | opencode + OmniRoute | `docs/reviews/` | Everything else, **NEVER `status: approved`** (PO sets that based on Reviewer verdict) |
-| Reviewer (auto bot) | Qodo PR-Agent (Qwen 3.6 Plus via OmniRoute) | GitHub Actions | inline PR comments + AI-generated description sections (via `use_description_markers`) | Repo source files; substantive artifact bodies |
+| Reviewer (auto bot) | Qodo PR-Agent (DeepSeek V4 Pro via OmniRoute) | GitHub Actions | inline PR comments + AI-generated description sections (via `use_description_markers`) + on-demand `/review` `/describe` `/improve` `/ask` `/help` commands invoked from PR comments | Repo source files; substantive artifact bodies |
 | Devin Orchestrator (PO assistant) | Devin (webapp) | Devin session | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`, `assigned_executor` post-hoc to match actual run, `completed_at`, `completed_by`, `completed_note`) + light reference-pinning in ticket body during promotion + closure-PRs spanning TKT / RV / BACKLOG bodies after Reviewer verdict (including §10 Execution Log post-Executor closure entries; RV frontmatter promotion to `status: approved` with `approved_at` / `approved_after_iters` / `approved_by` / `approved_note`; clerical RV file rename when the original Reviewer-chosen numbering violates the TKT-N↔RV-CODE-N convention; duplicate-§10 boilerplate removal when the empty template H2 collides with the Executor-filled §10 H2) + cross-TKT shared-interface conflict resolution + ratification audit + final merge-safe sign-off | `src/`, `tests/`, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 | Ticket Orchestrator (per-TKT) | GPT-5.5 thinking / Codex CLI + ChatGPT Plus | opencode (PO's Windows PC) / Codex CLI | Per-ticket clerical sub-PRs scoped to the single TKT it owns, frontmatter promotion of that TKT, BACKLOG entries scoped to that TKT, NUDGE files for Executor / Reviewer dispatch (paste-text, not committed) | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits, `docs/prompts/`, anything outside its assigned TKT's scope, repo-wide config (`AGENTS.md`, `CONTRIBUTING.md`, `.pr_agent.toml`, GitHub Actions, `docs/meta/`, session-log templates) |
 | Code Executor (default) | GLM 5.1 | opencode + OmniRoute | `src/`, `tests/`, append-only to `docs/tickets/<id>.md#10 Execution Log`, the assigned Ticket file's `status` frontmatter field only (transitions `ready → in_progress`, `in_progress → in_review`, `in_progress → blocked`, `blocked → in_progress`), create files in `docs/questions/` | `docs/prd/`, `docs/architecture/`, any other field on the Ticket file (Goal, ACs, Outputs, etc.), anything outside the assigned ticket's §5 Outputs |
@@ -78,6 +78,23 @@ If PO wants to change an already-`approved` PRD:
 - Tickets may be executed in parallel **only if** `depends_on` is empty or all listed dependencies are `done`.
 - The default Executor (GLM) and the parallel Executor (Qwen) must never work on the same Ticket.
 - The specialist Executor (Codex) is assigned by the Architect per-Ticket, not opportunistically.
+
+## PR-Agent manual commands
+
+Qodo PR-Agent (DeepSeek V4 Pro via OmniRoute) auto-runs `/review` + `/describe` on every non-skipped PR. It also responds to **manual commands** posted as a PR comment by anyone with `pull-requests: write` (PO, DO, Executor self-iteration). Useful invocations for this repo:
+
+| Command | When to use |
+|---|---|
+| `/review` | Force a fresh review on the current HEAD (e.g. after pushing a fix). Bypasses the title-prefix skip filter. Useful on `clerical:` PRs where the auto-skip would otherwise hide PR-Agent. |
+| `/describe` | Re-generate the AI walkthrough section of the PR description. Run after a force-push or a substantive scope change so the description matches the new diff. |
+| `/improve` | Generate inline code suggestions (committable directly from the GitHub UI). Off by default in CI to keep tail latency down; invoke per-PR when reviewing an Executor TKT diff. |
+| `/ask <question>` | Ask DeepSeek a targeted question grounded in the PR diff + conversation history. Examples for this repo: «Verify all RV-SPEC-008 findings are closed in v0.1.2», «Are any forbidden infrastructure terms introduced?», «Does this PR touch any file outside the role write-zone implied by the title prefix?». |
+| `/help` | List all PR-Agent commands available. |
+| `/update_changelog` | Append a CHANGELOG entry derived from the diff. Currently no `CHANGELOG.md` in repo, so unused. |
+
+Manual commands always run regardless of `ignore_pr_title` or the workflow `if:` skip-filter — they are the escape hatch for clerical / session-log PRs that need a one-off review. Keep their use intentional; each call is an extra LLM round-trip through OmniRoute.
+
+The PR-Agent review categories are tuned per `.pr_agent.toml` `[pr_reviewer].extra_instructions` (docs-as-code branch + code branch) — DeepSeek V4 Pro picks the right lens by inspecting the diff. The current docs-as-code lens surfaces: stale version-pin detection, cross-reference proof validity, HARD SCOPE compliance, frontmatter discipline, RV-SPEC closure verification, NG/AC consistency, anti-hallucination scan for forbidden infrastructure terms.
 
 ## LLM hygiene
 
