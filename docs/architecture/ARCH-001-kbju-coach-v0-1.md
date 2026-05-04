@@ -532,7 +532,7 @@ graph LR
 5. Already-delivered summaries are immutable; the next summary includes a correction delta when relevant.
 
 ### 4.6 Scheduled summaries
-1. OpenClaw cron invokes C9 for each due `summary_schedules` row using `users.timezone` and idempotency key `(user_id, period_type, period_start)`.
+1. OpenClaw cron invokes the `kbju_cron` bridge tool for each due `summary_schedules` row using `users.timezone` and idempotency key `(user_id, period_type, period_start)`. The cron agent/tool context MUST run with `DELEGATE_BLOCKED_TOOLS` or an equivalent no-tool configuration that permits only `kbju_cron`, so recurring jobs cannot hallucinate extra tool calls.
 2. C9 reads confirmed, non-deleted meals for that user and period, computes totals, deltas vs targets, and previous-period comparison.
 3. If there are zero confirmed meals, C9 sends a deterministic Russian nudge without an LLM call.
 4. If meals exist, C9 calls ADR-002@0.1.0 text routing with the ADR-006@0.1.0 system prompt and validator, then stores the delivered `summary_records` row.
@@ -848,7 +848,25 @@ Schema invariants:
 
 All endpoints are versioned via header `X-Kbju-Bridge-Version: 1.0`. Sidecar runs on internal Docker network only (not exposed to host or internet).
 
-Gateway implementation is an OpenClaw `kbju-bridge` plugin. For Telegram text/voice/photo channel turns, the plugin claims the turn through `inbound_claim`, POSTs the normalized payload to `/kbju/message`, and returns the sidecar reply payload so the OpenClaw agent loop is skipped. Cron dispatch uses a registered `kbju_cron` tool in a restricted agent context. Callback dispatch uses a plugin callback hook if TKT-016@0.1.0 proves one is available; otherwise it uses a registered `kbju_callback` tool in the same restricted context. The sidecar contract below is unchanged by the gateway mechanism.
+Gateway implementation is an OpenClaw `kbju-bridge` plugin, not an OpenClaw skill handler and not a generic gateway webhook. The OpenClaw-side bridge contract is:
+- `openclaw.plugin.json` declares the bridge plugin manifest and `register` entry point.
+- `register(api: PluginApi)` installs `api.on("inbound_claim", handler)` for Telegram text/voice/photo channel turns and POSTs normalized payloads to `/kbju/message`.
+- `kbju_message` is the registered message-bridge tool name for tool-policy allowlists and metrics, even though ordinary bound Telegram messages should be claimed before agent dispatch.
+- `kbju_cron` is the only registered tool allowed in cron-triggered bridge contexts and POSTs to `/kbju/cron`.
+- `kbju_callback` is the registered callback bridge tool and POSTs to `/kbju/callback` unless TKT-016@0.1.0 proves a plugin-level callback interception hook can route inline buttons without an agent/tool hop.
+- The plugin may also use the SPIKE-002@0.1.0 openclown dual-hook pattern (`inbound_claim` for bound conversations plus `message:preprocessed` for catch-all/unbound turns), but every sidecar call must still use the versioned HTTP envelopes below.
+
+Declarative plugin sketch:
+```ts
+register(api: PluginApi) {
+  api.on("inbound_claim", handler);      // decode event -> POST /kbju/message
+  api.registerCommand("kbju_message", messageTool);
+  api.registerCommand("kbju_cron", cronTool);
+  api.registerCommand("kbju_callback", callbackTool);
+}
+```
+
+Deterministic execution constraint: cron-triggered bridge calls MUST execute with `DELEGATE_BLOCKED_TOOLS` or an equivalent no-tool/allowlist configuration that permits only `kbju_cron`, preventing recurring jobs from invoking unrelated tools. Callback fallback contexts MUST allow only `kbju_callback`; ordinary message turns should skip the agent loop by returning `{ handled: true, reply }` from `inbound_claim`. Sources: SPIKE-001@0.1.0 §3.1 / Q2 and SPIKE-002@0.1.0 §3.3.
 
 #### POST /kbju/message
 Primary endpoint for user message handling.
@@ -929,6 +947,8 @@ Response (200):
 #### POST /kbju/cron
 Cron trigger endpoint for scheduled daily summaries and reminders.
 
+Gateway path: OpenClaw cron -> restricted context (`DELEGATE_BLOCKED_TOOLS` or equivalent allowlist) -> `kbju_cron` only -> sidecar `POST /kbju/cron`.
+
 Request:
 ```json
 {
@@ -980,6 +1000,7 @@ Response (503 — unhealthy):
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
 - Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
 - Runtime architecture: HYBRID two-process topology — OpenClaw Gateway retains Telegram + bounded agent/tool orchestration; KBJU business logic runs as sidecar Node 24 process bridged by an OpenClaw plugin via HTTP — `ADR-011@0.1.0`.
+- Runtime comparison source: `docs/knowledge/agent-runtime-comparison.md` records the PR-C six-runtime audit that informed ADR-011@0.1.0; SPIKE-002@0.1.0 confirms no community runtime/plugin replaces the chosen HYBRID bridge.
 - Model-stall detection: zeroclaw `stall_watchdog.rs:29-124` forked to TypeScript middleware (C13) — `ADR-012@0.1.0`.
 - Scale-ready access control: hot-reloadable `config/allowlist.json` replaces static env-var allowlist — `ADR-013@0.1.0`.
 
@@ -1046,6 +1067,7 @@ Response (503 — unhealthy):
 - No direct npm dependency on unvetted OpenClaw community plugins in KBJU sidecar code.
 - Security plugins such as SecureClaw/Riphook are installed as separate OpenClaw plugins or forked/pinned outside the sidecar package, not bundled into sidecar runtime code.
 - Permissively licensed data/patterns may be vendored only with license attribution and minimal local surface. The allowed v0.1 candidate is Calorie Visualizer's MIT `foods.json` as a local common-food seed list before USDA/Open Food Facts fallback.
+- Recommended hardening for cron/cost control: install SecureClaw as a separate OpenClaw plugin if licensing/ops review accepts AGPL-3.0 for separate deployment. Reference command from SPIKE-002@0.1.0: `openclaw plugins install @adversa/secureclaw`; configure `safe_mode`, `read_only`, or `block_all` plus monthly cost-monitor thresholds around recurring cron jobs. This is an operational supplement, not a KBJU sidecar dependency.
 
 ### 9.4 LLM Prompt-Injection Mitigations
 - C6 meal text: user-provided meal text is serialized as data inside a fixed schema field (`meal_text_ru`) and the system prompt explicitly says user text cannot change instructions, call tools, change output schema, or override PRD-001@0.2.0 NG6/NG7. Output must validate against the structured KBJU schema; malformed or instruction-like output routes to manual entry without retry.

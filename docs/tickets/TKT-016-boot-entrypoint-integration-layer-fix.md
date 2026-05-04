@@ -19,8 +19,10 @@ Make the Dockerized KBJU sidecar boot and accept versioned HTTP bridge calls fro
 ## 2. In Scope
 - Add `src/main.ts` as the sidecar HTTP entrypoint for ADR-011@0.1.0.
 - Expose `POST /kbju/message`, `POST /kbju/callback`, `POST /kbju/cron`, and `GET /kbju/health` with `X-Kbju-Bridge-Version: 1.0`.
-- Add a repo-owned OpenClaw `kbju-bridge` plugin that claims Telegram text/voice/photo messages with `inbound_claim`, POSTs to `/kbju/message`, and returns the sidecar reply without invoking the agent.
-- Register `kbju_cron` and `kbju_callback` bridge tools for bounded cron/callback dispatch.
+- Add a repo-owned OpenClaw `kbju-bridge` plugin with `openclaw.plugin.json` manifest and `register(api: PluginApi)` entry point.
+- The plugin claims Telegram text/voice/photo messages with `api.on("inbound_claim", handler)`, POSTs to `/kbju/message`, and returns the sidecar reply without invoking the agent.
+- Register `kbju_message`, `kbju_cron`, and `kbju_callback` bridge commands/tools for tool-policy allowlists, metrics, and bounded fallback dispatch.
+- Cron dispatch MUST run in `DELEGATE_BLOCKED_TOOLS` or an equivalent no-tool/allowlist context that permits only `kbju_cron`.
 - Reuse existing business modules behind C1 through HTTP request/response envelopes; do not route Telegram through `src/telegram/entrypoint.ts` in the bridge path.
 - Fix Docker runtime command path to the actual TypeScript output path, currently `dist/src/main.js` because `tsconfig.json` has `rootDir: "."`.
 - Add process-startup boot-smoke tests in `tests/deployment/**`.
@@ -42,10 +44,10 @@ Make the Dockerized KBJU sidecar boot and accept versioned HTTP bridge calls fro
 
 ## 5. Outputs
 - [ ] `src/main.ts` sidecar server entrypoint.
-- [ ] `packages/kbju-bridge-plugin/**` or equivalent repo-owned OpenClaw plugin source with `openclaw.plugin.json`.
+- [ ] `packages/kbju-bridge-plugin/**` or equivalent repo-owned OpenClaw plugin source with `openclaw.plugin.json` and `register(api: PluginApi)`.
 - [ ] Sidecar dependency factory module if needed, scoped under `src/`.
 - [ ] Tests under `tests/deployment/**` proving startup, health, bridge version header, and failure-on-bad-config.
-- [ ] Tests under `tests/telegram/**` or `tests/integration/**` proving `inbound_claim` → `/kbju/message`, `kbju_cron` → `/kbju/cron`, and `kbju_callback` or plugin callback hook → `/kbju/callback` reach the C1 route seams.
+- [ ] Tests under `tests/telegram/**` or `tests/integration/**` proving `inbound_claim` → `/kbju/message`, `kbju_message` tool registration exists for policy/metrics, `kbju_cron` → `/kbju/cron`, and `kbju_callback` or plugin callback hook → `/kbju/callback` reach the C1 route seams.
 - [ ] `Dockerfile` command points to the compiled sidecar entrypoint path.
 - [ ] `docker-compose.yml` adds or renames services only as required for `openclaw-gateway` → `kbju-sidecar` internal networking.
 - [ ] `package.json` scripts updated only if required to run the compiled sidecar.
@@ -57,7 +59,8 @@ Make the Dockerized KBJU sidecar boot and accept versioned HTTP bridge calls fro
 - [ ] `POST /kbju/message` with a missing `telegram_id` returns HTTP 400 and a JSON body containing `error: "invalid_request"`.
 - [ ] `POST /kbju/message` for a blocked Telegram ID returns HTTP 403 and a JSON body containing `error: "tenant_not_allowed"` without invoking meal/onboarding handlers.
 - [ ] A valid mocked Telegram text message is claimed by `inbound_claim`, skips agent dispatch, reaches the C1 sidecar seam exactly once, and returns a Russian reply envelope.
-- [ ] Cron dispatch is covered by a test where a restricted bridge context invokes only `kbju_cron` and the sidecar receives exactly one `/kbju/cron` request.
+- [ ] Plugin registration test proves `register(api: PluginApi)` installs `inbound_claim`, `kbju_message`, `kbju_cron`, and `kbju_callback`.
+- [ ] Cron dispatch is covered by a test where `DELEGATE_BLOCKED_TOOLS` or equivalent restricted bridge context invokes only `kbju_cron` and the sidecar receives exactly one `/kbju/cron` request.
 - [ ] Callback dispatch is covered by either a plugin-level callback interception test or a restricted `kbju_callback` tool test; the chosen path is documented in the PR body.
 - [ ] `docker compose config` succeeds.
 - [ ] `npm run lint`, `npm run typecheck`, and `python3 scripts/validate_docs.py` pass.

@@ -45,9 +45,13 @@ and model failover. KBJU business logic runs as a separate Node 24 sidecar proce
 cost on existing 15 merged tickets — the sidecar reuses `src/` modules directly with a new `src/main.ts` HTTP entrypoint compiled to `dist/src/main.js` under the current `tsconfig.json` rootDir.
 
 The bridge implementation is a repo-owned OpenClaw `kbju-bridge` plugin:
+- `openclaw.plugin.json` declares the plugin manifest and `register` entry point.
+- `register(api: PluginApi)` installs `api.on("inbound_claim", handler)`, `api.registerCommand("kbju_message", messageTool)`, `api.registerCommand("kbju_cron", cronTool)`, and `api.registerCommand("kbju_callback", callbackTool)`.
 - `api.on("inbound_claim", handler)` claims Telegram text/voice/photo turns in classify/preflight before agent dispatch and POSTs to `/kbju/message`.
-- `kbju_cron` registered tool POSTs to `/kbju/cron` from a restricted cron agent context.
-- `kbju_callback` registered tool POSTs to `/kbju/callback` unless TKT-016@0.1.0 proves a plugin-level callback interception hook can route inline buttons without an agent hop.
+- `kbju_message` is the registered message-bridge tool name for tool-policy allowlists and metrics; ordinary bound Telegram messages still use `inbound_claim` and skip the agent loop.
+- `kbju_cron` registered tool POSTs to `/kbju/cron` from a deterministic cron context that uses `DELEGATE_BLOCKED_TOOLS` or an equivalent no-tool/allowlist configuration permitting only `kbju_cron`.
+- `kbju_callback` registered tool POSTs to `/kbju/callback` unless TKT-016@0.1.0 proves a plugin-level callback interception hook can route inline buttons without an agent hop; callback fallback contexts allow only `kbju_callback`.
+- The plugin may use the SPIKE-002@0.1.0 openclown dual-hook pattern (`inbound_claim` + `message:preprocessed`) for unbound/catch-all conversations.
 - The bridge is not an OpenClaw skill `handle(input, ctx)` and does not call `src/telegram/entrypoint.ts` `routeMessage()` for Telegram routing.
 
 ## 2. Options evaluated
@@ -68,6 +72,7 @@ The bridge implementation is a repo-owned OpenClaw `kbju-bridge` plugin:
 - Sidecar process boundary enforces G1 tenant isolation at HTTP edge (not just data-layer RLS)
 - bridge contract is versioned independently of OpenClaw's internal plugin API
 - Telegram text/voice/photo routing is LLM-free: `inbound_claim` returns `{ handled: true, reply }` and skips the agent loop
+- Cron-triggered bridge calls are deterministic: only `kbju_cron` is allowed under `DELEGATE_BLOCKED_TOOLS` or equivalent no-tool configuration
 - Staged rollout possible: deploy sidecar alongside monolith, toggle via config
 
 **Negative:**
