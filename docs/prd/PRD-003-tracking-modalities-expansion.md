@@ -2,7 +2,7 @@
 id: PRD-003
 title: "Tracking Modalities Expansion"
 version: 0.1.2
-status: draft            # draft | in_review | approved | superseded
+status: approved         # draft | in_review | approved | superseded
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.7-thinking"
 created: 2026-05-03
