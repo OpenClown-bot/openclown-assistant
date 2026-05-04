@@ -1,11 +1,11 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.4.0
-status: approved
-prd_ref: PRD-001@0.2.0
+version: 0.5.0
+status: draft
+prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
 owner: "@OpenClown-bot"
-author_model: "gpt-5.5-thinking"
+author_model: "gpt-5.5-xhigh"
 reviewer_models:
   - "kimi-k2.6"
 review_refs:
@@ -14,10 +14,16 @@ review_refs:
   - RV-SPEC-004@0.1.0
   - RV-SPEC-005@0.1.0
 created: 2026-04-26
-updated: 2026-04-30
-approved_at: 2026-04-30
-approved_by: "yourmomsenpai (PO)"
+updated: 2026-05-04
+approved_at: null
+approved_by: null
 changelog:
+  - version: 0.5.0
+    date: 2026-05-04
+    changes:
+      - "Phase-0 OpenClaw recon corrected the stale skill-runtime assumption: OpenClaw skills are AgentSkills instruction folders in the observed runtime, so ADR-011@0.1.0 selects a raw grammY Node 24 adapter as the smallest v0.1 runnable-entrypoint fix"
+      - "PRD-002@0.2.1 G1-G4 added as scale-readiness and observability scope without introducing SDLC pipeline token-cost telemetry or multi-region deployment"
+      - "TKT-016@0.1.0 through TKT-020@0.1.0 added as draft implementation tickets, with TKT-016@0.1.0 blocking the PRD-002@0.2.1 work because the app must boot and receive Telegram updates before scale telemetry is meaningful"
   - version: 0.4.0
     date: 2026-04-30
     changes:
@@ -58,6 +64,7 @@ adrs:
   - ADR-008@0.1.0
   - ADR-009@0.1.0
   - ADR-010@0.1.0
+  - ADR-011@0.1.0
 tickets:
   - TKT-001@0.1.0
   - TKT-002@0.1.0
@@ -74,6 +81,11 @@ tickets:
   - TKT-013@0.1.0
   - TKT-014@0.1.0
   - TKT-015@0.1.0
+  - TKT-016@0.1.0
+  - TKT-017@0.1.0
+  - TKT-018@0.1.0
+  - TKT-019@0.1.0
+  - TKT-020@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -84,19 +96,23 @@ tickets:
 
 ### 0.1 OpenClaw capability map
 
+2026-05-04 v0.5.0 recon update: the prior ARCH-001@0.4.0 assumption that `openclaw skills` hosts TypeScript class handlers was wrong for the observed OpenClaw runtime. Empirical `openclaw@latest` (`OpenClaw 2026.5.3-1`) CLI checks show `openclaw skills` manages AgentSkills-compatible instruction folders, `openclaw plugins` manages plugin packages, and `openclaw gateway` runs a WebSocket gateway/channel service. Bundled OpenClaw docs confirm Telegram support is production-ready via grammY when using the OpenClaw gateway, but they do not expose a stable seam that instantiates this repository's existing `src/telegram/entrypoint.ts` / `C1Deps` handlers.
+
+ADR-011@0.1.0 therefore selects a raw `grammy` Node 24 adapter inside this application for the v0.1 runnable-entrypoint fix. OpenClaw remains production infrastructure and a future plugin/gateway integration candidate, but the v0.1 deploy blocker is narrower: the Docker image must run an executable app entrypoint and real Telegram updates must reach the already-implemented C1 routing functions.
+
 Sources audited before design: local runtime notes in `docs/knowledge/openclaw.md`, skill catalogue notes in `docs/knowledge/awesome-skills.md`, OpenClaw docs (<https://docs.openclaw.ai>), OpenClaw source/README (<https://github.com/openclaw/openclaw>), and the public skills catalogue (<https://github.com/VoltAgent/awesome-openclaw-skills>). OpenClaw remains locked by PRD-001@0.2.0 §7; this map identifies only what the runtime closes and what remains project-owned.
 
 | PRD requirement | OpenClaw built-in that closes infrastructure | Remaining KBJU Coach gap |
 |---|---|---|
-| PRD-001@0.2.0 §7 Telegram-only channel; PRD-001@0.2.0 §5 US-1 through US-8 Telegram UX | Gateway/channel support includes Telegram and media-capable messaging surfaces per docs (<https://docs.openclaw.ai>) and source README (<https://github.com/openclaw/openclaw>). | Russian onboarding, commands, inline confirm/edit/delete affordances, typing indicator behavior, and all bot copy. |
-| PRD-001@0.2.0 §5 US-2 voice logging; §2 G3 voice latency | Voice/media routing can pass voice input to a skill; local runtime notes identify `VoiceWake` pre-routing to a transcription skill. | Actual Russian transcription provider adapter, retry/fallback policy, transcript retention, and latency/cost measurement. |
-| PRD-001@0.2.0 §5 US-4 photo logging | OpenClaw media transport passes photo input into skills; sandbox isolates the skill process. | Meal-photo recognition, low-confidence threshold, mandatory confirmation UX, raw photo deletion after extraction. |
-| PRD-001@0.2.0 §5 US-5 summaries | `cron-tools` / scheduled triggers are a built-in OpenClaw path for periodic skill invocation. | User-local schedule definitions, summary aggregation, Russian recommendation prompt, and no-meal nudge content. |
-| PRD-001@0.2.0 §2 G2/G3/K2/K3 latency measurement; §7 observability minimums | OpenClaw observability hooks expose per-skill logs, latency metrics, and token spend. | Concrete log schema, metric names, user-scoped correlation IDs, and end-of-pilot KPI queries. |
-| PRD-001@0.2.0 §2 G5 cost ceiling | OpenClaw model failover retries providers on errors; OpenClaw supports provider config/fallbacks per docs/source. | Monthly spend accumulator, hard per-call token budgets, auto-degrade trigger, and PO alert. |
-| PRD-001@0.2.0 §2 G4 and §5 US-9 tenant isolation | OpenClaw sandbox/process isolation separates the skill process from the host. | Storage-level `user_id` scoping, no unscoped queries, per-user audit log, and end-of-pilot cross-user audit query. |
-| PRD-001@0.2.0 §7 secrets | OpenClaw injects secrets through runtime context / env-var style secret handling per local runtime notes and docs. | `.env.example` schema, secret names, least-privilege API keys, and no raw key logging. |
-| PRD-001@0.2.0 §7 Node 24 TypeScript runtime | OpenClaw skills are TypeScript on Node 24 per local runtime notes and source README (<https://github.com/openclaw/openclaw>). | Domain implementation must stay in TypeScript; Python/Rust/CLI skills can be referenced but not directly embedded without a later ADR. |
+| PRD-001@0.2.0 §7 Telegram-only channel; PRD-001@0.2.0 §5 US-1 through US-8 Telegram UX | Gateway/channel support includes Telegram and media-capable messaging surfaces per docs (<https://docs.openclaw.ai>) and source README (<https://github.com/openclaw/openclaw>), but the current observed `skills` CLI is not the KBJU handler runtime. | ADR-011@0.1.0 raw grammY adapter, Russian onboarding, commands, inline confirm/edit/delete affordances, typing indicator behavior, and all bot copy. |
+| PRD-001@0.2.0 §5 US-2 voice logging; §2 G3 voice latency | OpenClaw can transport media in its own channel stack, but ADR-011@0.1.0 keeps v0.1 media handoff inside the project grammY adapter. | Actual Russian transcription provider adapter, retry/fallback policy, transcript retention, and latency/cost measurement. |
+| PRD-001@0.2.0 §5 US-4 photo logging | OpenClaw can transport media in its own channel stack, but v0.1 photo handling is project-owned. | Meal-photo recognition, low-confidence threshold, mandatory confirmation UX, raw photo deletion. |
+| PRD-001@0.2.0 §5 US-5 summaries | OpenClaw scheduled/agent infrastructure remains a reference; v0.1 scheduled summary dispatch is project-owned until a future scheduler ADR changes it. | User-local schedule definitions, summary aggregation, Russian recommendation prompt, and no-meal nudge content. |
+| PRD-001@0.2.0 §2 G2/G3/K2/K3 latency measurement; §7 observability minimums | OpenClaw can emit runtime diagnostics for its own gateway/agent paths. | Concrete product log schema, metric names, user-scoped correlation IDs, and end-of-pilot KPI queries. |
+| PRD-001@0.2.0 §2 G5 cost ceiling | OpenClaw provider config/fallbacks are runtime references; KBJU product calls use the OmniRoute contract. | Monthly spend accumulator, hard per-call token budgets, auto-degrade trigger, and PO alert. |
+| PRD-001@0.2.0 §2 G4 and §5 US-9 tenant isolation | OpenClaw process boundaries can isolate its own plugins/agents. | Storage-level `user_id` scoping, no unscoped queries, per-user audit log, and end-of-pilot cross-user audit query. |
+| PRD-001@0.2.0 §7 secrets | OpenClaw config helpers support env/ref-provider secret handling when OpenClaw services are used. | `.env.example` schema, Docker/application secret names, least-privilege API keys, and no raw key logging. |
+| PRD-001@0.2.0 §7 Node 24 TypeScript runtime | Project Docker runtime is Node 24; OpenClaw runtime can coexist as infrastructure but does not define the current handler class shape. | Domain implementation stays in TypeScript; Python/Rust/CLI skills can be referenced but not embedded without a later ADR. |
 
 ### 0.2 Skill audit (awesome-openclaw-skills)
 | Candidate skill (URL) | Matches which PRD §/Goal | Verdict | Rationale |
@@ -151,7 +167,7 @@ Capability E - Scheduling / timezone support for reports.
 
 ### 0.3 Build-vs-fork-vs-reuse decision summary
 
-Phase 0 produces zero direct forks for v0.1. All audited candidates are either wrong-language for the locked TypeScript/Node 24 skill runtime, too generic, not Russian/tenant-aware, unavailable at current source, externally account-bound, or outside PRD-001@0.2.0 scope. The Executor should build the KBJU domain logic, tenant-scoped storage, confirmation/edit/delete flows, photo confidence handling, right-to-delete, and spend-degrade logic from scratch inside OpenClaw skills; the architecture may reference `mh-openai-whisper-api` for hosted Whisper request shape, `faster-whisper` for a future provider abstraction, `opencal` for per-100g nutrition scaling, `google-gemini-media` for image-understanding request routing, `health-summary` for period aggregation shape, and `cron-scheduling` / `temporal-cortex-datetime` for DST/idempotency considerations.
+Phase 0 produces zero direct forks for v0.1. All audited candidates are either wrong-language for the project TypeScript/Node 24 runtime, too generic, not Russian/tenant-aware, unavailable at current source, externally account-bound, or outside PRD-001@0.2.0 scope. The Executor should build the KBJU domain logic, tenant-scoped storage, confirmation/edit/delete flows, photo confidence handling, right-to-delete, and spend-degrade logic from scratch inside project TypeScript modules; the architecture may reference `mh-openai-whisper-api` for hosted Whisper request shape, `faster-whisper` for a future provider abstraction, `opencal` for per-100g nutrition scaling, `google-gemini-media` for image-understanding request routing, `health-summary` for period aggregation shape, and `cron-scheduling` / `temporal-cortex-datetime` for DST/idempotency considerations.
 
 Capabilities with no suitable fork-candidate: Russian onboarding and target calculation; tenant-isolated meal/audit/transcript storage; Russian confirm/edit/delete UX; photo-to-macro estimation with a numeric low-confidence threshold; monthly cost guard and auto-degrade; right-to-delete; end-of-pilot cross-user audit.
 
@@ -161,10 +177,11 @@ Capabilities with no suitable fork-candidate: Russian onboarding and target calc
 
 | Capability | Architectural fork-candidate | Verdict | Rationale (one sentence) | Chosen path / ADR |
 |---|---|---|---|---|
-| Telegram entrypoint | OpenClaw built-in Telegram gateway | **chosen** | PRD-001@0.2.0 §7 locks OpenClaw runtime; native gateway covers webhooks, media routing, and sandbox boundaries with no extra dependency. | C1 + ADR-008@0.1.0 |
-| Telegram entrypoint | `telegraf` Node.js framework | reject | Adds a second message router, duplicates OpenClaw's gateway, and breaks PRD-001@0.2.0 §7 stack lock. | — |
-| Telegram entrypoint | `grammy` Node.js framework | reject | Same duplication concern as `telegraf`; offers no advantage over OpenClaw native delivery for v0.1 scope. | — |
-| Telegram entrypoint | Custom long-poll Bot API client | reject | OpenClaw provides webhook ingress; long-poll would consume vCPU continuously and lose ordering guarantees. | — |
+| Telegram entrypoint | OpenClaw built-in Telegram gateway | reference | OpenClaw Telegram is production-ready for agent turns, but current docs/CLI do not prove it can directly invoke KBJU's existing `routeMessage` / `routeCallbackQuery` without a plugin bridge. | ADR-011@0.1.0 loser |
+| Telegram entrypoint | OpenClaw native plugin/channel bridge | reject for v0.1 | Technically plausible through plugin SDK/channel-core, but heavier than the deploy-blocker fix and risks routing KBJU product events into the generic agent-turn kernel. | ADR-011@0.1.0 loser |
+| Telegram entrypoint | `grammy` Node.js framework | **chosen** | Smallest adapter that maps Telegram updates to existing TypeScript handlers, matches OpenClaw's own Telegram implementation library, and makes Docker boot-smoke tests concrete. | C1 + ADR-011@0.1.0 |
+| Telegram entrypoint | `telegraf` Node.js framework | reject | Adds a second framework with no advantage over grammY for the same adapter role. | ADR-011@0.1.0 loser |
+| Telegram entrypoint | Custom long-poll Bot API client | reject | Reimplements Telegram transport without grammY's middleware/update handling and offers no testability advantage over ADR-011@0.1.0. | ADR-011@0.1.0 loser |
 | Voice transcription | Hosted Fireworks Whisper V3 Turbo | **chosen** | Russian-capable, predictable per-second pricing, lowest latency in the OmniRoute pool, satisfies G3 8 s p95 budget. | ADR-003@0.1.0 |
 | Voice transcription | Hosted OpenAI Whisper API | reference | Functionally equivalent quality but second paid provider lock-in; held as runtime fallback only. | ADR-003@0.1.0 fallback row |
 | Voice transcription | Local `faster-whisper` (CTranslate2) | reject | Steady RAM 0.8–1.5 GiB exceeds the 2 GiB envelope share for transcription, and pilot VPS has no GPU. | — |
@@ -177,8 +194,8 @@ Capabilities with no suitable fork-candidate: Russian onboarding and target calc
 | Storage / multi-tenancy | SQLite shared file with `user_id` columns | reject | No native row-level security and no production-grade concurrent writer story; future migration to multi-user is painful. | — |
 | Storage / multi-tenancy | One SQLite file per user | reject | Defeats the K4 cross-user audit query, complicates backups, and breaks shared schema migrations. | — |
 | Storage / multi-tenancy | One PostgreSQL DB per user | reject | Operationally heavy on a 7.6 GiB VPS, and same K4 audit query problem as per-user SQLite. | — |
-| LLM routing | OmniRoute first, direct provider fallback | **chosen** | Single key boundary, free Fireworks pool first, deterministic provider failover; skills never read raw provider keys. | ADR-002@0.1.0 |
-| LLM routing | Direct Fireworks/OpenAI keys per skill | reject | Spreads provider keys across skills, defeats `docs/knowledge/llm-routing.md`'s key-boundary guarantee. | — |
+| LLM routing | OmniRoute first, direct provider fallback | **chosen** | Single key boundary, free Fireworks pool first, deterministic provider failover; business logic never reads raw provider keys. | ADR-002@0.1.0 |
+| LLM routing | Direct Fireworks/OpenAI keys per module | reject | Spreads provider keys across modules, defeats `docs/knowledge/llm-routing.md`'s key-boundary guarantee. | — |
 | LLM routing | LiteLLM / OpenRouter | reject | OmniRoute already covers the Fireworks-first failover with a thinner adapter; adding another router is unnecessary surface. | — |
 | Summary recommendation guardrails | System prompt + deterministic post-validator | **chosen** | Layered defense; deterministic fallback message ships when validator rejects forbidden topics. | ADR-006@0.1.0 |
 | Summary recommendation guardrails | System prompt only | reject | Single point of failure against prompt drift / injection; no deterministic fallback. | — |
@@ -222,34 +239,42 @@ Does NOT implement: PRD-001@0.2.0 §3 Non-Goals.
 | PRD-001@0.2.0 §6 K5 | Monthly LLM + voice-transcription spend and auto-degrade evidence. | C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider; C9 Summary Recommendation Service; C10 Cost, Degrade, and Observability Service |
 | PRD-001@0.2.0 §6 K6 | Weekly retention: both pilot users active ≥7/7 days/week for 4 weeks. | C3 Tenant-Scoped Store; C4 Meal Logging Orchestrator; C10 Cost, Degrade, and Observability Service |
 | PRD-001@0.2.0 §6 K7 | KBJU estimation accuracy target, to be proposed after Phase 5-6 feasibility analysis. | C6 KBJU Estimator; C7 Photo Recognition Provider; C10 Cost, Degrade, and Observability Service |
+| PRD-002@0.2.1 §2 G1 | Continuous tenant-isolation breach detection. | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service; C11 Right-to-Delete and Tenant Audit Service; C12 Continuous Tenant Breach Detector |
+| PRD-002@0.2.1 §2 G2 | Automated model-stall detection. | C10 Cost, Degrade, and Observability Service; C13 Model-Stall Detector |
+| PRD-002@0.2.1 §2 G3 | Empirical PR-Agent tail-latency validation. | C14 PR-Agent CI Tail-Latency Telemetry |
+| PRD-002@0.2.1 §2 G4 | Scale-ready Telegram allowlist with documented code-path audit. | C1 Access-Controlled Telegram Entrypoint; C15 Config-Driven Telegram Allowlist |
+| PRD-002@0.2.1 §5 US-5 | Privacy-preserving telemetry and right-to-delete extension for PRD-002@0.2.1 user-scoped traces. | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service; C11 Right-to-Delete and Tenant Audit Service; C12 Continuous Tenant Breach Detector; C13 Model-Stall Detector; C15 Config-Driven Telegram Allowlist |
 
 Every PRD Goal MUST appear. Every component MUST trace back to ≥1 PRD row.
 
 ## 2. Architecture Overview
 
-OpenClaw owns Telegram transport, sandboxing, cron dispatch, secret injection, and LLM provider failover. The KBJU Coach implementation is split into cohesive TypeScript skills plus shared modules so meal logging, onboarding, summaries, and privacy/history operations can evolve independently without a single all-purpose skill.
+OpenClaw remains approved production infrastructure, but ADR-011@0.1.0 corrects the v0.1 application entrypoint: Telegram updates are consumed by a project-owned Node 24 grammY adapter that maps directly to C1 `routeMessage` / `routeCallbackQuery`. The KBJU Coach implementation is split into cohesive TypeScript modules so meal logging, onboarding, summaries, privacy/history operations, and PRD-002@0.2.1 telemetry can evolve independently without a single all-purpose handler.
 
-Skill mapping:
+Runtime mapping:
 
-| OpenClaw skill / module | Components |
+| Runtime module | Components |
 |---|---|
-| `kbju-telegram-entrypoint` skill | C1 Access-Controlled Telegram Entrypoint |
-| `kbju-onboarding` skill | C2 Onboarding and Target Calculator |
-| `kbju-meal-logging` skill | C4 Meal Logging Orchestrator; C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider |
-| `kbju-history-privacy` skill | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
-| `kbju-summary` skill | C9 Summary Recommendation Service |
-| shared runtime modules | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service |
+| `src/main.ts` executable app entrypoint | Boot config validation, dependency wiring, grammY startup, readiness log |
+| `src/telegram/adapter.ts` grammY adapter | C1 Access-Controlled Telegram Entrypoint |
+| onboarding modules | C2 Onboarding and Target Calculator |
+| meal logging modules | C4 Meal Logging Orchestrator; C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider |
+| history/privacy modules | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
+| summary modules | C9 Summary Recommendation Service |
+| shared runtime modules | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service; C12 Continuous Tenant Breach Detector; C13 Model-Stall Detector; C15 Config-Driven Telegram Allowlist |
+| GitHub Actions / PR-Agent wrapper | C14 PR-Agent CI Tail-Latency Telemetry |
 
-All LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; skill business logic never reads raw provider keys. Persistent records are user_id scoped from day 1, with static Telegram access control (`TELEGRAM_PILOT_USER_IDS`) as a separate outer layer.
+All product LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; business logic never reads raw provider keys. Persistent records are `user_id` scoped from day 1. Telegram access control remains an outer layer, but PRD-002@0.2.1 G4 changes it from static environment parsing to a config-driven allowlist that extends `TELEGRAM_PILOT_USER_IDS` semantics instead of replacing the C1 access-control envelope.
 
 ```mermaid
 graph LR
-  A[Telegram update or callback] --> B[C1 kbju-telegram-entrypoint]
+  A[Telegram update or callback] --> Z[grammY adapter]
+  Z --> B[C1 access-controlled router]
   B --> C[C2 onboarding]
   B --> D[C4 meal logging]
   B --> E[C8 history]
   B --> F[C11 delete and audit]
-  G[OpenClaw cron] --> H[C9 summaries]
+  G[Scheduler tick] --> H[C9 summaries]
   D --> I[C5 voice transcription]
   D --> J[C7 photo recognition]
   D --> K[C6 KBJU estimator]
@@ -268,16 +293,23 @@ graph LR
   I --> P
   J --> P
   K --> P
+  L --> Q[C12 breach detector]
+  O --> R[C13 model-stall detector]
+  N --> R
+  M --> R
+  S[PR-Agent CI stage] --> T[C14 tail-latency telemetry]
+  U[allowlist config] --> V[C15 access cache]
+  V --> B
 ```
 
 ## 3. Components
 ### 3.1 C1 Access-Controlled Telegram Entrypoint
-- Responsibility: Enforce pilot-user access, normalize Telegram updates/callbacks, keep the typing indicator active during processing, and route each Russian UX flow to the correct skill.
-- Inputs: OpenClaw Telegram text/voice/photo/callback/cron-originated delivery event; `TELEGRAM_PILOT_USER_IDS`; per-user flow state from C3; outgoing message API from OpenClaw.
+- Responsibility: Enforce Telegram access, normalize Telegram updates/callbacks, keep the typing indicator active during processing, and route each Russian UX flow to the correct module.
+- Inputs: grammY-normalized Telegram text/voice/photo/callback delivery event per ADR-011@0.1.0; C15 allowlist decision; per-user flow state from C3; outgoing message API from grammY.
 - Outputs: Routed command/event to C2, C4, C8, C9, or C11; Russian replies; inline confirm/edit/delete callbacks; typing indicator renewal events while C4/C5/C6/C7 run. Telegram `sendChatAction` typing indicators auto-expire approximately 5 seconds after the last call (per <https://core.telegram.org/bots/api#sendchataction>); C1 renews the indicator every **4 seconds** (`typing_renewal_interval_seconds = 4`) while a downstream provider call is in-flight, so the user sees a continuous indicator without flicker. Renewal stops as soon as the draft reply is sent or the provider call terminates with an error.
 - LLM usage: none.
 - State: No durable state directly; reads/writes conversation state through C3 with `user_id` scope.
-- Failure modes: Telegram send failure retries once for transient transport errors, then C10 logs `telegram_send_failed`; malformed update returns a Russian generic recovery prompt and logs without persistence; unsupported Telegram message subtypes such as stickers return the Russian generic recovery prompt and emit C10 route-unmatched telemetry without invoking domain handlers; non-allowlisted user receives no domain data and no onboarding state; concurrent callbacks for the same draft use C3 optimistic version checks so only the first confirmed mutation wins; rate-limit responses defer typing renewal and emit a C10 alert if repeated.
+- Failure modes: Telegram send failure retries once for transient transport errors, then C10 logs `telegram_send_failed`; malformed update returns a Russian generic recovery prompt and logs without persistence; unsupported Telegram message subtypes such as stickers return the Russian generic recovery prompt and emit C10 route-unmatched telemetry without invoking domain handlers; non-allowlisted or revoked users receive no domain data and no onboarding state; concurrent callbacks for the same draft use C3 optimistic version checks so only the first confirmed mutation wins; rate-limit responses defer typing renewal and emit a C10 alert if repeated.
 
 ### 3.2 C2 Onboarding and Target Calculator
 - Responsibility: Collect validated biometric/lifestyle answers, explicit timezone, and confirmation before creating a user profile and daily KBJU targets.
@@ -305,7 +337,7 @@ graph LR
 
 ### 3.5 C5 Voice Transcription Provider
 - Responsibility: Convert Telegram voice clips of 15 seconds or less into Russian text and delete raw audio after extraction completes.
-- Inputs: Telegram voice file metadata and temporary raw clip handle from C1/OpenClaw; language hint `ru`; provider config from Phase 5 voice ADR; retry budget from C10.
+- Inputs: Telegram voice file metadata and temporary raw clip handle from C1/grammY adapter; language hint `ru`; provider config from Phase 5 voice ADR; retry budget from C10.
 - Outputs: Transcript record scoped to `user_id`; transcription success/failure metric; normalized transcript text for C4; raw-clip deletion confirmation.
 - LLM usage: Hosted speech-to-text model selected in Phase 5 voice ADR; purpose is Russian ASR only, not meal reasoning.
 - State: Transcript text retained in C3 until right-to-delete; raw audio is temporary and must be deleted immediately after transcript success or terminal failure.
@@ -321,7 +353,7 @@ graph LR
 
 ### 3.7 C7 Photo Recognition Provider
 - Responsibility: Convert a Telegram meal photo into candidate food items, portion estimates, and an explicit confidence value for mandatory user review.
-- Inputs: Temporary photo file handle from C1/OpenClaw; user profile context limited to target units; vision model config from Phase 5 photo ADR; low-confidence threshold from Phase 5 photo ADR.
+- Inputs: Temporary photo file handle from C1/grammY adapter; user profile context limited to target units; vision model config from Phase 5 photo ADR; low-confidence threshold from Phase 5 photo ADR.
 - Outputs: Candidate item list; portion estimates; numeric confidence; Russian `низкая уверенность` label when below threshold; raw-photo deletion confirmation; metrics for C10.
 - LLM usage: OmniRoute-routed vision model selected in Phase 5 photo ADR; purpose is food identification and portion estimation only.
 - State: Candidate items and confidence are stored in C3 as a draft; raw photo bytes are deleted immediately after extraction succeeds or terminally fails.
@@ -337,16 +369,16 @@ graph LR
 
 ### 3.9 C9 Summary Recommendation Service
 - Responsibility: Generate scheduled daily, weekly, and monthly Telegram summaries per user using only that user's confirmed data and KBJU-only recommendations.
-- Inputs: OpenClaw cron event; user timezone from C2/C3; confirmed meals and targets from C3; previous-period aggregates; persona document path from `PERSONA_PATH` pointing to `docs/personality/PERSONA-001-kbju-coach.md`; F-M2 enforcement policy from Phase 5 ADR.
+- Inputs: Scheduler event; user timezone from C2/C3; confirmed meals and targets from C3; previous-period aggregates; persona document path from `PERSONA_PATH` pointing to `docs/personality/PERSONA-001-kbju-coach.md`; F-M2 enforcement policy from Phase 5 ADR.
 - Outputs: Russian summary message; no-meal nudge; summary record; correction-delta note for post-edit periods; recommendation validation result.
 - LLM usage: OmniRoute-routed text model selected in Phase 5 routing ADR; purpose is short Russian KBJU-only recommendation generation from numeric aggregates.
 - State: Summary records, schedule metadata, and last-delivery status in C3.
-- Failure modes: cron duplicate uses idempotency key `(user_id, period_type, period_start)`; no confirmed meals produces deterministic nudge without LLM; LLM timeout/rate-limit sends deterministic numeric summary without recommendation and logs degraded output; recommendation mentioning forbidden medical/clinical/supplement/drug topics is blocked by validator path from Phase 5 ADR; missing `PERSONA_PATH` fails startup for this skill.
+- Failure modes: scheduler duplicate uses idempotency key `(user_id, period_type, period_start)`; no confirmed meals produces deterministic nudge without LLM; LLM timeout/rate-limit sends deterministic numeric summary without recommendation and logs degraded output; recommendation mentioning forbidden medical/clinical/supplement/drug topics is blocked by validator path from Phase 5 ADR; missing `PERSONA_PATH` fails startup for summary delivery.
 
 ### 3.10 C10 Cost, Degrade, and Observability Service
 - Responsibility: Measure latency, success/failure, confirmation rates, and per-call spend while enforcing token/cost budgets and auto-degrade behavior before overspend.
-- Inputs: Structured events from all components; per-call token budgets from skill manifests; provider cost estimates and router billing reports; monthly `$10` ceiling; PO alert destination.
-- Outputs: JSON logs through `ctx.log`; latency/cost metrics; degrade-mode flag; PO alert; KPI query material for K1-K7.
+- Inputs: Structured events from all components; per-call token budgets from application config; provider cost estimates and router billing reports; monthly `$10` ceiling; PO alert destination.
+- Outputs: JSON logs to container stdout; latency/cost metrics; degrade-mode flag; PO alert; KPI query material for K1-K7.
 - LLM usage: none.
 - State: Metrics/cost counters in C3 or runtime metrics sink selected in Phase 7; no raw prompts, raw audio, or raw photos in logs.
 - Failure modes: unknown cost event uses worst-case configured price until billing reconciliation; budget over trend enables cheaper model and/or optional lookup skip; metrics write failure never blocks user reply but raises an alert; malformed event is dropped with schema error metric; concurrent spend updates use atomic increments; provider-key or raw-prompt leakage in logs is treated as a security bug.
@@ -359,6 +391,38 @@ graph LR
 - State: Operates on all C3 persistent entities; keeps no independent durable data after deletion. **Right-to-delete is hard-delete only**: no `deleted` state is preserved on `users` (see PO-noted gap in v0.2.0 changelog); after the deletion transaction commits there is no row to mark.
 - Tenant audit role: K4 cross-user reference audit cannot run as the application DB role because §9.2 enables PostgreSQL row-level security on every user-owned table. The audit runner uses the dedicated `kbju_audit` role with `BYPASSRLS` (see §9.1 / §9.2), gated by the separate `AUDIT_DB_URL` runtime secret. The audit query aggregates cross-user reference counts and writes them to `tenant_audit_runs.findings` without returning user payloads.
 - Failure modes: cancellation leaves all data unchanged; partial deletion failure rolls back transaction and alerts C10; a repeat `/forget_me` from a Telegram user who has no `users` row (already deleted, allowlist still active) returns a Russian fresh-start message and does not persist anything new; audit query never returns full other-user data in user-facing messages; concurrent delete and meal confirmation serializes on a per-user advisory lock for the `users.id` of the requester until the transaction completes.
+
+### 3.12 C12 Continuous Tenant Breach Detector
+- Responsibility: Detect every user-scoped storage operation whose referenced `user_id` differs from the requesting principal and alert the PO without exposing payloads.
+- Inputs: C3 repository operation context (`requesting_user_id`, `referenced_user_id`, repository method name, request_id), synthetic breach-injection test operations, C10 redaction policy, `PO_ALERT_CHAT_ID`.
+- Outputs: Durable `tenant_breach_events` rows, redacted structured logs, Prometheus counter `kbju_tenant_breach_events_total`, and Telegram PO alerts within PRD-002@0.2.1 G1 latency targets.
+- LLM usage: none.
+- State: Durable breach events live in C3 when scoped to a user so right-to-delete removes them; aggregate detector health metrics may be retained without user payloads.
+- Failure modes: detector write failure never allows an offending operation to silently succeed; security invariant violations fail closed for the storage operation when detected synchronously, emit a critical log, and send a PO alert. Async sampling fallback is allowed only if TKT-017@0.1.0 proves zero false-negatives against the end-of-window K4 audit over a rolling 30-day window.
+
+### 3.13 C13 Model-Stall Detector
+- Responsibility: Emit takeover-ready telemetry for any routed model call or direct-provider failover call with no token output for the configured threshold.
+- Inputs: C6/C7/C9 routed-call lifecycle events, LLM-router request metadata, direct-provider failover metadata, role name, prompt-token count, threshold config defaulting to 120 seconds.
+- Outputs: Durable `model_stall_events` rows for user-scoped calls, redacted structured logs, Prometheus counter `kbju_model_stall_events_total`, and PO alerts containing call identifier, role, elapsed time, and prompt-token count without raw prompt text.
+- LLM usage: none.
+- State: In-flight call registry in process memory; durable event rows in C3 for detected stalls; no raw prompt or response tokens are persisted.
+- Failure modes: if streaming/token hooks are unavailable for a provider, C13 falls back to request-start plus first-byte/first-token timers and marks the path `coverage_gap`; total coverage must remain >=95% per PRD-002@0.2.1 G2. Synthetic stalls at 120 s, 300 s, and 600 s must trigger within 15 seconds of threshold crossing.
+
+### 3.14 C14 PR-Agent CI Tail-Latency Telemetry
+- Responsibility: Measure PR-Agent CI phase timings for every PR after telemetry deployment so the GPT-5.3 Codex swap is empirically validated.
+- Inputs: GitHub Actions PR-Agent job start/end timestamps, first LLM-router request timestamp, first token timestamp, last token timestamp, PR number, commit SHA, runner identifier.
+- Outputs: `pr_agent_ci_metrics` artifact/log rows with CI-step-setup latency, TTFT, TTLT, and total-CI-stage wall-clock duration exactly as defined by PRD-002@0.2.1 §2 G3; rolling-10-PR p50/p100 report; PO alert on threshold breach.
+- LLM usage: none by the telemetry wrapper itself.
+- State: CI artifacts and optional repository-visible telemetry summary; no SDLC token-cost or per-role spend telemetry is collected.
+- Failure modes: if PR-Agent does not invoke the configured model, C14 emits `pr_agent_invocation_failed` and the 10-PR measurement window extends until 10 successful invocations are observed. Two consecutive post-deploy invocation failures escalate to PO per PRD-002@0.2.1 R9.
+
+### 3.15 C15 Config-Driven Telegram Allowlist
+- Responsibility: Replace per-process static parsing with a config-driven allowlist that updates access enforcement within 30 seconds and scales to 10,000 entries with <=2% access-check overhead.
+- Inputs: Existing `TELEGRAM_PILOT_USER_IDS` semantics, allowlist config source, optional hot-reload signal or polling interval <=30 seconds, Telegram numeric user ID from C1.
+- Outputs: O(1) membership decision for C1, allowlist reload metrics, revocation audit rows, documented code-path audit, and load-test results at N = 2 / 10 / 100 / 1,000 / 10,000.
+- LLM usage: none.
+- State: In-memory `Set`-style cache plus durable or file-backed config source selected by TKT-020@0.1.0; revocation audit rows are user-scoped when tied to a known user.
+- Failure modes: malformed allowlist config keeps the last-known-good list and alerts PO; removal revokes access immediately after reload but does not delete data; config source outage fails closed for users not in the last-known-good cache and does not bypass C3 user scoping.
 
 ## 4. Data Flow
 
@@ -398,7 +462,7 @@ graph LR
 5. Already-delivered summaries are immutable; the next summary includes a correction delta when relevant.
 
 ### 4.6 Scheduled summaries
-1. OpenClaw cron invokes C9 for each due `summary_schedules` row using `users.timezone` and idempotency key `(user_id, period_type, period_start)`.
+1. The project scheduler invokes C9 for each due `summary_schedules` row using `users.timezone` and idempotency key `(user_id, period_type, period_start)`.
 2. C9 reads confirmed, non-deleted meals for that user and period, computes totals, deltas vs targets, and previous-period comparison.
 3. If there are zero confirmed meals, C9 sends a deterministic Russian nudge without an LLM call.
 4. If meals exist, C9 calls ADR-002@0.1.0 text routing with the ADR-006@0.1.0 system prompt and validator, then stores the delivered `summary_records` row.
@@ -424,6 +488,20 @@ If pilot scope informally expands beyond 2 users before any subscription/billing
 3. If even degraded calls would still exceed the ceiling, **new** model-backed requests fail open to manual KBJU entry for *every* user (no fail-closed for new users). The bot continues to operate at reduced quality — it never refuses a logged-in pilot user simply because someone else exhausted the budget.
 4. The PO alert (§4.8 step 4) explicitly states observed user count and projected overrun, so the PO either (a) raises the cap with an ADR amendment, (b) pauses new-user onboarding via `TELEGRAM_PILOT_USER_IDS`, or (c) ships the subscription/billing capability as a follow-on PRD.
 5. Until any of (a)–(c) ships, the budget counter resets at the start of each calendar month (UTC) and degrade mode auto-clears, so service quality returns gradually rather than abruptly.
+
+### 4.9 Runnable Telegram boot path
+1. Docker starts `node dist/src/main.js` from the compiled TypeScript output path produced by current `tsconfig.json` (`rootDir: "."`).
+2. `src/main.ts` validates required config, constructs C1/C3/C4/C8/C10/C15 dependencies, creates the grammY bot per ADR-011@0.1.0, and registers text/voice/photo/callback handlers.
+3. A Telegram update reaches grammY, is normalized by the adapter, checked by C15, and then forwarded to existing C1 `routeMessage` or `routeCallbackQuery` without bypassing C10 telemetry.
+4. Startup emits `[gateway] ready` only after the adapter is polling or webhook-ready and dependency initialization has succeeded.
+5. Runtime boot-smoke tests are mandatory for future changes touching `src/main.ts`, `src/index.ts`, `Dockerfile`, `docker-compose.yml`, `src/deployment/**`, or `src/telegram/entrypoint.ts`; tests must build the container or run the compiled entrypoint and prove a mocked Telegram update reaches the real handler call.
+
+### 4.10 PRD-002@0.2.1 telemetry flows
+1. C3 wraps every user-scoped repository operation with a principal/reference check and passes mismatches to C12 before the operation can commit.
+2. C12 writes a redacted durable breach event, increments `kbju_tenant_breach_events_total`, and sends a PO Telegram alert inside the PRD-002@0.2.1 G1 latency envelope.
+3. C6/C7/C9 route model calls through C13's in-flight registry; C13 observes token-output progress and emits a stall event within 15 seconds after the configured no-token threshold is crossed.
+4. The PR-Agent CI wrapper records the four PRD-002@0.2.1 G3 phase timestamps without recording SDLC token cost, then publishes the per-PR metrics artifact.
+5. C15 reloads allowlist config at least every 30 seconds, updates its O(1) cache, and records revocation audit rows without hard-deleting user data.
 
 ## 5. Data Model / Schemas (declarative — no runnable code)
 ```yaml
@@ -615,6 +693,54 @@ cost_events:
   billing_unit: enum[token, audio_second, request]
   created_at: timestamptz
 
+tenant_breach_events:
+  id: uuid
+  user_id: uuid_fk_users_optional
+  request_id: string
+  requesting_user_id_hash: string
+  referenced_user_id_hash: string
+  repository_method: string
+  detector_mode: enum[synchronous, async_sampling]
+  operation_blocked: boolean
+  alert_sent_at: timestamptz_optional
+  created_at: timestamptz
+
+model_stall_events:
+  id: uuid
+  user_id: uuid_fk_users_optional
+  request_id: string
+  call_id: string
+  role: enum[kbju_text_estimator, kbju_vision_estimator, kbju_summary_recommendation, direct_provider_failover, pr_agent]
+  provider_alias: string
+  model_alias: string
+  prompt_tokens: integer_optional
+  threshold_seconds: integer
+  elapsed_seconds: integer
+  first_token_observed: boolean
+  alert_sent_at: timestamptz_optional
+  created_at: timestamptz
+
+allowlist_audit_events:
+  id: uuid
+  user_id: uuid_fk_users_optional
+  telegram_user_id_hash: string
+  event_type: enum[allowlist_loaded, allowlist_reload_failed, user_revoked, user_allowed]
+  allowlist_size: integer
+  config_version_hash: string
+  created_at: timestamptz
+
+pr_agent_ci_metrics:
+  id: uuid
+  pr_number: integer
+  commit_sha: string
+  runner_identifier_hash: string
+  ci_step_setup_latency_ms: integer
+  ttft_ms: integer_optional
+  ttlt_ms: integer_optional
+  total_ci_stage_wall_clock_ms: integer
+  invocation_status: enum[success, invocation_failed, cancelled, timed_out]
+  created_at: timestamptz
+
 monthly_spend_counters:
   id: uuid
   user_id: uuid_fk_users
@@ -666,25 +792,28 @@ Schema invariants:
 - Child tables that reference user-owned parents include composite ownership validation: `(user_id, parent_id)` must match a parent row owned by the same user.
 - PostgreSQL RLS from ADR-001@0.1.0 is enabled on all user-owned tables; the app role is not table owner and cannot bypass RLS.
 - Soft-delete is allowed only on `confirmed_meals.deleted_at` (US-6 ordinary edit/delete history). Right-to-delete is hard-delete: §3.11 / §9.5 remove every user-scoped row including the `users` row itself.
-- The K4 cross-user audit query is the **only** persistent mechanism that may read across `user_id`; it runs as the `kbju_audit` PostgreSQL role with `BYPASSRLS` (§9.2) under the separate `AUDIT_DB_URL` secret, never inside an application skill.
+- The K4 cross-user audit query is the **only** persistent mechanism that may read across `user_id`; it runs as the `kbju_audit` PostgreSQL role with `BYPASSRLS` (§9.2) under the separate `AUDIT_DB_URL` secret, never inside the application runtime.
+- `tenant_breach_events`, `model_stall_events`, and `allowlist_audit_events` are right-to-delete scoped whenever they include `user_id`; stdout emission of the same events must redact `user_id` and payload-bearing fields.
+- `pr_agent_ci_metrics` is SDLC operational telemetry and must not include prompt text, token cost, per-role spend, user payload, Telegram identifiers, or provider keys.
 - Raw voice clips and raw photo bytes are not represented in durable schemas.
 - Logs and metric metadata must never store raw prompt text, raw audio, raw photos, provider keys, or Telegram bot tokens.
 
 ## 6. External Interfaces
 | System | Protocol | Auth | Rate limit | Failure mode |
 |---|---|---|---|---|
-| Telegram Bot API | HTTPS through OpenClaw Telegram gateway | Bot token injected by runtime secret handling | Telegram returns retry metadata on rate limits; C1 additionally caps outbound sends at 1 message/chat/second and 25 total messages/second for pilot safety | Retry transient sends once, obey retry-after, then log `telegram_send_failed`; typing status uses `sendChatAction` while providers run |
-| OpenClaw runtime | Local skill runtime / sandbox / cron / media handoff | Runtime context and injected secrets | Local process capacity; one cron delivery per due schedule/idempotency key | Startup fails if required secrets, skill manifests, or `PERSONA_PATH` are missing; cron duplicates are ignored by idempotency key |
+| Telegram Bot API | HTTPS through grammY adapter selected by ADR-011@0.1.0 | `TELEGRAM_BOT_TOKEN` runtime secret | Telegram returns retry metadata on rate limits; C1 additionally caps outbound sends at 1 message/chat/second and 25 total messages/second for pilot safety | Retry transient sends once, obey retry-after, then log `telegram_send_failed`; typing status uses `sendChatAction` while providers run |
+| OpenClaw runtime | Gateway/plugin/agent infrastructure available out of process | OpenClaw config and injected secrets if enabled | Local gateway capacity; no KBJU handler dispatch unless a future ADR adds a plugin bridge | OpenClaw startup failure must not be treated as proof that KBJU handlers are wired; ADR-011@0.1.0 owns v0.1 product Telegram dispatch |
 | PostgreSQL C3 store | Local Docker network PostgreSQL connection | Non-owner app DB role plus runtime DB secret | Local connection pool sized for pilot; migrations fail startup on mismatch | Transaction rollback and Russian retry-later UX; RLS denial is security error; migration mismatch blocks startup |
-| OmniRoute | Local or private HTTP OpenAI-compatible endpoint | `OMNIROUTE_API_KEY` runtime secret | Provider/account quotas managed by router; skill-level token budgets are hard limits | Fallback to configured direct provider only at runtime layer; C10 budget block or deterministic/manual fallback if router unavailable |
-| Fireworks text / vision models | HTTPS via OmniRoute, runtime fallback only if router path fails | Router credential or fallback Fireworks key outside skill code | Account quota unknown; C10 enforces local max tokens, timeout, and monthly trend guard | One idempotent transport retry only; malformed/suspicious output is validation failure, not retry; degrade to manual/deterministic paths |
-| Fireworks Whisper V3 Turbo | HTTPS via OmniRoute audio path or runtime fallback | Router credential or fallback Fireworks key outside skill code | Account quota unknown; local cap is voice <=15 seconds and one in-flight transcription/user | First failure asks for text; second consecutive voice failure opens manual entry; raw audio deletion failure is high severity |
+| OmniRoute | Local or private HTTP OpenAI-compatible endpoint | `OMNIROUTE_API_KEY` runtime secret | Provider/account quotas managed by router; application token budgets are hard limits | Fallback to configured direct provider only at runtime layer; C10 budget block or deterministic/manual fallback if router unavailable |
+| Fireworks text / vision models | HTTPS via OmniRoute, runtime fallback only if router path fails | Router credential or fallback Fireworks key outside business logic | Account quota unknown; C10 enforces local max tokens, timeout, and monthly trend guard | One idempotent transport retry only; malformed/suspicious output is validation failure, not retry; degrade to manual/deterministic paths |
+| Fireworks Whisper V3 Turbo | HTTPS via OmniRoute audio path or runtime fallback | Router credential or fallback Fireworks key outside business logic | Account quota unknown; local cap is voice <=15 seconds and one in-flight transcription/user | First failure asks for text; second consecutive voice failure opens manual entry; raw audio deletion failure is high severity |
 | Open Food Facts | HTTPS JSON API or downloaded export-derived lookup | None for public API | Live API is used only for real user-triggered lookups; local cap 60 requests/minute and cache hits first | Timeout or no hit falls through to USDA and then LLM fallback; no scraping from live API |
 | USDA FoodData Central | HTTPS REST API | `USDA_FDC_API_KEY`; `DEMO_KEY` only for local exploration | 1,000 requests/hour/IP default per USDA API guide | Timeout/rate-limit skips USDA leg and continues with available lookup/LLM fallback; repeated failures enable lookup degrade |
-| `PERSONA_PATH` persona file | Read-only local file mounted into skill container | File-system read controlled by deployment | Read once at startup and reloaded only on deploy/restart | Missing/unreadable persona fails C9 startup; C9 sends deterministic summary only until fixed |
+| `PERSONA_PATH` persona file | Read-only local file mounted into app container | File-system read controlled by deployment | Read once at startup and reloaded only on deploy/restart | Missing/unreadable persona fails C9 startup; C9 sends deterministic summary only until fixed |
 
 Interface sources:
 - Telegram Bot API User, webhook, response, and typing action docs: <https://core.telegram.org/bots/api#user>, <https://core.telegram.org/bots/api#setwebhook>, <https://core.telegram.org/bots/api#sendchataction>.
+- grammY documentation: <https://grammy.dev>.
 - OmniRoute README: <https://github.com/diegosouzapw/OmniRoute>.
 - Fireworks model catalogue for text, vision, and audio prices: <https://fireworks.ai/models>.
 - Open Food Facts data/API reuse guidance: <https://world.openfoodfacts.org/data>.
@@ -692,7 +821,7 @@ Interface sources:
 - PostgreSQL RLS behavior: <https://www.postgresql.org/docs/current/ddl-rowsecurity.html>.
 
 ## 7. Tech Stack Decisions (linked ADRs)
-- Language / runtime: OpenClaw TypeScript skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
+- Language / runtime: Node 24 TypeScript application runtime with raw grammY adapter per ADR-011@0.1.0; OpenClaw remains production infrastructure and future plugin/gateway candidate.
 - Storage and tenant isolation: PostgreSQL shared tables with `user_id`, composite keys, and row-level security — `ADR-001@0.1.0`.
 - LLM routing: OmniRoute-first Fireworks pool with direct provider keys only as runtime fallback — `ADR-002@0.1.0`.
 - Voice transcription: Fireworks Whisper V3 Turbo hosted transcription — `ADR-003@0.1.0`.
@@ -706,18 +835,19 @@ Interface sources:
 ## 8. Observability
 
 ### 8.1 Logs
-- Format: one JSON object per event through OpenClaw `ctx.log`, emitted to container stdout and captured by Docker's JSON logging driver with bounded rotation (`max-size=10m`, `max-file=5`).
+- Format: one JSON object per event emitted to container stdout and captured by Docker's JSON logging driver with bounded rotation (`max-size=10m`, `max-file=5`).
 - Collection: local Docker logs for short-term diagnostics; durable KPI/cost facts are written to C3 tables (`metric_events`, `cost_events`, `monthly_spend_counters`, `kbju_accuracy_labels`) per ADR-009@0.1.0.
 - Required fields: `timestamp_utc`, `level`, `service`, `component`, `event_name`, `request_id`, `user_id`, `telegram_message_id_hash_optional`, `source`, `latency_ms_optional`, `provider_alias_optional`, `model_alias_optional`, `estimated_cost_usd_optional`, `outcome`, `error_code_optional`, `degrade_mode_enabled`, `schema_version`.
 - Forbidden fields: raw Telegram bot token, provider keys, raw prompt text, raw transcript text in logs, raw audio/photo bytes, full Telegram usernames, full callback payloads when they include meal text, and provider responses before schema validation.
-- Emit-boundary redaction: C10 MUST re-apply allowlist filtering and forbidden-field redaction immediately before serializing metadata to `ctx.log`; producer-side redaction by C1/C4/C9 is treated as untrusted. Non-allowlisted `extra` keys such as `meal_text`, `username`, `callback_payload_meal_text`, raw prompt/transcript/media fields, and raw provider responses must be absent from serialized log metadata even if a producer bypasses its local `redactPii` helper. The only new `extra` key allowed by TKT-015@0.1.0 is `message_subtype` for bounded unsupported-message telemetry values such as `sticker`.
+- Emit-boundary redaction: C10 MUST re-apply allowlist filtering and forbidden-field redaction immediately before serializing metadata to the logger; producer-side redaction by C1/C4/C9 is treated as untrusted. Non-allowlisted `extra` keys such as `meal_text`, `username`, `callback_payload_meal_text`, raw prompt/transcript/media fields, and raw provider responses must be absent from serialized log metadata even if a producer bypasses its local `redactPii` helper. The only new `extra` key allowed by TKT-015@0.1.0 is `message_subtype` for bounded unsupported-message telemetry values such as `sticker`.
 - Severity mapping: `info` for normal flow milestones, `warn` for user-visible fallback/degrade, `error` for provider/DB failures that affect one request, `critical` for raw media deletion failure, RLS denial, cross-user audit finding, or spend-guard failure.
 
 ### 8.2 Metrics
-- Endpoint: Prometheus-format `/metrics` served only on explicit loopback (`127.0.0.1` / `::1`) or Docker-internal hostnames; unspecified-address wildcards (`0.0.0.0`, `::`, `[::]`) are forbidden. It is not exposed through the public Telegram/OpenClaw ingress.
+- Endpoint: Prometheus-format `/metrics` served only on explicit loopback (`127.0.0.1` / `::1`) or Docker-internal hostnames; unspecified-address wildcards (`0.0.0.0`, `::`, `[::]`) are forbidden. It is not exposed through the public Telegram ingress.
 - Label policy: endpoint metrics may label by `component`, `source`, `period_type`, `outcome`, `provider_alias`, and `model_alias`; they must not label by Telegram ID, username, internal `user_id`, meal text, or free-form error text.
 - Durable metric events: C10 writes per-request events to C3 so end-of-pilot analysis can run after log rotation and can be removed by right-to-delete.
 - Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`, `kbju_onboarding_target_floor_clamped`.
+- PRD-002@0.2.1 required metric names: `kbju_tenant_breach_events_total`, `kbju_model_stall_events_total`, `kbju_model_stall_detection_latency_ms`, `kbju_allowlist_entries`, `kbju_allowlist_reload_total`, `kbju_allowlist_check_latency_ms`, `kbju_pr_agent_ci_step_setup_latency_ms`, `kbju_pr_agent_ttft_ms`, `kbju_pr_agent_ttlt_ms`, `kbju_pr_agent_total_ci_stage_wall_clock_ms`.
 - ADR-010@0.1.0 §Q4 cross-reference: `kbju_onboarding_target_floor_clamped` is the durable C10 event mandated by ADR-010@0.1.0 for `goal=lose` final-calorie clamps. Field whitelist (no PII): `user_id`, `goal`, `sex`, `raw_calories_kcal`, `floor_calories_kcal`, `formula_version`, `outcome`. Emission is conditional on TKT-015@0.1.0 observability hardening.
 
 ### 8.3 KPI Measurement
@@ -733,26 +863,34 @@ Interface sources:
 - v0.1 uses request-level correlation IDs rather than a distributed tracing backend. Every C1 inbound update creates `request_id`, and C4/C5/C6/C7/C9/C10 propagate it through logs, metric rows, and provider calls.
 - No OpenTelemetry collector, Jaeger, Sentry tracing, or external APM service is deployed in v0.1. ADR-009@0.1.0 keeps OTLP as a future migration path if the pilot shows debugging gaps.
 
+### 8.5 PRD-002@0.2.1 telemetry redaction and retention
+- C12/C13/C15 events tagged to a product `user_id` are persisted exclusively in C3 tables so C11 right-to-delete can remove them in the same transaction as existing user-scoped data.
+- Stdout/log emission for C12/C13/C15 must redact `user_id`, Telegram identifiers, meal text, usernames, raw transcripts, raw prompts, raw media, provider keys, provider responses, and free-form callback payloads at the C10 emit boundary.
+- C14 PR-Agent telemetry is operational CI timing telemetry only. It records PR number, commit SHA, runner identifier hash, and timing fields; it must not record SDLC token cost, per-role cost attribution, prompt text, model output text, or user payload.
+- PRD-002@0.2.1 §9 OQ-2 is carried forward: default live retention is 90 days, archive thereafter, and auto-purge at 365 days unless the PO ratifies another retention policy.
+
 ## 9. Security
 
 ### 9.1 Secrets Management
-- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills).
+- Secrets are runtime-injected by Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application runtime).
+- PRD-002@0.2.1 adds allowlist configuration without replacing the existing envelope: `TELEGRAM_PILOT_USER_IDS` remains a valid bootstrap/default source, while C15 may load an additional config source such as `TELEGRAM_ALLOWLIST_PATH` if TKT-020@0.1.0 selects file-backed hot reload. Any added variable must appear in `.env.example` with a blank/example-safe value only.
 - Skill business logic reads model access through OmniRoute config, not raw provider keys, per ADR-002@0.1.0 and `docs/knowledge/llm-routing.md`.
 - `.env.example` may document variable names only; real values live on the VPS secret store or deployment environment and must not appear in logs, tickets, PR bodies, or git history.
 
 ### 9.2 Access Control and Tenant Isolation
 - Outer access control is `TELEGRAM_PILOT_USER_IDS`; non-allowlisted Telegram users receive no onboarding, no persisted profile, and no domain data.
+- PRD-002@0.2.1 G4 extends the outer access-control envelope through C15. The effective allowlist is config-driven, checked before any user-scoped storage operation, and hot-reloaded within 30 seconds; removal revokes access but does not delete data.
 - Inner isolation is C3 plus ADR-001@0.1.0: every user-owned table has `user_id`, composite ownership validation for child rows, PostgreSQL RLS enabled, and a non-owner app DB role that cannot bypass RLS.
 - Repository APIs must require `user_id` for all reads/mutations except migrations and the C11 end-of-pilot audit runner. Any unscoped repository method is a security defect.
 - Telegram automated messages are sent only to users who initiated the bot and confirmed onboarding/report schedules; C1 obeys Telegram retry metadata and the local outbound cap from §6.
 - **Privileged audit role (RV-SPEC-002@0.1.0 F-M2)**: PostgreSQL RLS by design blocks the application role from reading rows owned by other users, so the K4 cross-user reference audit cannot run as that role. A dedicated PostgreSQL role `kbju_audit` is provisioned with `BYPASSRLS` (or, equivalently, `pg_read_all_data` membership scoped to the audit query set), and is gated by a **separate** runtime secret `AUDIT_DB_URL` injected only into the C11 audit script container/job. Constraints on `kbju_audit`:
   - Read-only on user-owned tables; write access limited to `tenant_audit_runs` (audit metadata, no user payloads).
-  - Forbidden in any application skill image (`kbju-telegram-entrypoint`, `kbju-onboarding`, `kbju-meal-logging`, `kbju-history-privacy`, `kbju-summary`); CI/deploy linter rejects images that import `AUDIT_DB_URL`.
+  - Forbidden in the application image; CI/deploy linter rejects runtime code that imports `AUDIT_DB_URL` outside the audit script.
   - Audit script is a one-shot job (Docker `--rm` or equivalent), not a long-running service; the `AUDIT_DB_URL` secret is unmounted after the job exits.
   - Audit results record only aggregate cross-user reference counts and any concrete inter-tenant findings without reproducing user payloads (§5 `tenant_audit_runs.findings: json_array_without_user_payloads`).
 
 ### 9.3 Network Boundaries
-- Public inbound: only the OpenClaw Telegram ingress/webhook endpoint is internet-reachable.
+- Public inbound: only the Telegram webhook endpoint is internet-reachable when webhook mode is used; long polling requires no public inbound app port.
 - Internal only: PostgreSQL, OmniRoute local/private endpoint, C10 metrics endpoint, and any admin/debug endpoint are on the Docker network or loopback only.
 - Outbound egress: Telegram Bot API, OmniRoute, Fireworks fallback path, Open Food Facts, and USDA FoodData Central. No runtime path sends data to observability SaaS in v0.1.
 - Containers must not use host networking. Raw media temp storage is container-local or tmpfs and is not mounted into persistent volumes.
@@ -773,15 +911,16 @@ Interface sources:
 ## 10. Deployment
 
 ### 10.1 Runtime Topology
-- Runtime: OpenClaw skill images on Node 24, Docker Compose on the PO VPS, per ADR-008@0.1.0.
-- Services: OpenClaw runtime/Telegram gateway, `kbju-telegram-entrypoint`, `kbju-onboarding`, `kbju-meal-logging`, `kbju-history-privacy`, `kbju-summary`, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
+- Runtime: Node 24 TypeScript application image with grammY Telegram adapter per ADR-011@0.1.0, Docker Compose on the PO VPS per ADR-008@0.1.0, with OpenClaw gateway/plugin infrastructure retained as a future/native integration candidate rather than the v0.1 handler runtime.
+- Services: `app` / `kbju-telegram-entrypoint` Node process, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS. OpenClaw runtime/gateway service may be present for operator/agent use, but v0.1 product Telegram dispatch does not depend on OpenClaw agent turns.
 - Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, and optional `omniroute_config` if local router config is mounted read-only. No host bind mounts for production data.
 - Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
 
 ### 10.2 Resource Budget
 - VPS floor from PO Q2: 6 shared x86_64 vCPU, 7.6 GiB RAM, about 5.7 GiB available at idle, 75 GB ext4 with about 61 GB free, Ubuntu 24.04.4, Docker 29.4.0, no GPU.
 - PRD-001@0.2.0 §7 budget: KBJU stack <=25% VPS CPU p95 and <=2 GiB resident RAM steady state.
-- Expected steady RAM: OpenClaw runtime/gateway 256 MiB; five Node skill processes 512 MiB total; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.75 GiB.
+- Expected v0.1 steady RAM: Node app 384 MiB; optional OpenClaw runtime/gateway 256 MiB; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.664 GiB.
+- PRD-002@0.2.1 scale-readiness note: PRD-002@0.2.1 removes the fixed v0.1 single-VPS ceiling for later v0.2 growth, but this ArchSpec does not introduce multi-region or multi-cluster topology. Horizontal scale beyond the single VPS requires a successor deployment ADR after TKT-020@0.1.0 load tests identify the next bottleneck.
 - CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, vision, and LLM inference off the CPU/GPU-limited host.
 - Disk target: PostgreSQL plus logs/backups <=10 GB during 30-day pilot; Docker log rotation from §8 caps live diagnostic logs at about 50 MB per service.
 
@@ -793,8 +932,14 @@ git pull --ff-only origin main
 docker compose pull
 docker compose up -d --remove-orphans
 docker compose ps
-docker compose logs --since=5m kbju-telegram-entrypoint
+docker compose logs --since=5m app
 python3 scripts/validate_docs.py
+```
+
+Required post-deploy boot-smoke:
+```bash
+docker compose logs --since=5m app | grep '\[gateway\] ready'
+npm test -- tests/deployment/runtimeBoot.test.ts
 ```
 
 ### 10.4 Backup Sequence
@@ -851,11 +996,9 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# Wait for each user-facing skill to log its Ready line.
-for svc in kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary; do
-  docker compose logs --since=5m "$svc" | grep -q '"event_name":"skill_ready"' \
-    || { echo "$svc not ready"; exit 1; }
-done
+# Wait for the executable app entrypoint to log its ready line.
+docker compose logs --since=5m app | grep -q '\[gateway\] ready' \
+  || { echo "app not ready"; exit 1; }
 
 # Send a Telegram ping to PO_ALERT_CHAT_ID confirming the rolled-back commit is live.
 curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
@@ -863,17 +1006,17 @@ curl -fsS -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" 
   -d text="⏮️ Rolled back to $LAST_GOOD_COMMIT — health checks passing"
 ```
 
-On-failure escalation: if any health check or `skill_ready` log line is missing after 60 seconds, *do not roll forward again automatically*. Instead, restore from `backups/pre-rollback-*.dump` (§10.5.3), send a `⚠️ Rollback failed — see VPS` Telegram alert, and page the PO. Never run a second `docker compose up` against an unknown state without operator review.
+On-failure escalation: if any health check or ready log line is missing after 60 seconds, *do not roll forward again automatically*. Instead, restore from `backups/pre-rollback-*.dump` (§10.5.3), send a `⚠️ Rollback failed — see VPS` Telegram alert, and page the PO. Never run a second `docker compose up` against an unknown state without operator review.
 
 #### 10.5.3 Database restore (required only if step 1.2 showed forward migrations damaged data)
-If database restore is required, stop user-facing skills first, restore from a known-good dump during a maintenance window, replay any right-to-delete requests recorded after the dump timestamp, then resume skills:
+If database restore is required, stop the user-facing app first, restore from a known-good dump during a maintenance window, replay any right-to-delete requests recorded after the dump timestamp, then resume the app:
 
 ```bash
-docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+docker compose stop app
 docker compose exec -T postgres dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"
 docker compose exec -T postgres createdb -U "$POSTGRES_USER" "$POSTGRES_DB"
 docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "backups/<known_good>.dump"
-docker compose up -d kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+docker compose up -d app
 ```
 
 After `pg_restore` completes, replay the audit log for any `event_type = right_to_delete_completed` events whose `created_at` is between the dump timestamp and the restore time — §9.5 requires deletion replay before the bot resumes serving users.
@@ -892,8 +1035,8 @@ df -h /
 
 #### 10.6.2 Stop, snapshot, transfer
 ```bash
-# 1. Quiesce user-facing skills on the OLD VPS (PostgreSQL stays up so we can dump).
-docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+# 1. Quiesce the user-facing app on the OLD VPS (PostgreSQL stays up so we can dump).
+docker compose stop app
 
 # 2. Snapshot Postgres in custom format and protect the dump file mode.
 mkdir -p backups
@@ -944,13 +1087,13 @@ curl -fsS "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getWebhookInfo"
 
 # 4. Send an end-to-end ping from PO Telegram — the bot must reply through C1 on the new VPS.
 #    Then confirm the new host's logs recorded the inbound update.
-ssh <new-vps> 'docker compose logs --since=2m kbju-telegram-entrypoint | grep telegram_update_received'
+ssh <new-vps> 'docker compose logs --since=2m app | grep telegram_update_received'
 ```
 
 #### 10.6.5 Migration validation checklist
 - [ ] `getWebhookInfo` returns `last_error_date: null` and the new URL.
 - [ ] PO ping in Telegram returns a Russian reply within 5 seconds.
-- [ ] New VPS `kbju-telegram-entrypoint` log shows `telegram_update_received` for the ping.
+- [ ] New VPS `app` log shows `telegram_update_received` for the ping.
 - [ ] `tenant_audit_runs` is empty or in a known consistent state on the new DB (§3.11 audit role still works).
 - [ ] Old VPS has been put into read-only mode (services stopped, port 443 closed) to prevent split-brain.
 
@@ -966,7 +1109,7 @@ TKT-015@0.1.0 is a focused hardening follow-up from TKT-004@0.1.0 closure and do
 
 - C1 unsupported-message handling: a Telegram `Message` that has no supported `text`, `voice`, or `photo` payload, including `sticker`, must not fall through silently and must not invoke meal/onboarding/history handlers. C1 sends `MSG_GENERIC_RECOVERY`, then emits route-unmatched telemetry with `outcome = unsupported_message_type` and bounded `extra.message_subtype` such as `sticker`.
 - C1 history-command routing: routing-only case normalization must use at most the first 256 characters of inbound text; the original unmodified `text` value remains available to downstream handlers.
-- C10 emit-boundary redaction: `emitLog` (or the final JSON-serialization boundary if renamed) reapplies the §8.1 allowlist/forbidden-field policy to event metadata immediately before calling `ctx.log`, so a producer that bypasses `redactPii` cannot serialize `meal_text`, usernames, raw transcripts, raw prompts, raw media markers, provider keys, or provider responses.
+- C10 emit-boundary redaction: `emitLog` (or the final JSON-serialization boundary if renamed) reapplies the §8.1 allowlist/forbidden-field policy to event metadata immediately before logger serialization, so a producer that bypasses `redactPii` cannot serialize `meal_text`, usernames, raw transcripts, raw prompts, raw media markers, provider keys, or provider responses.
 - C10 metrics bind guard: `createMetricsServer` rejects unspecified-address wildcards before `server.listen`, including `0.0.0.0`, `::`, and `[::]`; loopback (`127.0.0.1` / `::1`) and Docker-internal hostnames remain allowed.
 
 ## 11. Work Breakdown (tickets for Executor)
@@ -987,10 +1130,16 @@ TKT-015@0.1.0 is a focused hardening follow-up from TKT-004@0.1.0 closure and do
 | TKT-013@0.1.0 | Deployment Packaging | TKT-001@0.1.0, TKT-002@0.1.0, TKT-003@0.1.0 | glm-5.1 |
 | TKT-014@0.1.0 | Pilot KPI Smoke Suite | TKT-003@0.1.0, TKT-005@0.1.0, TKT-009@0.1.0, TKT-010@0.1.0, TKT-011@0.1.0, TKT-012@0.1.0, TKT-013@0.1.0 | qwen-3.6-plus |
 | TKT-015@0.1.0 | Observability Hardening | TKT-003@0.1.0, TKT-004@0.1.0 | glm-5.1 |
+| TKT-016@0.1.0 | Runnable Telegram Integration Layer | TKT-001@0.1.0, TKT-004@0.1.0, TKT-013@0.1.0, TKT-015@0.1.0 | codex-gpt-5.5 |
+| TKT-017@0.1.0 | Continuous Tenant Breach Detector | TKT-016@0.1.0 | codex-gpt-5.5 |
+| TKT-018@0.1.0 | Automated Model-Stall Detector | TKT-016@0.1.0 | codex-gpt-5.5 |
+| TKT-019@0.1.0 | PR-Agent CI Tail-Latency Telemetry | TKT-016@0.1.0 | glm-5.1 |
+| TKT-020@0.1.0 | Config-Driven Telegram Allowlist | TKT-016@0.1.0 | codex-gpt-5.5 |
 
 Execution notes:
 - The DAG is acyclic: TKT-001@0.1.0 seeds the scaffold; TKT-002@0.1.0 and TKT-003@0.1.0 establish the storage/observability base; user-facing flows layer on top; TKT-014@0.1.0 closes end-to-end readiness.
-- Executor mix: 11 GLM tickets, 2 Qwen tickets, 2 Codex tickets. Codex is reserved for RLS/deletion-critical work only.
+- Executor mix after v0.5.0: 12 GLM tickets, 2 Qwen tickets, 6 Codex tickets. Codex is used for TKT-016@0.1.0, TKT-017@0.1.0, TKT-018@0.1.0, and TKT-020@0.1.0 because boot/runtime wiring, tenant breach detection, model-call interception, and scalable access control are security- or runtime-critical; GLM remains appropriate for the deterministic PR-Agent CI timing wrapper in TKT-019@0.1.0.
+- TKT-016@0.1.0 blocks TKT-017@0.1.0 through TKT-020@0.1.0 because observability and scale tests are meaningless until the container has a runnable app entrypoint and mocked Telegram updates reach real handlers.
 
 ## 12. Risks & Open Questions
 - R1: KBJU estimates may miss ADR-005@0.1.0 proposed K7 bounds for mixed dishes and unweighed portions. Mitigation: confirmation/edit before persistence, K7 labelling sample, and accuracy target ratification at Phase 11.
@@ -999,8 +1148,17 @@ Execution notes:
 - R4: $10/month LLM+voice budget can be exceeded by repeated photo/voice experiments. Mitigation: C10 worst-case preflight cost accounting, monthly trend counter, degrade mode, and PO alert.
 - R5: Right-to-delete can conflict with backups and audit records. Mitigation: hard-delete user-scoped rows in live DB, cap pilot backup retention at 30 days, and require deletion replay before any restored backup goes live.
 - R6: PO-authored persona file may be missing or include wording that conflicts with PRD-001@0.2.0 NG6/NG7. Mitigation: C9 startup fails closed on missing `PERSONA_PATH`; ADR-006@0.1.0 validator blocks forbidden topics.
+- R7: Native OpenClaw plugin integration may be preferable later, but using it now could delay the deploy-blocker fix and accidentally route product events through generic agent turns. Mitigation: ADR-011@0.1.0 chooses raw grammY only for v0.1 runnable dispatch and requires a future ADR before native OpenClaw plugin/channel integration.
+- R8: Continuous breach detection can become a cross-tenant access path. Mitigation: C12 observes repository principal/reference pairs, emits counts and opaque IDs only, and TKT-017@0.1.0 must prove parity with the C11 K4 audit.
+- R9: Model-stall detection coverage depends on streaming/token hooks being available across routed and failover paths. Mitigation: C13 records coverage gaps explicitly and TKT-018@0.1.0 must prove >=95% coverage plus synthetic 120 s / 300 s / 600 s stall detection.
+- R10: PR-Agent CI telemetry may be unmeasurable if credentials/routing fail before the model call begins. Mitigation: C14 records invocation failures separately and extends the 10-successful-invocation measurement window per PRD-002@0.2.1 R9.
+- R11: A 10,000-entry allowlist can regress per-update latency if any path uses a linear scan or store round-trip. Mitigation: C15 requires a documented code-path audit before load tests and O(1) membership checks at every gate.
 - Q_TO_BUSINESS_1: At Phase 11 PR handoff, PO ratifies or revises the ADR-005@0.1.0 proposed K7 target: +/-25% calories and +/-30% macros per meal after correction opportunity; +/-15% daily calories and +/-20% daily macros on days with >=3 confirmed meals.
 - Q_TO_BUSINESS_2: Before deploying real pilot data, PO selects the durable-storage jurisdiction from ADR-007@0.1.0. Architecture recommendation is EU durable storage with transient remote inference unless PO chooses otherwise.
+- Q_TO_BUSINESS_3: PRD-002@0.2.1 §9 OQ-1 leaves the v0.2 product-runtime LLM cost envelope unrated. Default: existing per-call cost telemetry continues, no numeric ceiling is enforced, and no SDLC token-cost telemetry is added.
+- Q_TO_BUSINESS_4: PRD-002@0.2.1 §9 OQ-2 leaves telemetry retention open. Default: 90-day live retention, archive thereafter, auto-purge at 365 days.
+- Q_TO_BUSINESS_5: PRD-002@0.2.1 §9 OQ-3 leaves final K1/K2 thresholds for fallback configurations open. Default: K1 <=5 min p95 synchronous, <=15 min p95 sampling fallback, and K2 default 120 seconds configurable 60-600 seconds.
+- Q_TO_BUSINESS_6: PRD-002@0.2.1 §9 OQ-4 leaves NG10's relationship to future adaptive UX open. This ArchSpec preserves no per-user personality customization.
 
 ---
 
@@ -1019,3 +1177,7 @@ Execution notes:
 - [x] PERSONA-001-kbju-coach.md exists at `docs/personality/PERSONA-001-kbju-coach.md` (TKT-011@0.1.0 input)
 - [x] Privileged audit role `kbju_audit` (BYPASSRLS) defined in §9.2 with `AUDIT_DB_URL` secret in §9.1
 - [x] No contradiction between §3.11 / §9.5 / §5 schema on right-to-delete (hard-delete only; no `users.deleted_at`)
+- [x] ADR-011@0.1.0 records the OpenClaw integration-shape decision and chooses raw grammY for the runnable v0.1 adapter
+- [x] PRD-002@0.2.1 G1-G4 trace to C12-C15 and TKT-017@0.1.0 through TKT-020@0.1.0
+- [x] PRD-002@0.2.1 §3 NG9 SDLC token-cost telemetry is not introduced
+- [x] Boot-smoke test mandate covers `src/main.ts`, `src/index.ts`, `Dockerfile`, `docker-compose.yml`, `src/deployment/**`, and `src/telegram/entrypoint.ts`

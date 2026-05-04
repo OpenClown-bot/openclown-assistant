@@ -139,3 +139,24 @@ This is a one-directional pipeline (Devin Orchestrator → TO bootstrap → TO e
 **ArchSpec dependency:** None — this is process / prompt-level, not code/ArchSpec.
 
 **Status:** Open. Resolution = `docs/meta/devin-session-handoff.md` §11.3 update + `docs/prompts/ticket-orchestrator.md` § Operational Notes capture protocol addition, both landing in this closure-PR with PO authorisation recorded verbatim per `CONTRIBUTING.md` row 23.
+
+## TKT-NEW-mocked-end-to-end-smoke-tests-false-confidence-process-retro
+
+**Source:** Devin Orchestrator process-retro on PO empirical deployment attempt 2026-05-04. Cross-references `docs/backlog/deployment-followups.md §TKT-NEW-v0.1-runnable-entrypoint-missing-CRITICAL` and `§TKT-NEW-openclaw-runtime-shape-recon-CRITICAL`. PO authorisation (verbatim, chat 2026-05-04): «решай сам, выбери оптимальный вариант, я не очень понимаю» (responding to the Devin Orchestrator's offer to capture this retrospective alongside the two CRITICAL deployment-followup entries).
+
+**The issue:** Five Ticket Orchestrator pilots (TKT-010 through TKT-014) closed end-to-end with all required gates green: Reviewer Kimi K2.6 + Qodo PR-Agent + Ticket Orchestrator audit pass-1 + Devin Orchestrator ratification audit pass-2 + `python3 scripts/validate_docs.py` + Vitest unit tests + `tsc --noEmit` lint/typecheck. At least one of the 5 pilots (TKT-014 Pilot KPI Smoke Suite) was explicitly intended to deliver an end-to-end smoke harness that would catch deployment-time regressions. None of the 15+ closure-audit gates flagged the absence of a runnable boot path on `main`, because the pilot-readiness smoke suite (`src/pilot/pilotReadinessReport.ts`, `tests/pilot/*.test.ts`) is **mocked at every external boundary** — mock Telegram client, mock OmniRoute provider, mock Postgres pool, mock OpenClaw context — and asserts only that the **modules** imported from `dist/...` behave correctly under those mocks. There is no test (or CI step, or runbook step) that builds a container from `Dockerfile`, starts it via `docker compose up`, and asserts the process stays alive long enough to receive at least one external signal (e.g. a `getMe` round-trip on the Telegram API, or a structured `[gateway] ready` log line).
+
+This is a **structural false-confidence pattern**: «green CI + green Reviewer + green TO + green DO ratification» does not imply «v0.1 product is deployable», because the audit surface and the deploy surface intersect only at the file-existence and type-correctness layer, not at the process-startup or runtime-integration layer.
+
+**Proposed fix shape (Architect Phase-0 Recon to formalise in ARCH-001 v0.5.0 §11 Test Strategy as part of the Option A combined dispatch authorised by PO chat 2026-05-04 «1. А»):**
+
+1. Mandate at least one **boot smoke test** that builds the container, starts the process, and asserts a runtime-level success signal (e.g. structured log line `[gateway] ready` AND a mocked Telegram update reaches a real handler call). This test belongs in `tests/deployment/` (extending the existing TKT-013 `compose.test.ts` pattern) or in a new `tests/integration/` directory.
+2. Update `docs/prompts/ticket-orchestrator.md` § cross-reviewer audit checklist to include «Did at least one test in this Ticket scope start the application process?» as a gate item for any TKT touching `src/main.ts`, `src/index.ts`, `Dockerfile`, `docker-compose.yml`, `src/deployment/**`, or `src/telegram/entrypoint.ts`.
+3. Update `docs/meta/devin-session-handoff.md` § cross-reviewer ratification audit checklist to mirror the TO checklist addition.
+4. Update `docs/meta/po-self-testing-guide.md` §1 to reference an `npm run smoke` (or equivalent) shortcut that PO can execute pre-deploy on `main` HEAD.
+
+**Severity:** Medium-process. Does not affect any in-flight code; lands as a prompt + ArchSpec + handoff-doc update batch in the next cycle. The retro insight applies retroactively to all 5 closed v0.1 TO pilots and forward to all v0.2 TO pilots.
+
+**ArchSpec dependency:** ARCH-001 v0.5.0 §11 Test Strategy expansion in the Architect dispatch authorised by PO chat 2026-05-04 («Option A combined ArchSpec»). Resolution co-lands with `§TKT-NEW-v0.1-runnable-entrypoint-missing-CRITICAL` and `§TKT-NEW-openclaw-runtime-shape-recon-CRITICAL` in `docs/backlog/deployment-followups.md`.
+
+**Status:** Open.
