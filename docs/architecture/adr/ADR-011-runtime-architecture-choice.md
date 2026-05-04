@@ -1,0 +1,75 @@
+---
+id: ADR-011
+title: "Runtime architecture choice — OpenClaw hybrid gateway and KBJU sidecar"
+version: 0.1.0
+status: proposed
+arch_ref: ARCH-001@0.5.0
+prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
+author_model: "claude-opus-4.7-thinking"
+reviewer_models:
+  - "kimi-k2.6"
+review_refs: []
+source_inputs:
+  - "PR-A rejected for load-bearing integration; retained boot-path evidence"
+  - "PR-B HYBRID gateway+sidecar+HTTP bridge"
+  - "PR-C HYBRID Option E with alternatives comparison"
+created: 2026-05-04
+updated: 2026-05-04
+approved_at: null
+approved_by: null
+supersedes: null
+superseded_by: null
+---
+
+# ADR-011: Runtime architecture choice (5 alternatives evaluated)
+
+## 0. Recon Report
+
+Empirical evaluation of OpenClaw (incumbent TypeScript/Node 24 gateway) + 5 alternatives:
+hermes-agent (Python 3.11, `delegate_tool.py:1836-1878`), nanobot (Python 3.11, `agent/subagent.py:1-47`),
+picoclaw (Go 1.25, `subturn.go:1-50`), zeroclaw (Rust 1.87, `stall_watchdog.rs:29-124`, `skill_http.rs:90`),
+ironclaw (Rust, `registry.rs:1-41`, `router.rs:293-633`).
+
+All alternatives are actively maintained (last push 2026-05-04), large communities (12k–132k stars),
+but in incompatible languages — none is TypeScript/Node 24.
+
+## 1. Decision
+
+**Chosen: HYBRID (Option E) — OpenClaw Gateway + KBJU sidecar Node 24 process bridged via HTTP.** Source: PR-B and PR-C independently chose this topology; PR-C is the canonical base because it evaluated OpenClaw plus five alternatives. PR-A raw grammY is rejected for load-bearing integration because it fails the PO keep-OpenClaw constraint, but its boot-path evidence is retained in TKT-016@0.1.0.
+
+OpenClaw Gateway retains Telegram channel, agent orchestration, cron triggers, voice-call surface,
+and model failover. KBJU business logic runs as a separate Node 24 sidecar process, bridged via HTTP
+(`POST /kbju/message`, `/kbju/callback`, `/kbju/cron`, `GET /kbju/health`). Zero source-code rewrite
+cost on existing 15 merged tickets — the sidecar reuses `src/` modules directly with a new `src/main.ts` HTTP entrypoint compiled to `dist/src/main.js` under the current `tsconfig.json` rootDir.
+
+## 2. Options evaluated
+
+| Option | Description | Verdict | Rationale |
+|---|---|---|---|
+| A: Pure replacement | Adopt hermes-agent as sole runtime | **Rejected** | Python → TypeScript mismatch. Would require rewriting 15 merged tickets (≈3,500 lines). hermes-agent Telegram adapter is a different abstraction model (agent-centric vs skill-centric). |
+| B: Pure replacement (nanobot) | Adopt nanobot as sole runtime | **Rejected** | Same Python mismatch + nanobot's `WebSocketChannel` is simpler but lacks OpenClaw's built-in sandbox, voice wake-word, cron-tools. |
+| C: Mesh | Run OpenClaw + nanobot/hermes-agent simultaneously, cross-routing | **Rejected** | Cross-runtime contracts don't exist out-of-the-box in any alternative. Double operational surface. Each subagent still needs a custom bridge — same work as HYBRID but with 3x complexity. |
+| D: Keep OpenClaw-only, extend internally | Same architecture as v0.4.0, no sidecar | **Rejected** | Architect-2 already covering this path. Does not exploit alternatives-learned patterns (subagent delegation, stall_watchdog, skill registry). Misses the sidecar isolation benefit for G1 breach detection. |
+| E: HYBRID gateway + sidecar | OpenClaw gateway + KBJU sidecar via HTTP | **Chosen** | Preserves OpenClaw's proven Telegram infrastructure. Sidecar boundary creates a natural isolation point for G1 breach detection (C12) and G2 stall watchdog (C13). HTTP bridge contract is simple, versioned, and inspectable. |
+
+## 3. Consequences
+
+**Positive:**
+- Zero rewrite cost on 15 merged tickets (sidecar imports `src/` modules from same repo)
+- Sidecar process boundary enforces G1 tenant isolation at HTTP edge (not just data-layer RLS)
+- bridge contract is versioned independently of OpenClaw's internal plugin API
+- Staged rollout possible: deploy sidecar alongside monolith, toggle via config
+
+**Negative:**
+- Adds ~10–50 ms HTTP bridge latency (mitigated by internal Docker network, localhost-level)
+- Sidecar lifecycle management (Docker Compose `restart: unless-stopped`, health check gate)
+- Cross-process error handling (bridge returns generic recovery via OpenClaw if sidecar unavailable)
+
+## 4. Alternatives-learned patterns used
+
+| Pattern | Source | Applied in |
+|---|---|---|
+| Subagent HTTP delegation contract | hermes-agent `delegate_tool.py:1836-1878` (`goal+context+toolsets`) | KBJU sidecar `/kbju/message` request schema |
+| Subagent status lifecycle | nanobot `agent/subagent.py:1-47` (`initializing|awaiting_tools|...`) | Sidecar health check + callback status |
+| Stall watchdog algorithm | zeroclaw `stall_watchdog.rs:29-124` (AtomicU64 + background Tokio task) | Ported to TypeScript middleware in C13 |
+| Skill registry discovery | ironclaw `registry.rs:1-41` (workspace/user/installed/bundled, max 100) | Future KBJU skill composition (deferred) |
