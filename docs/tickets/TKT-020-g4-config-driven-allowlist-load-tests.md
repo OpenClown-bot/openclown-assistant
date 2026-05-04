@@ -6,6 +6,7 @@ status: draft
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "deepseek-v4-pro"
+assigned_executor: "deepseek-v4-pro"
 created: 2026-05-04
 updated: 2026-05-04
 ---
@@ -15,7 +16,7 @@ updated: 2026-05-04
 ## Scope
 
 PRD-002@0.2.1 §2 G4 requires the existing env-var allowlist (`TELEGRAM_PILOT_USER_IDS`) to be replaced
-with a hot-reloadable, scale-ready mechanism (ADR-013: JSON config file + in-memory `Set<number>` +
+with a hot-reloadable, scale-ready mechanism (ADR-013@0.1.0: JSON config file + in-memory `Set<number>` +
 `fs.watchFile` reload). This ticket builds C15 and validates it with load tests up to 10k users.
 
 ## Acceptance Criteria

@@ -6,6 +6,7 @@ status: draft
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "deepseek-v4-pro"
+assigned_executor: "deepseek-v4-pro"
 created: 2026-05-04
 updated: 2026-05-04
 ---
@@ -16,7 +17,7 @@ updated: 2026-05-04
 
 PRD-002@0.2.1 §2 G2 requires automated model-stall detection (motivated by BACKLOG-009 Qwen 3.6 Plus
 5-of-5 cancellation). This ticket builds C13, the per-call streaming token watchdog middleware
-(ADR-012, algorithm forked from zeroclaw `stall_watchdog.rs:29-124`).
+(ADR-012@0.1.0, algorithm forked from zeroclaw `stall_watchdog.rs:29-124`).
 
 ## Acceptance Criteria
 
