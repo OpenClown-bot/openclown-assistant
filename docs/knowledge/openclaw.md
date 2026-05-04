@@ -62,4 +62,64 @@ These are exactly the components we audit `awesome-skills.md` for fork-candidate
 
 ## Known gotchas (cite a source before adding to this list)
 
-- *(empty — append entries with citation as we hit them in development)*
+### Architect-3 empirical findings (v0.5.0 alternatives-design, 2026-05-04)
+
+**G1: No built-in subagent delegation or external HTTP routing from Telegram handler.**
+OpenClaw's skill anatomy (^ §Skill anatomy) routes Telegram updates to a single skill's `handle()` method.
+There is no documented pattern for a skill to POST to an external HTTP endpoint and await a response
+mid-handler. The HYBRID architecture (ADR-011) requires building a custom bridge adapter within the
+OpenClaw Gateway's ChannelPlugin adapter — this is unproven on the openclaw runtime.
+Source: openclaw.md §Skill anatomy (`handle(input, ctx)` interface); §Hard constraints ("No long-running
+daemons inside a skill").
+
+**G2: Skills are stateless across calls — sidecar process boundary is a separate concern.**
+openclaw sandbox per skill (^ §What openclaw closes) provides process isolation at the skill level,
+but does NOT provide HTTP-server lifecycle management for a sidecar process. Docker Compose must
+manage the KBJU sidecar as a separate service (ADR-011 §4).
+Source: openclaw.md:24 "Each skill runs in a sandboxed Node 24 process" — sandbox is per-skill invocation,
+not per-HTTP-server.
+
+**G3: `ctx.log` vs `console.log` — observability hooks require the former.**
+The KBJU sidecar, running outside openclaw's sandbox, cannot use `ctx.log`. Structured JSON logging
+to stdout (captured by Docker logging driver) is the equivalent pattern for the sidecar.
+Source: openclaw.md:48 "Logs are emitted via `ctx.log`, not `console.log`."
+
+**G4: Cron triggers are openclaw-internal (`cron-tools` plugin) — sidecar cron must route through Gateway.**
+KBJU sidecar daily summaries are triggered by OpenClaw Gateway POSTing to `/kbju/cron` on schedule,
+not by the sidecar's own cron. Sidecar has no direct Telegram Bot API access.
+Source: openclaw.md:26 "`cron-tools` plugin for periodic skill invocation."
+
+### HTTP Bridge Contract (designed by Architect-3, ADR-011)
+
+The KBJU sidecar exposes four endpoints on an internal Docker network:
+
+- `POST /kbju/message` — primary endpoint. Accepts `{telegram_id, text, source, message_id, chat_id}`, returns `{reply_text, needs_confirmation, reply_to_message_id}`. Error codes: 400 (invalid), 403 (not allowed), 500 (internal), 503 (degraded).
+- `POST /kbju/callback` — async callback handler. Accepts `{callback_data, telegram_id, message_id}`, returns `{reply_text, edit_message_id}`.
+- `POST /kbju/cron` — cron trigger endpoint. Accepts `{trigger, timezone}`, returns `{summary_sent_to, skipped_count}`.
+- `GET /kbju/health` — health check. Returns `{status, uptime_seconds, tenant_count, breach_count_last_hour, stall_count_last_hour}`.
+
+All endpoints include header `X-Kbju-Bridge-Version: 1.0`. Versioning is independent of openclaw's internal plugin API.
+
+### Subagent-Delegation Pattern (forked from hermes-agent)
+
+Source: hermes-agent `delegate_tool.py:1836-1878` (thread-pool children with `goal+context+toolsets` contract).
+
+Forked into KBJU sidecar as: the `POST /kbju/message` JSON body is the delegation contract —
+`telegram_id` = identity, `text` = goal+context, `source` = capability selector. The sidecar internally
+routes to C4 (meal logging) / C2 (onboarding) / C8 (history) / C9 (summary) based on `source` +
+message content. Subagent status tracking (`initializing|awaiting_llm|final_response|done|error`)
+is derived from nanobot's `SubagentManager` status phases (`agent/subagent.py:1-47`).
+
+### Model-Stall Algorithm (forked from zeroclaw)
+
+Source: zeroclaw `stall_watchdog.rs:29-124` (AtomicU64 timestamp + background Tokio task polling at
+`timeout/2` + callback on stall).
+
+Ported to TypeScript as C13 StallWatchdog middleware (ADR-012):
+- `lastTokenAt = Date.now()` — equivalent to `AtomicU64.touch()`
+- `setInterval(STALL_THRESHOLD_MS / 2, checkStall)` — equivalent to background Tokio task
+- On stall: `AbortController.abort()` + fallback to OpenClaw's primary provider (GPT-5.3 via OmniRoute)
+
+The Rust impl monitors channel transport stalls (Discord websocket keepalive, `discord.rs:1060-1084`).
+The TypeScript port monitors LLM call token velocity — a different abstraction layer but same algorithmic
+pattern.
