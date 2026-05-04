@@ -1,11 +1,13 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1"
-version: 0.4.0
-status: approved
-prd_ref: PRD-001@0.2.0
+version: 0.5.0
+status: in_review
+prd_ref:
+  - PRD-001@0.2.0
+  - PRD-002@0.2.1
 owner: "@OpenClown-bot"
-author_model: "gpt-5.5-thinking"
+author_model: "deepseek-v4-pro"
 reviewer_models:
   - "kimi-k2.6"
 review_refs:
@@ -14,10 +16,18 @@ review_refs:
   - RV-SPEC-004@0.1.0
   - RV-SPEC-005@0.1.0
 created: 2026-04-26
-updated: 2026-04-30
-approved_at: 2026-04-30
-approved_by: "yourmomsenpai (PO)"
+updated: 2026-05-04
+approved_at: null
+approved_by: null
 changelog:
+  - version: 0.5.0
+    date: 2026-05-04
+    changes:
+      - "ADR-011@0.1.0 (HYBRID OpenClaw integration): OpenClaw Gateway retains Telegram channel + agent orchestration + cron triggers; KBJU business logic runs as sidecar Node 24 process bridged via HTTP (POST /kbju/message, /kbju/callback, /kbju/cron, GET /kbju/health). Defined: process topology, bridge contract, KBJU sidecar boot entry point src/main.ts, Dockerfile multi-stage CMD fix, Docker Compose service topology."
+      - "ADR-012@0.1.0 (model-stall detection): Streaming token-watchdog on every LLM-router call; 120s default per-role configurable threshold; stall event emission within ≤15s; PO Telegram alert with call_id, role, elapsed time, prompt-token count; synthetic stall tests at 120/300/600s; stale-response discard handler (§4.9)."
+      - "ADR-013@0.1.0 (scale-ready allowlist): JSON config file + in-memory Set + file-watch reload replacing static TELEGRAM_PILOT_USER_IDS env var; O(1) membership check; ≤30s propagation; load-test gates at N=2/10/100/1000/10000 with code-path audit blocking each gate (§4.10)."
+      - "New C10 sub-components: C10b Tenant-Isolation Breach Detector, C10c Model-Stall Watchdog, C10d Allowlist Reload Service."
+      - "§1 trace matrix extended with PRD-002@0.2.1 G1–G4 rows; §2 architecture overview updated to HYBRID topology; §5 pseudo-schemas extended with breach_events, stall_events; §8.2 metrics added kbju_tenant_breach_detected, kbju_llm_call_stalled, kbju_allowlist_reload/reject/blocked; §9 env vars added PO_ALERT_CHAT_ID, STALL_THRESHOLD_MS_*; TELEGRAM_PILOT_USER_IDS deprecated; §10 risk register added R12–R15."
   - version: 0.4.0
     date: 2026-04-30
     changes:
@@ -58,6 +68,9 @@ adrs:
   - ADR-008@0.1.0
   - ADR-009@0.1.0
   - ADR-010@0.1.0
+  - ADR-011@0.1.0
+  - ADR-012@0.1.0
+  - ADR-013@0.1.0
 tickets:
   - TKT-001@0.1.0
   - TKT-002@0.1.0
@@ -74,6 +87,11 @@ tickets:
   - TKT-013@0.1.0
   - TKT-014@0.1.0
   - TKT-015@0.1.0
+  - TKT-016@0.1.0
+  - TKT-017@0.1.0
+  - TKT-018@0.1.0
+  - TKT-019@0.1.0
+  - TKT-020@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -222,34 +240,39 @@ Does NOT implement: PRD-001@0.2.0 §3 Non-Goals.
 | PRD-001@0.2.0 §6 K5 | Monthly LLM + voice-transcription spend and auto-degrade evidence. | C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider; C9 Summary Recommendation Service; C10 Cost, Degrade, and Observability Service |
 | PRD-001@0.2.0 §6 K6 | Weekly retention: both pilot users active ≥7/7 days/week for 4 weeks. | C3 Tenant-Scoped Store; C4 Meal Logging Orchestrator; C10 Cost, Degrade, and Observability Service |
 | PRD-001@0.2.0 §6 K7 | KBJU estimation accuracy target, to be proposed after Phase 5-6 feasibility analysis. | C6 KBJU Estimator; C7 Photo Recognition Provider; C10 Cost, Degrade, and Observability Service |
+| PRD-002@0.2.1 §2 G1 | Continuous tenant-isolation breach detection (automatic cross-user reference scan, breach_events table, PO_ALERT_CHAT_ID alert). | C1; C3; C10; C10b Tenant-Isolation Breach Detector |
+| PRD-002@0.2.1 §2 G2 | Automated model-stall detection (120 s default, per-role configurable, streaming token-watchdog, stall_events table, PO Telegram alert). | C5; C6; C7; C9; C10; C10c Model-Stall Watchdog |
+| PRD-002@0.2.1 §2 G3 | Empirical PR-Agent CI tail-latency validation (GPT-5.3 Codex 4-phase load-test metrics, CI-side Prometheus scrape). | C10 |
+| PRD-002@0.2.1 §2 G4 | Scale-ready config-driven allowlist (config/allowlist.json, in-memory Set, file-watch reload ≤30 s, load-tests at N = 2/10/100/1 000/10 000 with code-path audit gates). | C1; C10d Allowlist Reload Service |
 
 Every PRD Goal MUST appear. Every component MUST trace back to ≥1 PRD row.
 
 ## 2. Architecture Overview
 
-OpenClaw owns Telegram transport, sandboxing, cron dispatch, secret injection, and LLM provider failover. The KBJU Coach implementation is split into cohesive TypeScript skills plus shared modules so meal logging, onboarding, summaries, and privacy/history operations can evolve independently without a single all-purpose skill.
+OpenClaw Gateway owns Telegram transport, sandboxing, cron dispatch, secret injection, and LLM provider failover. The KBJU Coach sidecar process (ADR-011@0.1.0 HYBRID topology) runs as a separate Node 24 process bridged to the gateway via HTTP (`POST /kbju/message`, `/kbju/callback`, `/kbju/cron`, `GET /kbju/health`).
 
-Skill mapping:
+Module mapping:
 
-| OpenClaw skill / module | Components |
+| Module | Components |
 |---|---|
-| `kbju-telegram-entrypoint` skill | C1 Access-Controlled Telegram Entrypoint |
-| `kbju-onboarding` skill | C2 Onboarding and Target Calculator |
-| `kbju-meal-logging` skill | C4 Meal Logging Orchestrator; C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider |
-| `kbju-history-privacy` skill | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
-| `kbju-summary` skill | C9 Summary Recommendation Service |
-| shared runtime modules | C3 Tenant-Scoped Store; C10 Cost, Degrade, and Observability Service |
+| `src/main.ts` (boot entry point) | C1Deps factory, HTTP server dispatching to routeMessage/routeCallbackQuery/routeCronEvent |
+| `src/onboarding/` | C2 Onboarding and Target Calculator |
+| `src/meals/` | C4 Meal Logging Orchestrator; C5 Voice Transcription Provider; C6 KBJU Estimator; C7 Photo Recognition Provider |
+| `src/history/` | C8 History Mutation Service; C11 Right-to-Delete and Tenant Audit Service |
+| `src/summaries/` | C9 Summary Recommendation Service |
+| `src/observability/` | C10 Cost, Degrade, and Observability Service; C10b Tenant-Isolation Breach Detector; C10c Model-Stall Watchdog; C10d Allowlist Reload Service |
+| shared modules | C3 Tenant-Scoped Store |
 
-All LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; skill business logic never reads raw provider keys. Persistent records are user_id scoped from day 1, with static Telegram access control (`TELEGRAM_PILOT_USER_IDS`) as a separate outer layer.
+All LLM calls go through OmniRoute first, with direct provider keys available only to the runtime failover path; skill business logic never reads raw provider keys. Persistent records are `user_id`-scoped from day 1, with config-driven access control (`config/allowlist.json` + in-memory Set, per ADR-013@0.1.0) replacing the static `TELEGRAM_PILOT_USER_IDS` env var.
 
 ```mermaid
 graph LR
-  A[Telegram update or callback] --> B[C1 kbju-telegram-entrypoint]
+  A[Telegram update via OpenClaw Gateway bridge adapter] --> B[C1 Access-Controlled Entrypoint in KBJU sidecar]
   B --> C[C2 onboarding]
   B --> D[C4 meal logging]
   B --> E[C8 history]
   B --> F[C11 delete and audit]
-  G[OpenClaw cron] --> H[C9 summaries]
+  G[OpenClaw cron via bridge /kbju/cron] --> H[C9 summaries]
   D --> I[C5 voice transcription]
   D --> J[C7 photo recognition]
   D --> K[C6 KBJU estimator]
@@ -265,6 +288,17 @@ graph LR
   C --> P[C10 cost and observability]
   D --> P
   H --> P
+  B --> Q[C10b breach detector]
+  B --> R[C10d allowlist]
+  K --> S[C10c stall watchdog]
+```
+
+### 2.1 Key constraints
+
+- **OpenClaw load-bearing** (PO directive): Gateway MUST own Telegram channel, agent orchestration, cron triggers, voice-call, and phone-control surfaces. KBJU sidecar only owns business logic — it never calls Telegram Bot API directly.
+- **Bridge contract stability**: The HTTP bridge API (`/kbju/message`, `/kbju/callback`, `/kbju/cron`, `/kbju/health`) is versioned by this ArchSpec, not by OpenClaw's internal plugin API. OpenClaw upgrades do not break the bridge.
+- **Access control**: Two-layer — (a) bridge adapter only forwards allowlisted Telegram user IDs (config/allowlist.json → Set lookup), (b) C1 redundantly checks allowlist before dispatching to handlers.
+- **No durable message queue**: If KBJU sidecar is down, messages are lost (bridge returns generic recovery via OpenClaw). Durable queue is a future PRD concern. Consistent with PRD-002@0.2.1 NG constraints.
   I --> P
   J --> P
   K --> P
@@ -351,6 +385,30 @@ graph LR
 - State: Metrics/cost counters in C3 or runtime metrics sink selected in Phase 7; no raw prompts, raw audio, or raw photos in logs.
 - Failure modes: unknown cost event uses worst-case configured price until billing reconciliation; budget over trend enables cheaper model and/or optional lookup skip; metrics write failure never blocks user reply but raises an alert; malformed event is dropped with schema error metric; concurrent spend updates use atomic increments; provider-key or raw-prompt leakage in logs is treated as a security bug.
 
+### 3.10b C10b Tenant-Isolation Breach Detector
+- Responsibility: Run continuous cross-user reference scans over all user-owned tables; emit `breach_events` row and PO Telegram alert via `PO_ALERT_CHAT_ID` on any detected cross-user reference. Closes PRD-002@0.2.1 G1.
+- Inputs: C3 database connection; run interval (default 3600 s = hourly); PO alert chat ID.
+- Outputs: `breach_events` table rows per detected breach; PO alert with table name, column, and reference counts (no user payloads).
+- LLM usage: none.
+- State: `breach_events` table (§5) — durable audit trail of all detected breaches. Detector self-monitors via C10 health metric; failed scan emits a C10 error event.
+- Design decisions: ADR-001@0.1.0 RLS is the primary isolation guarantee; C10b is a **detection overlay**, not a replacement. Breach detection does NOT block user traffic — it is an alert-only mechanism. If RLS fails and C10b also fails, both failures compound — the only recourse is end-of-pilot K4 audit. The hourly scan interval is a trade-off: lower interval = faster detection but higher DB load; hourly balances the PRD-002@0.2.1 §7 constraint of not adding excessive steady-state overhead.
+
+### 3.10c C10c Model-Stall Watchdog
+- Responsibility: Attach a streaming token-watchdog timer to every LLM-router call; emit `stall_events` row and PO Telegram alert when no token output arrives within `STALL_THRESHOLD_MS` (default 120000). Closes PRD-002@0.2.1 G2.
+- Inputs: LLM-router call stream (`llmRouter.call()`); threshold configuration (`STALL_THRESHOLD_MS_TEXT_LLM`, `STALL_THRESHOLD_MS_VISION_LLM`, `STALL_THRESHOLD_MS_TRANSCRIPTION`); PO alert chat ID.
+- Outputs: `stall_events` table row per stall episode; PO alert with call_id, role, elapsed time, prompt-token count. Stale response discard when model recovers after stall threshold.
+- LLM usage: none.
+- State: `stall_events` table (§5). In-memory `request_id` dedup set (5-min TTL) preventing duplicate alerts for the same stall episode.
+- Design decisions: Per ADR-012@0.1.0 — streaming token-watchdog with Promise-race fallback for batch calls. Per-role configurable thresholds. Watchdog resets on every stream data chunk; fires on zero inter-token output. Overhead ~0.1–0.5 ms per LLM call.
+
+### 3.10d C10d Allowlist Reload Service
+- Responsibility: Parse `config/allowlist.json` at startup into an in-memory `Set<string>`; watch file for changes via `fs.watch` (or polling fallback every 5 s); atomically reload Set on file modification. Expose `AllowlistChecker` interface to C1. Closes PRD-002@0.2.1 G4.
+- Inputs: `config/allowlist.json` file path (volume-mounted); env var `TELEGRAM_PILOT_USER_IDS` (deprecated fallback).
+- Outputs: `AllowlistChecker.isAllowed(telegramUserId)` → `boolean` (O(1) Set.has); `getCount()` → `number`; `getVersion()` → `number`. Reload events logged (`allowlist_reloaded`, `allowlist_reload_failed`).
+- LLM usage: none.
+- State: In-memory `Set<string>` (~200 KiB at N = 10000). File-watch handle. No database table — allowlist is file-based (ADR-013@0.1.0).
+- Design decisions: JSON config file over PostgreSQL table or Redis (ADR-013@0.1.0 Option A). Fail-safe parser: on parse failure, retain last valid Set. Deprecates `TELEGRAM_PILOT_USER_IDS` env var but retains compatibility path at startup.
+
 ### 3.11 C11 Right-to-Delete and Tenant Audit Service
 - Responsibility: Permanently delete all records for one user on confirmed `/forget_me` flow and provide the end-of-pilot tenant-isolation audit query.
 - Inputs: `/forget_me` or natural-language deletion intent from C1; single yes/no confirmation; `user_id`; audit-run request after pilot.
@@ -424,6 +482,31 @@ If pilot scope informally expands beyond 2 users before any subscription/billing
 3. If even degraded calls would still exceed the ceiling, **new** model-backed requests fail open to manual KBJU entry for *every* user (no fail-closed for new users). The bot continues to operate at reduced quality — it never refuses a logged-in pilot user simply because someone else exhausted the budget.
 4. The PO alert (§4.8 step 4) explicitly states observed user count and projected overrun, so the PO either (a) raises the cap with an ADR amendment, (b) pauses new-user onboarding via `TELEGRAM_PILOT_USER_IDS`, or (c) ships the subscription/billing capability as a follow-on PRD.
 5. Until any of (a)–(c) ships, the budget counter resets at the start of each calendar month (UTC) and degrade mode auto-clears, so service quality returns gradually rather than abruptly.
+
+### 4.9 Model-stall detection flow
+Per ADR-012@0.1.0 — streaming token-watchdog wrapping every `llmRouter.call()` invocation:
+
+1. C5/C6/C7/C9 initiates an LLM call through `llmRouter.call()`. C10c attaches a watchdog timer that starts at `Date.now()` and resets on every stream data chunk received from the provider.
+2. If no data chunk arrives within `STALL_THRESHOLD_MS` (default 120000, per-role configurable via `STALL_THRESHOLD_MS_TEXT_LLM` / `STALL_THRESHOLD_MS_VISION_LLM` / `STALL_THRESHOLD_MS_TRANSCRIPTION`):
+   a. C10c emits a `stall_events` row with `event_name = "llm_call_stalled"`, call_role, elapsed_ms, prompt_token_count, provider_alias, model_alias.
+   b. C10 sends a Telegram alert to `PO_ALERT_CHAT_ID` (via bridge adapter → OpenClaw outbound), containing call_id, role, elapsed time, prompt-token count, and provider/model alias. No raw prompt text, no user context beyond opaque `user_id`.
+   c. Alert is deduplicated by `request_id` within a 5-minute in-memory window.
+3. If the underlying LLM call later recovers and produces a response:
+   a. C10c checks `Date.now() - callStartedAt > STALL_THRESHOLD_MS`.
+   b. If stale: discard the LLM response, log `stale_response_discarded`. If the user-facing flow was already handled (manual fallback), silently discard.
+4. For non-streaming (batch) calls: watchdog degrades to fixed timeout at `requestSentAt + STALL_THRESHOLD_MS`.
+5. Synthetic stall test harness covers stalls at 120/300/600 s with Promise-never-resolve and delayed-recovery patterns.
+
+### 4.10 Allowlist management flow
+Per ADR-013@0.1.0 — config-driven JSON-file allowlist:
+
+1. **Startup**: C10d reads `config/allowlist.json`, validates structure (must have `version: number`, `telegram_user_ids: string[]`), parses into `Set<string>`, logs `allowlist_loaded` with count and version.
+2. **Fallback**: If file missing, falls back to `TELEGRAM_PILOT_USER_IDS` env var (comma-separated). If both absent, startup fails with clear error.
+3. **Reload**: C10d sets up `fs.watch` on file path. On `change` event: debounce 500 ms, re-parse, validate (version must be > previous), atomically swap Set reference (`allowlistSet = new Set(...)`), log `allowlist_reloaded`.
+4. **Polling fallback**: If `fs.watch` is unreliable on the target filesystem (Docker overlay2 on ext4): `setInterval(reloadIfModified, 5000)` checking `fs.stat.mtime`. Maximum propagation latency: 5.5 s (5 s poll + 0.5 s debounce + 5 ms parse), well within ≤30 s target.
+5. **Access check**: C1 calls `deps.allowlist.isAllowed(telegramUserId)` → `Set.has(String(telegramUserId))` (O(1), ~0.1 µs). Non-allowlisted users receive no response; the bridge adapter silently drops the update before forwarding.
+6. **Revocation**: Removing a user from `config/allowlist.json` takes effect on next reload (≤30 s). The user cannot send `/forget_me` while revoked — PO must re-add them temporarily to allow deletion.
+7. **Load-test gates**: At N = 2/10/100/1 000/10 000, benchmark Set.has throughput, JSON.parse + Set construction time, file size. Each gate blocks further user-count growth. A code-path audit document must be published and Reviewer-signed before each load-test run.
 
 ## 5. Data Model / Schemas (declarative — no runnable code)
 ```yaml
@@ -659,6 +742,31 @@ kbju_accuracy_labels:
   carbs_error_pct: decimal
   notes: string_optional
   created_at: timestamptz
+
+breach_events:
+  id: uuid
+  scan_run_id: uuid
+  scan_interval_start: timestamptz
+  scan_interval_end: timestamptz
+  source_table: string
+  source_column: string
+  cross_user_reference_count: integer
+  findings: json_array_without_user_payloads
+  po_alert_sent: boolean
+  created_at: timestamptz
+
+stall_events:
+  id: uuid
+  request_id: string
+  call_role: enum[text_llm, vision_llm, transcription]
+  provider_alias: string
+  model_alias: string
+  elapsed_ms: integer
+  threshold_ms: integer
+  prompt_token_count: integer
+  po_alert_sent: boolean
+  stale_response_discarded: boolean_optional
+  created_at: timestamptz
 ```
 
 Schema invariants:
@@ -702,12 +810,15 @@ Interface sources:
 - Data hosting jurisdiction shortlist: recommend EU durable storage with transient remote inference; PO selection remains open until ratified — `ADR-007@0.1.0`.
 - Deployment: portable Docker Compose on the VPS with named volumes and no host-path/systemd dependency — `ADR-008@0.1.0`.
 - Observability: local structured JSON logs, durable PostgreSQL pilot metric tables, and loopback-only metrics endpoint — `ADR-009@0.1.0`.
+- OpenClaw integration shape: HYBRID topology — OpenClaw Gateway + KBJU sidecar process bridged via HTTP — `ADR-011@0.1.0`.
+- Model-stall detection: streaming token-watchdog with per-role configurable thresholds (120 s default) — `ADR-012@0.1.0`.
+- Scale-ready allowlist: JSON config file + in-memory Set + file-watch reload, load-test gates at N = 2/10/100/1 000/10 000 — `ADR-013@0.1.0`.
 
 ## 8. Observability
 
 ### 8.1 Logs
-- Format: one JSON object per event through OpenClaw `ctx.log`, emitted to container stdout and captured by Docker's JSON logging driver with bounded rotation (`max-size=10m`, `max-file=5`).
-- Collection: local Docker logs for short-term diagnostics; durable KPI/cost facts are written to C3 tables (`metric_events`, `cost_events`, `monthly_spend_counters`, `kbju_accuracy_labels`) per ADR-009@0.1.0.
+- Format: one JSON object per event emitted to container stdout via the KBJU sidecar's structured logger, captured by Docker's JSON logging driver with bounded rotation (`max-size=10m`, `max-file=5`).
+- Collection: local Docker logs for short-term diagnostics; durable KPI/cost/fault facts are written to C3 tables (`metric_events`, `cost_events`, `monthly_spend_counters`, `kbju_accuracy_labels`, `breach_events`, `stall_events`) per ADR-009@0.1.0, ADR-012@0.1.0, and ADR-013@0.1.0.
 - Required fields: `timestamp_utc`, `level`, `service`, `component`, `event_name`, `request_id`, `user_id`, `telegram_message_id_hash_optional`, `source`, `latency_ms_optional`, `provider_alias_optional`, `model_alias_optional`, `estimated_cost_usd_optional`, `outcome`, `error_code_optional`, `degrade_mode_enabled`, `schema_version`.
 - Forbidden fields: raw Telegram bot token, provider keys, raw prompt text, raw transcript text in logs, raw audio/photo bytes, full Telegram usernames, full callback payloads when they include meal text, and provider responses before schema validation.
 - Emit-boundary redaction: C10 MUST re-apply allowlist filtering and forbidden-field redaction immediately before serializing metadata to `ctx.log`; producer-side redaction by C1/C4/C9 is treated as untrusted. Non-allowlisted `extra` keys such as `meal_text`, `username`, `callback_payload_meal_text`, raw prompt/transcript/media fields, and raw provider responses must be absent from serialized log metadata even if a producer bypasses its local `redactPii` helper. The only new `extra` key allowed by TKT-015@0.1.0 is `message_subtype` for bounded unsupported-message telemetry values such as `sticker`.
@@ -717,7 +828,7 @@ Interface sources:
 - Endpoint: Prometheus-format `/metrics` served only on explicit loopback (`127.0.0.1` / `::1`) or Docker-internal hostnames; unspecified-address wildcards (`0.0.0.0`, `::`, `[::]`) are forbidden. It is not exposed through the public Telegram/OpenClaw ingress.
 - Label policy: endpoint metrics may label by `component`, `source`, `period_type`, `outcome`, `provider_alias`, and `model_alias`; they must not label by Telegram ID, username, internal `user_id`, meal text, or free-form error text.
 - Durable metric events: C10 writes per-request events to C3 so end-of-pilot analysis can run after log rotation and can be removed by right-to-delete.
-- Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`, `kbju_onboarding_target_floor_clamped`.
+- Required metric names: `kbju_updates_total`, `kbju_meal_draft_latency_ms`, `kbju_voice_roundtrip_latency_ms`, `kbju_text_roundtrip_latency_ms`, `kbju_photo_roundtrip_latency_ms`, `kbju_transcription_total`, `kbju_estimation_total`, `kbju_confirmation_total`, `kbju_confirmed_meals_total`, `kbju_summary_delivery_total`, `kbju_provider_cost_usd_total`, `kbju_degrade_mode`, `kbju_manual_fallback_total`, `kbju_route_unmatched_count`, `kbju_right_to_delete_total`, `kbju_raw_media_delete_failures_total`, `kbju_tenant_audit_cross_user_references`, `kbju_onboarding_target_floor_clamped`, `kbju_tenant_breach_detected`, `kbju_llm_call_stalled`, `kbju_allowlist_reload`, `kbju_allowlist_reject`, `kbju_allowlist_blocked`.
 - ADR-010@0.1.0 §Q4 cross-reference: `kbju_onboarding_target_floor_clamped` is the durable C10 event mandated by ADR-010@0.1.0 for `goal=lose` final-calorie clamps. Field whitelist (no PII): `user_id`, `goal`, `sex`, `raw_calories_kcal`, `floor_calories_kcal`, `formula_version`, `outcome`. Emission is conditional on TKT-015@0.1.0 observability hardening.
 
 ### 8.3 KPI Measurement
@@ -736,12 +847,12 @@ Interface sources:
 ## 9. Security
 
 ### 9.1 Secrets Management
-- Secrets are runtime-injected by OpenClaw/Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PILOT_USER_IDS`, `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills).
+- Secrets are runtime-injected by Docker environment handling and are never committed. Required secret names: `TELEGRAM_BOT_TOKEN` (for OpenClaw Gateway, not KBJU sidecar), `TELEGRAM_PILOT_USER_IDS` (deprecated; prefer `config/allowlist.json` per ADR-013@0.1.0), `DATABASE_URL`, `POSTGRES_PASSWORD`, `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `FIREWORKS_API_KEY` for runtime fallback only, `USDA_FDC_API_KEY`, `PERSONA_PATH`, `PO_ALERT_CHAT_ID`, `MONTHLY_SPEND_CEILING_USD=10`, `AUDIT_DB_URL` (separate connection string for the `kbju_audit` BYPASSRLS role; loaded only by the C11 K4 audit script, never by application skills), `STALL_THRESHOLD_MS_TEXT_LLM` (default 120000), `STALL_THRESHOLD_MS_VISION_LLM` (default 120000), `STALL_THRESHOLD_MS_TRANSCRIPTION` (default 120000), `SERVER_PORT` (default 3001).
 - Skill business logic reads model access through OmniRoute config, not raw provider keys, per ADR-002@0.1.0 and `docs/knowledge/llm-routing.md`.
 - `.env.example` may document variable names only; real values live on the VPS secret store or deployment environment and must not appear in logs, tickets, PR bodies, or git history.
 
 ### 9.2 Access Control and Tenant Isolation
-- Outer access control is `TELEGRAM_PILOT_USER_IDS`; non-allowlisted Telegram users receive no onboarding, no persisted profile, and no domain data.
+- Outer access control is `config/allowlist.json` (in-memory Set, per ADR-013@0.1.0) with deprecated `TELEGRAM_PILOT_USER_IDS` fallback at startup; non-allowlisted Telegram users receive no onboarding, no persisted profile, and no domain data.
 - Inner isolation is C3 plus ADR-001@0.1.0: every user-owned table has `user_id`, composite ownership validation for child rows, PostgreSQL RLS enabled, and a non-owner app DB role that cannot bypass RLS.
 - Repository APIs must require `user_id` for all reads/mutations except migrations and the C11 end-of-pilot audit runner. Any unscoped repository method is a security defect.
 - Telegram automated messages are sent only to users who initiated the bot and confirmed onboarding/report schedules; C1 obeys Telegram retry metadata and the local outbound cap from §6.
@@ -774,14 +885,14 @@ Interface sources:
 
 ### 10.1 Runtime Topology
 - Runtime: OpenClaw skill images on Node 24, Docker Compose on the PO VPS, per ADR-008@0.1.0.
-- Services: OpenClaw runtime/Telegram gateway, `kbju-telegram-entrypoint`, `kbju-onboarding`, `kbju-meal-logging`, `kbju-history-privacy`, `kbju-summary`, PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
+- Services: OpenClaw Gateway (Telegram channel, agent orchestration, cron triggers, voice-call/phone-control plugins), KBJU sidecar Node 24 process (business logic, HTTP bridge listener on `SERVER_PORT`), PostgreSQL, and OmniRoute local/private router endpoint if the PO runs it on the same VPS.
 - Persistent named volumes: `kbju_pgdata` for PostgreSQL, `openclaw_state` for OpenClaw runtime state, and optional `omniroute_config` if local router config is mounted read-only. No host bind mounts for production data.
 - Temporary storage: raw Telegram voice/photo files use container-local tmpfs or non-persistent temp directories and are deleted by C5/C7 on success or terminal failure.
 
 ### 10.2 Resource Budget
 - VPS floor from PO Q2: 6 shared x86_64 vCPU, 7.6 GiB RAM, about 5.7 GiB available at idle, 75 GB ext4 with about 61 GB free, Ubuntu 24.04.4, Docker 29.4.0, no GPU.
 - PRD-001@0.2.0 §7 budget: KBJU stack <=25% VPS CPU p95 and <=2 GiB resident RAM steady state.
-- Expected steady RAM: OpenClaw runtime/gateway 256 MiB; five Node skill processes 512 MiB total; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.75 GiB.
+- Expected steady RAM: OpenClaw Gateway 256 MiB; KBJU sidecar 512 MiB; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target approx 1.75 GiB. Two-process topology (gateway + sidecar) adds approximately 128–256 MiB versus the v0.4.0 multi-skill model, remaining within the 2 GiB pilot budget.
 - CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, vision, and LLM inference off the CPU/GPU-limited host.
 - Disk target: PostgreSQL plus logs/backups <=10 GB during 30-day pilot; Docker log rotation from §8 caps live diagnostic logs at about 50 MB per service.
 
@@ -793,7 +904,10 @@ git pull --ff-only origin main
 docker compose pull
 docker compose up -d --remove-orphans
 docker compose ps
-docker compose logs --since=5m kbju-telegram-entrypoint
+# Verify KBJU sidecar health
+curl -fsS --max-time 2 http://127.0.0.1:3001/kbju/health && echo "sidecar OK"
+# Verify OpenClaw Gateway health (via its own health endpoint or docker compose ps)
+docker compose ps openclaw-gateway
 python3 scripts/validate_docs.py
 ```
 
@@ -892,8 +1006,8 @@ df -h /
 
 #### 10.6.2 Stop, snapshot, transfer
 ```bash
-# 1. Quiesce user-facing skills on the OLD VPS (PostgreSQL stays up so we can dump).
-docker compose stop kbju-telegram-entrypoint kbju-onboarding kbju-meal-logging kbju-history-privacy kbju-summary
+# 1. Quiesce user-facing services on the OLD VPS (PostgreSQL stays up so we can dump).
+docker compose stop kbju-sidecar openclaw-gateway
 
 # 2. Snapshot Postgres in custom format and protect the dump file mode.
 mkdir -p backups
@@ -999,6 +1113,13 @@ Execution notes:
 - R4: $10/month LLM+voice budget can be exceeded by repeated photo/voice experiments. Mitigation: C10 worst-case preflight cost accounting, monthly trend counter, degrade mode, and PO alert.
 - R5: Right-to-delete can conflict with backups and audit records. Mitigation: hard-delete user-scoped rows in live DB, cap pilot backup retention at 30 days, and require deletion replay before any restored backup goes live.
 - R6: PO-authored persona file may be missing or include wording that conflicts with PRD-001@0.2.0 NG6/NG7. Mitigation: C9 startup fails closed on missing `PERSONA_PATH`; ADR-006@0.1.0 validator blocks forbidden topics.
+- R7 (v0.5.0): Bridge adapter HTTP latency adds ~10–50 ms to the message round-trip. Mitigation: internal Docker network (localhost-level latency), KBJU sidecar processes synchronously with a 30 s timeout, and all latency targets retain slack beyond the bridge budget.
+- R8 (v0.5.0): KBJU sidecar unavailability causes message loss (no durable queue). Mitigation: bridge returns generic recovery via OpenClaw, sidecar health check gates gateway startup, and Durable queue is deferred to a future PRD per PRD-002@0.2.1 NG constraints. Sidecar crash/restart downtime is ~5–10 s (Docker Compose `restart: unless-stopped`).
+- R9 (v0.5.0): OpenClaw upgrade may break the bridge adapter if the internal ChannelPlugin API changes. Mitigation: bridge contract is versioned by this ArchSpec, not by OpenClaw. The webhook-proxy fallback (ADR-011@0.1.0 Q3) avoids ChannelPlugin coupling. If OpenClaw adds a formal external skill-registration API in a future release, migrate from HYBRID to NATIVE per a successor ADR.
+- R10 (v0.5.0): Model-stall watchdog may produce false positives on slow-but-progressing non-streaming (batch) calls. Mitigation: batch calls are rare in user-facing flows (streaming preferred for typing-indicator UX); watchdog coverage and false-positive rate logged as part of load tests.
+- R11 (v0.5.0): `fs.watch` may be unreliable on the PO's VPS Docker overlay2/ext4 filesystem; allowlist may not reload live. Mitigation: polling fallback (5 s interval, `fs.stat.mtime`) guarantees reload within 5.5 s. The `TELEGRAM_PILOT_USER_IDS` env-var fallback at startup is a final safety net if both file-watch and polling fail.
+- R12 (v0.5.0): PR-Agent CI tail-latency load tests (G3) may fail to replicate production tail-latency patterns, yielding meaningless pass/fail gates. Mitigation: 4-phase load-test methodology (cold-start, steady-state, tail-latency spike, concurrent-PR stress); PR-Agent logs from the past 7 days used as baseline; threshold gates cross-referenced with RV-SPEC-007@0.1.0 and BACKLOG-009 §pr-agent-ci evidence.
+- R13 (v0.5.0): Removed users cannot send `/forget_me` because the allowlist rejects them before routing. Mitigation: documented in ADR-013@0.1.0 §4 Q6 — PO temporarily re-adds user to allowlist to permit deletion, then removes them again. This is a known trade-off, not an implementation defect.
 - Q_TO_BUSINESS_1: At Phase 11 PR handoff, PO ratifies or revises the ADR-005@0.1.0 proposed K7 target: +/-25% calories and +/-30% macros per meal after correction opportunity; +/-15% daily calories and +/-20% daily macros on days with >=3 confirmed meals.
 - Q_TO_BUSINESS_2: Before deploying real pilot data, PO selects the durable-storage jurisdiction from ADR-007@0.1.0. Architecture recommendation is EU durable storage with transient remote inference unless PO chooses otherwise.
 

@@ -63,3 +63,45 @@ These are exactly the components we audit `awesome-skills.md` for fork-candidate
 ## Known gotchas (cite a source before adding to this list)
 
 - *(empty — append entries with citation as we hit them in development)*
+
+## KBJU Coach Bridge Adapter (ADR-011@0.1.0 HYBRID topology)
+
+As of May 2026, the KBJU Coach does NOT run as an openclaw skill. It runs as an **independent Node 24 process** (sidecar) bridged to the OpenClaw Gateway via HTTP. This architecture was chosen because:
+
+1. OpenClaw skills are `.md` instruction files, not TypeScript classes — our PostgreSQL, KBJU estimation, and stateful onboarding logic cannot be expressed as markdown.
+2. OpenClaw's `ChannelPlugin` interface is an internal API, not a documented external surface — implementing it breaks on OpenClaw upgrades.
+3. The PO mandates `«не отказываться от опенкло 100%»` — OpenClaw must remain load-bearing.
+
+### Bridge contract
+
+| Endpoint | Direction | Payload |
+|---|---|---|
+| `POST /kbju/message` | Gateway → Sidecar | Telegram text/voice/photo/sticker update → `RussianReplyEnvelope` |
+| `POST /kbju/callback` | Gateway → Sidecar | Inline keyboard callback → `RussianReplyEnvelope` |
+| `POST /kbju/cron` | Gateway → Sidecar | Cron trigger (daily summary) → `RussianReplyEnvelope` |
+| `GET /kbju/health` | Gateway → Sidecar | `200 {"status":"ok"}` / `503` |
+
+### Access control (two-layer)
+
+1. **Bridge adapter** (OpenClaw Gateway side): checks `config/allowlist.json` → `Set<string>` — silently drops non-allowlisted updates before forwarding.
+2. **C1 entrypoint** (KBJU sidecar side): redundantly checks `allowlist.isAllowed(telegramUserId)` before dispatching to handlers.
+
+### What KBJU sidecar NEVER does
+- Never calls Telegram Bot API directly (all outbound goes through bridge adapter → OpenClaw outbound).
+- Never reads raw `FIREWORKS_API_KEY` — all LLM calls go through OmniRoute via `llmRouter.call()`.
+- Never stores raw prompts, raw audio, or raw photos in logs or durable storage.
+- Never persists data without `user_id` scoping.
+
+### Key constraints for Executor tickets
+- Bridge payload is synchronous HTTP (no queueing, no buffering). Sidecar-down = message lost.
+- KBJU sidecar is `restart: unless-stopped` in Docker Compose. Recovery time ~5–10 s.
+- All env vars are injected via Docker environment, not `.env` files at runtime.
+- HTTP port is `SERVER_PORT` (default 3001). Internal Docker network only.
+- `C1Deps.sendMessage` returns `RussianReplyEnvelope` as HTTP response body.
+
+### Known gotchas (May 2026)
+
+- **Dockerfile rootDir trap**: `tsconfig.json` `rootDir="."` compiles to `dist/src/main.js`, not `dist/main.js`. A mismatched Dockerfile `CMD` produces `MODULE_NOT_FOUND`. (Source: BACKLOG-009, ADR-011@0.1.0 Q3)
+- **Skills are markdown, not TypeScript**: The `openclaw gateway` routes Telegram messages to its embedded LLM agent, not to our `routeMessage()` handler. Even with a correct `src/index.ts`, the handler is never called unless a bridge adapter explicitly proxies calls. (Source: PO forensics 2026-05-04, ADR-011@0.1.0 §0)
+- **Allowlist fs.watch reliability**: Docker overlay2/ext4 may not reliably propagate inotify events. The KBJU sidecar ALWAYS includes a 5 s polling fallback checking `fs.stat.mtime`. If you skip this, allowlist changes may never take effect. (Source: ADR-013@0.1.0 Q4)
+- **C10b is a detection overlay, not a replacement for RLS**: The breach detector is an alert-only mechanism. If PostgreSQL RLS fails AND C10b also fails, the only fallback is the end-of-pilot K4 audit. Do not rely on C10b as a primary guard. (Source: ARCH-001@0.5.0 §3.10b)
