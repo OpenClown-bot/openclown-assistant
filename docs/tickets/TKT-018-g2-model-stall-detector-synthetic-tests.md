@@ -2,7 +2,7 @@
 id: TKT-018
 title: "G2 model-stall detector and synthetic tests"
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
@@ -71,6 +71,15 @@ Wrap every routed streaming LLM call with a token-stall watchdog that alerts wit
 
 ## 10. Execution Log
 Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appends timestamped entries below this line.
+
+### 2026-05-05 GLM 5.1 (Code Executor) — iter 1
+- Chunked diff per executor.md STOP CONDITIONS:
+  - (a) `6480ed9` StallWatchdog types/skeleton + ticket status ready→in_progress
+  - (b) `dedea15` Full StallWatchdog implementation: start/touch/stop/restart, executeWithStallWatchdog retry cycle, checkKillSwitch, StallExhaustedError
+  - (c)+(d) `3d90c35` Integration into omniRouteClient.ts + C13 ComponentId + kill-switch fail-closed + kbju_llm_call_stalled + kbju_runtime_kill_switch_active KPI events + ALLOWED_METRIC_LABELS tenant_id/retry_count
+  - (e) `a5a7e94` Synthetic tests AC1–AC6 (10 tests in stallWatchdog.test.ts + 1 kill-switch integration test in omniRouteClient.test.ts) + fix retry-cycle controller reuse bug
+  - (f) lint/typecheck/test(704)/validate_docs all green; ticket status→in_review
+- All §6 ACs verified by named tests; see PR #125 AC-by-AC table.
 
 ---
 

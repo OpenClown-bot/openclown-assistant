@@ -56,6 +56,10 @@ const ALLOWED_EXTRA_KEYS: readonly string[] = [
   "telegram_message_id_hash",
   "degrade_mode_enabled",
   "message_subtype",
+  "threshold_ms",
+  "actual_stall_ms",
+  "retry_count",
+  "kill_switch_path",
 ];
 
 const CORE_EVENT_KEYS: readonly string[] = [
