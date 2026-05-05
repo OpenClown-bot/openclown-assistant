@@ -922,6 +922,26 @@ export class BreachDetectingTenantStore implements TenantStore {
     this.detector.checkTenantAccess(this.authenticatedUserId, userId, operation, entityType);
   }
 
+  /**
+   * Guards the transaction entry by emitting a breach event + throwing
+   * TenantNotAllowedError when the requested userId differs from the
+   * authenticated user. After entry, the transaction action receives the
+   * unwrapped inner TenantScopedRepository.
+   *
+   * Cross-tenant SQL operations executed against that repository inside the
+   * action do NOT emit kbju_tenant_breach_detected events. They are blocked
+   * at the SQL layer by PostgreSQL Row-Level Security policies, which are
+   * activated by `set_config('app.user_id', $1, true)` inside
+   * TenantPostgresStore.withTransaction (see ADR-001@0.1.0 §Decision and
+   * ARCH-001@0.5.0 §9.2). RLS is the production safety net; the C12 detector
+   * is defense-in-depth at the C3 TenantStore public boundary per
+   * ARCH-001@0.5.0 §3.12.
+   *
+   * Implication: during normal traffic this distinction is invisible. During
+   * a synthetic breach test, only top-level cross-tenant TenantStore method
+   * calls fire kbju_tenant_breach_detected; transaction-internal cross-
+   * tenant repository calls fail with a SQL-level RLS denial.
+   */
   public async withTransaction<T>(userId: string, action: (repository: TenantScopedRepository) => Promise<T>): Promise<T> {
     this.guard(userId, "write", "transaction");
     return this.inner.withTransaction(userId, action);
