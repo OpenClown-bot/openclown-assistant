@@ -2,7 +2,7 @@
 id: TKT-020
 title: "G4 config-driven allowlist and load tests"
 version: 0.1.0
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
@@ -72,6 +72,8 @@ Replace startup-only Telegram allowlist parsing with a hot-reloadable O(1) acces
 
 ## 10. Execution Log
 Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appends timestamped entries below this line.
+
+- 2026-05-05T00:00:00Z DeepSeek V4 Pro via OmniRoute: iter-1 dispatched on DeepSeek V4 Pro instead of default glm-5.1 per TO dispatch decision (elevated context-budget stall risk on wider scope — 9 files, file-watch + state-machine + atomic-rename + failure-modes + 5 load-test sizes).
 
 ---
 
