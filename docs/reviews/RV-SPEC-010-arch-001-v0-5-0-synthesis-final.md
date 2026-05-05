@@ -136,7 +136,7 @@ The notional `ADR-005@X.Y.Z-telegram-channel-multimodality-v0-2-0.md` file was l
 
 ## Closure Verification (2026-05-04, closure-patch applied)
 
-PR-D #110 closure patch reviewed against `origin/arch/ARCH-001-v0.5.0-synthesis-final` head (commit `1d9066c`).
+PR-D #110 closure patch reviewed against the PR-D head branch (commit `1d9066c`).
 
 | Finding | Patch Location | Verdict |
 |---------|---------------|---------|
