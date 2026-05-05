@@ -26,6 +26,8 @@ export const KPI_EVENT_NAMES = {
   callback_received: "callback_received",
   route_unmatched: "route_unmatched",
   tenant_breach_detected: "kbju_tenant_breach_detected",
+  llm_call_stalled: "kbju_llm_call_stalled",
+  runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];
@@ -61,6 +63,8 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_tenant_audit_cross_user_references: "kbju_tenant_audit_cross_user_references",
   kbju_route_unmatched_count: "kbju_route_unmatched_count",
   kbju_tenant_breach_detected: "kbju_tenant_breach_detected",
+  kbju_llm_call_stalled: "kbju_llm_call_stalled",
+  kbju_runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
@@ -73,6 +77,8 @@ export const ALLOWED_METRIC_LABELS: readonly string[] = [
   "provider_alias",
   "model_alias",
   "le",
+  "tenant_id",
+  "retry_count",
 ] as const;
 
 export type AllowedMetricLabel = (typeof ALLOWED_METRIC_LABELS)[number];

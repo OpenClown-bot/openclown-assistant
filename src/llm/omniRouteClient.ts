@@ -8,6 +8,15 @@ import { worstCaseCostForCall } from "../observability/costGuard.js";
 import { buildRedactedEvent, emitLog } from "../observability/events.js";
 import { KPI_EVENT_NAMES, LOG_FORBIDDEN_FIELDS } from "../observability/kpiEvents.js";
 import { LLM_TIMEOUT_MS } from "../kbju/types.js";
+import {
+  StallWatchdog,
+  StallExhaustedError,
+  defaultStallWatchdogConfig,
+  checkKillSwitch,
+  KILL_SWITCH_DEFAULT_PATH,
+  type StallWatchdogConfig,
+  type StallEvent,
+} from "../observability/stallWatchdog.js";
 
 export interface OmniRouteConfig {
   baseUrl: string;
@@ -26,6 +35,9 @@ export interface OmniRouteCallOptions {
   degradeModeEnabled: boolean;
   logger: OpenClawLogger;
   spendTracker: SpendTracker;
+  stallConfig?: StallWatchdogConfig;
+  killSwitchPath?: string;
+  fileExists?: (path: string) => boolean;
 }
 
 export interface OmniRouteCallResult {
@@ -35,13 +47,43 @@ export interface OmniRouteCallResult {
   inputUnits: number;
   outputUnits: number;
   estimatedCostUsd: number;
-  outcome: "success" | "provider_failure" | "budget_blocked" | "validation_blocked";
+  outcome: "success" | "provider_failure" | "budget_blocked" | "validation_blocked" | "stall_detected";
 }
 
 export async function callOmniRoute(
   config: OmniRouteConfig,
   options: OmniRouteCallOptions
 ): Promise<OmniRouteCallResult> {
+  const killSwitchPath = options.killSwitchPath ?? KILL_SWITCH_DEFAULT_PATH;
+  const fileExists = options.fileExists ?? (() => false);
+  const killSwitchResult = checkKillSwitch(fileExists, killSwitchPath, Date.now);
+  if (killSwitchResult.active) {
+    if (killSwitchResult.event) {
+      emitLog(options.logger, buildRedactedEvent(
+        "warn",
+        "kbju-meal-logging",
+        "C13",
+        KPI_EVENT_NAMES.runtime_kill_switch_active,
+        options.requestId,
+        options.userId,
+        "kill_switch_active",
+        options.degradeModeEnabled,
+        {
+          kill_switch_path: killSwitchPath,
+        }
+      ));
+    }
+    return {
+      providerAlias: "omniroute",
+      modelAlias: config.textModelAlias,
+      rawResponseText: "",
+      inputUnits: 0,
+      outputUnits: 0,
+      estimatedCostUsd: 0,
+      outcome: "stall_detected",
+    };
+  }
+
   const preflight = await options.spendTracker.preflightCheck(options.callType);
   if (!preflight.allowed) {
     emitLog(options.logger, buildRedactedEvent(
@@ -70,6 +112,10 @@ export async function callOmniRoute(
     };
   }
 
+  const stallConfig = options.stallConfig ?? defaultStallWatchdogConfig();
+  let stallRetryCount = 0;
+  let stallWatchdog: StallWatchdog | null = null;
+
   const body = {
     model: config.textModelAlias,
     messages: [
@@ -90,6 +136,39 @@ export async function callOmniRoute(
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
 
+    stallWatchdog = new StallWatchdog(
+      stallConfig,
+      {
+        now: Date.now,
+        emit: (event: StallEvent) => {
+          emitLog(options.logger, buildRedactedEvent(
+            "warn",
+            "kbju-meal-logging",
+            "C13",
+            KPI_EVENT_NAMES.llm_call_stalled,
+            options.requestId,
+            options.userId,
+            "stall_detected",
+            options.degradeModeEnabled,
+            {
+              provider_alias: event.provider as ProviderAlias,
+              model_alias: event.model,
+              tenant_id: event.tenant_id,
+              threshold_ms: event.threshold_ms,
+              actual_stall_ms: event.actual_stall_ms,
+              retry_count: event.retry_count,
+            }
+          ));
+        },
+        abort: () => controller.abort(),
+      },
+      "omniroute",
+      config.textModelAlias,
+      options.userId,
+    );
+
+    stallWatchdog.start();
+
     const httpResponse = await fetch(`${config.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers: {
@@ -101,6 +180,26 @@ export async function callOmniRoute(
     });
 
     clearTimeout(timer);
+
+    if (stallWatchdog.isStalled()) {
+      stallWatchdog.stop();
+      stallRetryCount++;
+      if (stallRetryCount <= stallConfig.maxRetries) {
+        return retryOnce(config, options, preflight);
+      }
+      return {
+        providerAlias: "omniroute",
+        modelAlias: config.textModelAlias,
+        rawResponseText: "",
+        inputUnits: 0,
+        outputUnits: 0,
+        estimatedCostUsd: preflight.estimatedCallCostUsd,
+        outcome: "stall_detected",
+      };
+    }
+
+    stallWatchdog.touch();
+    stallWatchdog.stop();
 
     if (!httpResponse.ok) {
       outcome = "provider_failure";
@@ -149,18 +248,25 @@ export async function callOmniRoute(
     outputUnits = json.usage?.completion_tokens ?? 0;
   } catch (error) {
     outcome = "provider_failure";
+    const isStallAbort = error instanceof DOMException
+      && error.name === "AbortError"
+      && stallWatchdog?.isStalled() === true;
     const errorCode = error instanceof Error && error.name === "AbortError"
-      ? "timeout"
+      ? (isStallAbort ? "stall_detected" : "timeout")
       : "fetch_error";
+
+    if (stallWatchdog) {
+      stallWatchdog.stop();
+    }
 
     emitLog(options.logger, buildRedactedEvent(
       "warn",
       "kbju-meal-logging",
-      "C6",
-      KPI_EVENT_NAMES.provider_call_finished,
+      isStallAbort ? "C13" : "C6",
+      isStallAbort ? KPI_EVENT_NAMES.llm_call_stalled : KPI_EVENT_NAMES.provider_call_finished,
       options.requestId,
       options.userId,
-      "provider_failure",
+      isStallAbort ? "stall_detected" : "provider_failure",
       options.degradeModeEnabled,
       {
         call_type: options.callType,
@@ -169,6 +275,22 @@ export async function callOmniRoute(
         error_code: errorCode,
       }
     ));
+
+    if (isStallAbort) {
+      stallRetryCount++;
+      if (stallRetryCount <= stallConfig.maxRetries) {
+        return retryOnce(config, options, preflight);
+      }
+      return {
+        providerAlias: "omniroute",
+        modelAlias: config.textModelAlias,
+        rawResponseText: "",
+        inputUnits: 0,
+        outputUnits: 0,
+        estimatedCostUsd: preflight.estimatedCallCostUsd,
+        outcome: "stall_detected",
+      };
+    }
 
     if (errorCode === "timeout") {
       return retryOnce(config, options, preflight);
