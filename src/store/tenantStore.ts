@@ -44,6 +44,7 @@ import type {
   UserRow,
   UserTargetRow,
 } from "./types.js";
+import type { BreachDetector } from "../observability/breachDetector.js";
 
 export interface TenantQueryable {
   query<Row extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<Row>>;
@@ -904,6 +905,172 @@ function expectVersionedRow<Row extends QueryResultRow>(
     throw new OptimisticVersionError(entityName, expectedVersion);
   }
   return row;
+}
+
+export class BreachDetectingTenantStore implements TenantStore {
+  private readonly inner: TenantStore;
+  private readonly authenticatedUserId: string;
+  private readonly detector: BreachDetector;
+
+  constructor(inner: TenantStore, authenticatedUserId: string, detector: BreachDetector) {
+    this.inner = inner;
+    this.authenticatedUserId = authenticatedUserId;
+    this.detector = detector;
+  }
+
+  private guard(userId: string, operation: "read" | "write", entityType: string): void {
+    this.detector.checkTenantAccess(this.authenticatedUserId, userId, operation, entityType);
+  }
+
+  public async withTransaction<T>(userId: string, action: (repository: TenantScopedRepository) => Promise<T>): Promise<T> {
+    this.guard(userId, "write", "transaction");
+    return this.inner.withTransaction(userId, action);
+  }
+
+  public async createUser(userId: string, request: CreateUserRequest): Promise<UserRow> {
+    this.guard(userId, "write", "users");
+    return this.inner.createUser(userId, request);
+  }
+
+  public async getUser(userId: string): Promise<UserRow | null> {
+    this.guard(userId, "read", "users");
+    return this.inner.getUser(userId);
+  }
+
+  public async updateUserOnboardingStatus(userId: string, request: UpdateUserOnboardingStatusRequest): Promise<UserRow> {
+    this.guard(userId, "write", "users");
+    return this.inner.updateUserOnboardingStatus(userId, request);
+  }
+
+  public async deleteUser(userId: string): Promise<boolean> {
+    this.guard(userId, "write", "users");
+    return this.inner.deleteUser(userId);
+  }
+
+  public async createUserProfile(userId: string, request: CreateUserProfileRequest): Promise<UserProfileRow> {
+    this.guard(userId, "write", "user_profiles");
+    return this.inner.createUserProfile(userId, request);
+  }
+
+  public async getLatestUserProfile(userId: string): Promise<UserProfileRow | null> {
+    this.guard(userId, "read", "user_profiles");
+    return this.inner.getLatestUserProfile(userId);
+  }
+
+  public async createUserTarget(userId: string, request: CreateUserTargetRequest): Promise<UserTargetRow> {
+    this.guard(userId, "write", "user_targets");
+    return this.inner.createUserTarget(userId, request);
+  }
+
+  public async upsertSummarySchedule(userId: string, request: UpsertSummaryScheduleRequest): Promise<SummaryScheduleRow> {
+    this.guard(userId, "write", "summary_schedules");
+    return this.inner.upsertSummarySchedule(userId, request);
+  }
+
+  public async listSummarySchedules(userId: string): Promise<SummaryScheduleRow[]> {
+    this.guard(userId, "read", "summary_schedules");
+    return this.inner.listSummarySchedules(userId);
+  }
+
+  public async upsertOnboardingState(userId: string, request: UpsertOnboardingStateRequest): Promise<OnboardingStateRow> {
+    this.guard(userId, "write", "onboarding_states");
+    return this.inner.upsertOnboardingState(userId, request);
+  }
+
+  public async updateOnboardingStateWithVersion(userId: string, request: UpdateOnboardingStateWithVersionRequest): Promise<OnboardingStateRow> {
+    this.guard(userId, "write", "onboarding_states");
+    return this.inner.updateOnboardingStateWithVersion(userId, request);
+  }
+
+  public async createTranscript(userId: string, request: CreateTranscriptRequest): Promise<TranscriptRow> {
+    this.guard(userId, "write", "transcripts");
+    return this.inner.createTranscript(userId, request);
+  }
+
+  public async createMealDraft(userId: string, request: CreateMealDraftRequest): Promise<MealDraftRow> {
+    this.guard(userId, "write", "meal_drafts");
+    return this.inner.createMealDraft(userId, request);
+  }
+
+  public async updateMealDraftWithVersion(userId: string, request: UpdateMealDraftWithVersionRequest): Promise<MealDraftRow> {
+    this.guard(userId, "write", "meal_drafts");
+    return this.inner.updateMealDraftWithVersion(userId, request);
+  }
+
+  public async createMealDraftItem(userId: string, request: CreateMealDraftItemRequest): Promise<MealDraftItemRow> {
+    this.guard(userId, "write", "meal_draft_items");
+    return this.inner.createMealDraftItem(userId, request);
+  }
+
+  public async deleteMealDraftItemsByDraftId(userId: string, draftId: string): Promise<number> {
+    this.guard(userId, "write", "meal_draft_items");
+    return this.inner.deleteMealDraftItemsByDraftId(userId, draftId);
+  }
+
+  public async createConfirmedMeal(userId: string, request: CreateConfirmedMealRequest): Promise<ConfirmedMealRow> {
+    this.guard(userId, "write", "confirmed_meals");
+    return this.inner.createConfirmedMeal(userId, request);
+  }
+
+  public async listConfirmedMeals(userId: string, request: ListConfirmedMealsRequest): Promise<ConfirmedMealRow[]> {
+    this.guard(userId, "read", "confirmed_meals");
+    return this.inner.listConfirmedMeals(userId, request);
+  }
+
+  public async softDeleteConfirmedMealWithVersion(userId: string, request: SoftDeleteConfirmedMealWithVersionRequest): Promise<ConfirmedMealRow> {
+    this.guard(userId, "write", "confirmed_meals");
+    return this.inner.softDeleteConfirmedMealWithVersion(userId, request);
+  }
+
+  public async createMealItem(userId: string, request: CreateMealItemRequest): Promise<MealItemRow> {
+    this.guard(userId, "write", "meal_items");
+    return this.inner.createMealItem(userId, request);
+  }
+
+  public async createSummaryRecord(userId: string, request: CreateSummaryRecordRequest): Promise<SummaryRecordRow> {
+    this.guard(userId, "write", "summary_records");
+    return this.inner.createSummaryRecord(userId, request);
+  }
+
+  public async createAuditEvent(userId: string, request: CreateAuditEventRequest): Promise<AuditEventRow> {
+    this.guard(userId, "write", "audit_events");
+    return this.inner.createAuditEvent(userId, request);
+  }
+
+  public async createMetricEvent(userId: string, request: CreateMetricEventRequest): Promise<MetricEventRow> {
+    this.guard(userId, "write", "metric_events");
+    return this.inner.createMetricEvent(userId, request);
+  }
+
+  public async createCostEvent(userId: string, request: CreateCostEventRequest): Promise<CostEventRow> {
+    this.guard(userId, "write", "cost_events");
+    return this.inner.createCostEvent(userId, request);
+  }
+
+  public async upsertMonthlySpendCounter(userId: string, request: UpsertMonthlySpendCounterRequest): Promise<MonthlySpendCounterRow> {
+    this.guard(userId, "write", "monthly_spend_counters");
+    return this.inner.upsertMonthlySpendCounter(userId, request);
+  }
+
+  public async getMonthlySpendCounter(userId: string, monthUtc: string): Promise<MonthlySpendCounterRow | null> {
+    this.guard(userId, "read", "monthly_spend_counters");
+    return this.inner.getMonthlySpendCounter(userId, monthUtc);
+  }
+
+  public async incrementMonthlySpend(userId: string, monthUtc: string, request: IncrementMonthlySpendRequest): Promise<MonthlySpendCounterRow> {
+    this.guard(userId, "write", "monthly_spend_counters");
+    return this.inner.incrementMonthlySpend(userId, monthUtc, request);
+  }
+
+  public async upsertFoodLookupCache(userId: string, request: UpsertFoodLookupCacheRequest): Promise<FoodLookupCacheRow> {
+    this.guard(userId, "write", "food_lookup_cache");
+    return this.inner.upsertFoodLookupCache(userId, request);
+  }
+
+  public async createKbjuAccuracyLabel(userId: string, request: CreateKbjuAccuracyLabelRequest): Promise<KbjuAccuracyLabelRow> {
+    this.guard(userId, "write", "kbju_accuracy_labels");
+    return this.inner.createKbjuAccuracyLabel(userId, request);
+  }
 }
 
 async function rollbackSafely(client: TenantQueryable): Promise<void> {
