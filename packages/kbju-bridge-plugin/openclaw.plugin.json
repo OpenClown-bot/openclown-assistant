@@ -1,0 +1,9 @@
+{
+  "name": "kbju-bridge",
+  "version": "0.1.0",
+  "description": "KBJU Coach bridge plugin for OpenClaw Gateway",
+  "main": "src/index.ts",
+  "openclaw": {
+    "apiVersion": "1.0"
+  }
+}

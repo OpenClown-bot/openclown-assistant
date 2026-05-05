@@ -111,13 +111,30 @@ describe("docker-compose.yml", () => {
     expect(healthcheckLine!).toContain("http://metrics:9464/healthz");
   });
 
-  it("app service does not inherit a metrics-port healthcheck", () => {
-    const appStart = content.indexOf("  app:");
-    const nextService = content.indexOf("\n  ", appStart + 1);
-    const appSection = content.substring(appStart, nextService > appStart ? nextService : content.length);
-    expect(appSection).not.toContain("9464/healthz");
-    expect(appSection).not.toContain("9464/metrics");
-    expect(appSection).not.toContain("healthcheck:");
+  it("kbju-sidecar service has a healthcheck using /kbju/health, not metrics port", () => {
+    const sidecarStart = content.indexOf("  kbju-sidecar:");
+    expect(sidecarStart).toBeGreaterThanOrEqual(0);
+
+    const gatewayStart = content.indexOf("\n  openclaw-gateway:", sidecarStart + 1);
+    const postgresStart = content.indexOf("\n  postgres:", sidecarStart + 1);
+    const endBoundary =
+      gatewayStart > sidecarStart && postgresStart > sidecarStart
+        ? Math.min(gatewayStart, postgresStart)
+        : Math.max(gatewayStart, postgresStart);
+
+    const sidecarSection = content.substring(
+      sidecarStart,
+      endBoundary > sidecarStart ? endBoundary : content.length
+    );
+    expect(sidecarSection).not.toContain("9464/healthz");
+    expect(sidecarSection).not.toContain("9464/metrics");
+    expect(sidecarSection).toContain("/kbju/health");
+    expect(sidecarSection).toContain("healthcheck:");
+  });
+
+  it("openclaw-gateway service exists and depends on kbju-sidecar", () => {
+    expect(content).toContain("openclaw-gateway:");
+    expect(content).toContain("KBJU_SIDECAR_URL");
   });
 });
 
