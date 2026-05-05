@@ -11,7 +11,7 @@ created: 2026-05-05
 # Code Review — PR #116 (TKT-016@0.1.0)
 
 ## Summary
-PR #116 delivers the boot entrypoint (`src/main.ts`), OpenClaw bridge plugin (`packages/kbju-bridge-plugin/`), sidecar C1 seam (`src/sidecar/`), deployment tests, and Docker/Compose wiring required by ADR-011@0.1.0. All TKT-016 §6 Acceptance Criteria are satisfied by verifiable tests. Scope is clean: no extraneous files, no new runtime dependencies, no secrets, no TODO/FIXME leaks. The hostile-reader pass found no BLOCKER, MAJOR, or MINOR issues.
+PR #116 delivers the boot entrypoint (`src/main.ts`), OpenClaw bridge plugin (`packages/kbju-bridge-plugin/`), sidecar C1 seam (`src/sidecar/`), deployment tests, and Docker/Compose wiring required by ADR-011@0.1.0. All TKT-016@0.1.0 §6 Acceptance Criteria are satisfied by verifiable tests. Scope is clean: no extraneous files, no new runtime dependencies, no secrets, no TODO/FIXME leaks. The hostile-reader pass found no BLOCKER, MAJOR, or MINOR issues.
 
 ## Verdict
 - [x] pass
@@ -72,7 +72,7 @@ Hostile-reader pass found no BLOCKER/MAJOR/MINOR issues.
 - **No secrets, backup dumps, or unrelated docs/tickets in diff**: Confirmed. Diff file list matches expected list exactly.
 
 ## Red-team probes (Reviewer must address each)
-- **Error paths**: Telegram/API failures are not yet in scope for TKT-016 (stub handlers only). The `.catch` in `createServer` (`src/main.ts:246-253`) returns generic 500 for unhandled exceptions.
+- **Error paths**: Telegram/API failures are not yet in scope for TKT-016@0.1.0 (stub handlers only). The `.catch` in `createServer` (`src/main.ts:246-253`) returns generic 500 for unhandled exceptions.
 - **Concurrency**: `pilotUserIds` and `deps` are module-level but set once at startup; read-only during request handling. No mutable shared state per-request.
 - **Input validation**: `toBridgeRequest` checks presence of `telegram_id` and `chat_id` (`src/main.ts:91-93`). Body size is bounded (`src/main.ts:36-73`). Malformed JSON is caught and treated as empty body (`src/main.ts:67-69`).
 - **Prompt injection**: No LLM calls in this PR. Stub handlers return static Russian strings.
