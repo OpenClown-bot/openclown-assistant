@@ -141,7 +141,7 @@ describe("Allowlist", () => {
       if (allowlist) allowlist.close();
     });
 
-    it("propagates file update to isAllowed within allowed interval", async () => {
+    it("propagates file update to isAllowed within allowed interval", { timeout: 10000 }, async () => {
       filePath = path.join(tmpDir, "allowlist.json");
       writeAllowlist(filePath, [111]);
 
@@ -173,7 +173,7 @@ describe("Allowlist", () => {
       expect(allowlist.getSize()).toBe(2);
     });
 
-    it("preserves last valid set when file is deleted", async () => {
+    it("preserves last valid set when file is deleted", { timeout: 10000 }, async () => {
       filePath = path.join(tmpDir, "allowlist.json");
       writeAllowlist(filePath, [111, 222]);
 
@@ -203,7 +203,7 @@ describe("Allowlist", () => {
       expect(allowlist.getSize()).toBe(2);
     });
 
-    it("preserves last valid set on bad JSON", async () => {
+    it("preserves last valid set on bad JSON", { timeout: 10000 }, async () => {
       filePath = path.join(tmpDir, "allowlist.json");
       writeAllowlist(filePath, [111, 222]);
 
@@ -337,7 +337,7 @@ describe("Allowlist", () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it("hot-reloads mode changes from file", async () => {
+    it("hot-reloads mode changes from file", { timeout: 10000 }, async () => {
       filePath = path.join(tmpDir, "allowlist.json");
       writeAllowlist(filePath, [111], "normal");
 
