@@ -126,17 +126,26 @@ async function handleMessage(req: http.IncomingMessage, res: http.ServerResponse
 
 async function handleCallback(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const body = await readBody(req);
+
+  const bridgeReq = toBridgeRequest({ ...body, source: "callback" });
+  if (!bridgeReq) {
+    jsonResponse(res, 400, {
+      error: "invalid_request",
+      detail: "missing required fields: telegram_id, chat_id",
+    });
+    return;
+  }
+
+  const idStr = String(bridgeReq.telegram_id);
+  if (!isAllowlisted(idStr)) {
+    jsonResponse(res, 403, {
+      error: "tenant_not_allowed",
+      telegram_id: bridgeReq.telegram_id,
+    });
+    return;
+  }
+
   const effectiveDeps = deps ?? createSidecarDeps(pilotUserIds);
-
-  const bridgeReq: BridgeRequest = {
-    telegram_id: (body.telegram_id as number) ?? 0,
-    chat_id: (body.chat_id as number) ?? 0,
-    source: "callback",
-    text: undefined,
-    callback_data: body.callback_data as string | undefined,
-    message_id: body.message_id as number | undefined,
-  };
-
   const reply = await routeBridgeRequest(effectiveDeps, bridgeReq);
   jsonResponse(res, 200, {
     reply_text: reply?.text ?? "Обработано.",

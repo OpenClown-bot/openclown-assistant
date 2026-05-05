@@ -215,6 +215,58 @@ describe("bootEntrypoint", () => {
     expect(call.callbackData).toBe("confirm_meal:draft123");
   });
 
+  it("POST /kbju/callback with missing telegram_id returns 400 invalid_request", async () => {
+    const result = await fetch({
+      path: "/kbju/callback",
+      method: "POST",
+      body: { callback_data: "confirm_meal:draft123" },
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body.error).toBe("invalid_request");
+  });
+
+  it("POST /kbju/callback for blocked Telegram ID returns 403 and does not invoke handler", async () => {
+    stubH.callbackCalls.length = 0;
+
+    const result = await fetch({
+      path: "/kbju/callback",
+      method: "POST",
+      body: {
+        callback_data: "confirm_meal:draft123",
+        telegram_id: 999,
+        chat_id: 999,
+      },
+    });
+
+    expect(result.status).toBe(403);
+    expect(result.body.error).toBe("tenant_not_allowed");
+    expect(result.body.telegram_id).toBe(999);
+    expect(stubH.callbackCalls.length).toBe(0);
+  });
+
+  it("valid callback still reaches callback handler exactly once", async () => {
+    stubH.callbackCalls.length = 0;
+
+    const result = await fetch({
+      path: "/kbju/callback",
+      method: "POST",
+      body: {
+        callback_data: "confirm_meal:draft456",
+        telegram_id: 222,
+        chat_id: 222,
+        message_id: 1003,
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.headers["x-kbju-bridge-version"]).toBe("1.0");
+    expect(stubH.callbackCalls.length).toBe(1);
+    const call = stubH.callbackCalls[0];
+    expect(call.telegramUserId).toBe(222);
+    expect(call.callbackData).toBe("confirm_meal:draft456");
+  });
+
   it("POST /kbju/cron reaches the summaryDelivery handler through seam", async () => {
     stubH.summaryDeliveryCalls.length = 0;
 
