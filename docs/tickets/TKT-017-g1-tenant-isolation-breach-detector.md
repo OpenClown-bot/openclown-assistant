@@ -2,7 +2,7 @@
 id: TKT-017
 title: "G1 tenant-isolation breach detector"
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
@@ -68,6 +68,51 @@ Detect and alert on every synthetic or real cross-tenant storage access within P
 
 ## 10. Execution Log
 Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appends timestamped entries below this line.
+
+### 2026-05-05T13:15Z — glm-5.1 via opencode+OmniRoute
+
+**Files changed:**
+- `src/observability/breachDetector.ts` (new) — C12 BreachDetector, TenantNotAllowedError, RedactedBreachEvent, sha256Half
+- `src/observability/kpiEvents.ts` — added `tenant_breach_detected` KPI event name + `kbju_tenant_breach_detected` Prometheus metric name
+- `src/store/tenantStore.ts` — added BreachDetectingTenantStore wrapper class + import of BreachDetector type
+- `src/telegram/types.ts` — added optional `breachDetector` field to C1Deps
+- `src/main.ts` — wired `breach_count_last_hour` to detector.getBreachCountLastHour()
+- `tests/observability/breachDetector.test.ts` (new) — 13 test cases
+
+**Verification commands and results:**
+- `npm run build` — clean
+- `npm test` — 598 tests passed, 0 failed
+- `npm run lint` — clean
+- `npm run typecheck` — clean
+- `python3 scripts/validate_docs.py` — 80 artifacts, 0 failed
+
+**C12 boundary location:** `BreachDetectingTenantStore` in `src/store/tenantStore.ts:109` wraps any `TenantStore` instance. Each public method calls `detector.checkTenantAccess(authenticatedUserId, userId, operation, entityType)` before delegating to the inner store.
+
+**breach_count_last_hour computation:** `BreachDetector.getBreachCountLastHour()` maintains an in-memory array of breach timestamps; on each call it prunes entries older than 1 hour and returns the surviving count. Ephemeral — resets on process restart, no DB table. Safe because it only stores timestamps, never raw payloads.
+
+**Redaction proof:** `RedactedBreachEvent` contains only `requesting_user_id_hash` and `data_owner_user_id_hash` (SHA-256 truncated to 16 hex chars), plus `operation`, `entity_type`, `event_name`, `timestamp_utc`. Test asserts no keys matching meal_text, username, transcript, prompt, provider_payload, telegram_id, user_id exist in serialized JSON.
+
+**Deviations from locked design:** None.
+
+**Follow-up suggestions:** None beyond what the ticket already excludes.
+
+### 2026-05-05T13:30Z — glm-5.1 via opencode+OmniRoute (iter-2, RV-CODE-017 pass_with_changes)
+
+**Findings addressed:**
+- F-L1 (Low): Unbounded breach timestamp array — extracted `pruneBreachTimestamps()` private method, called inline after `push()` in `checkTenantAccess` AND at start of `getBreachCountLastHour`. Array now self-prunes on every breach insertion, no longer requires a `getBreachCountLastHour` call to bound growth.
+- F-M2 (Medium): Transaction-internal detection bypass — added JSDoc on `BreachDetectingTenantStore.withTransaction` documenting that transaction-internal cross-tenant repository calls are RLS-denied at the SQL layer without firing C12 breach events. Added test verifying zero breach events + RLS-error propagation for in-transaction cross-tenant access.
+
+**Files changed:**
+- `src/observability/breachDetector.ts` — extracted `pruneBreachTimestamps()`, called from `checkTenantAccess` and `getBreachCountLastHour`
+- `src/store/tenantStore.ts` — added 20-line JSDoc on `BreachDetectingTenantStore.withTransaction`
+- `tests/observability/breachDetector.test.ts` — added 2 new test cases (15 total)
+
+**Verification commands and results:**
+- `npm run build` — clean
+- `npm test` — 600 tests passed, 0 failed
+- `npm run lint` — clean
+- `npm run typecheck` — clean
+- `python3 scripts/validate_docs.py` — 80 artifacts, 0 failed
 
 ---
 

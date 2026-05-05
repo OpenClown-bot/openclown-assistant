@@ -74,11 +74,12 @@ function readBody(req: http.IncomingMessage): Promise<BodyResult> {
 
 async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const uptime = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+  const breachCount = deps?.breachDetector?.getBreachCountLastHour() ?? 0;
   jsonResponse(res, 200, {
     status: "ok",
     uptime_seconds: uptime,
     tenant_count: pilotUserIds.length,
-    breach_count_last_hour: 0,
+    breach_count_last_hour: breachCount,
     stall_count_last_hour: 0,
   });
 }
