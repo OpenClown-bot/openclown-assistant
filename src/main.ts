@@ -1,11 +1,16 @@
 import http from "node:http";
 import { parseConfig } from "./shared/config.js";
+import { createSidecarDeps } from "./sidecar/factory.js";
+import { routeBridgeRequest } from "./sidecar/seam.js";
+import type { BridgeRequest } from "./sidecar/types.js";
+import type { C1Deps } from "./telegram/types.js";
 
 const SERVER_PORT_DEFAULT = 3000;
 const BRIDGE_VERSION = "1.0";
 
 let startTime = 0;
 let pilotUserIds: string[] = [];
+let deps: C1Deps | null = null;
 
 function resolvePort(): number {
   const raw = process.env.SERVER_PORT;
@@ -60,51 +65,98 @@ async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse
   });
 }
 
-async function handleMessage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const body = await readBody(req);
+function toBridgeRequest(body: Record<string, unknown>): BridgeRequest | null {
   const telegram_id = body.telegram_id as number | undefined;
-  const message_id = body.message_id as number | undefined;
   const chat_id = body.chat_id as number | undefined;
-  const text = (body.text as string) ?? "";
   const source = (body.source as string) ?? "text";
 
-  if (!telegram_id) {
+  if (!telegram_id || !chat_id) {
+    return null;
+  }
+
+  return {
+    telegram_id,
+    chat_id,
+    source: source as BridgeRequest["source"],
+    text: (body.text as string) ?? undefined,
+    message_id: body.message_id as number | undefined,
+    callback_data: body.callback_data as string | undefined,
+    trigger_type: body.trigger_type as string | undefined,
+  };
+}
+
+async function handleMessage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const body = await readBody(req);
+  const bridgeReq = toBridgeRequest(body);
+
+  if (!bridgeReq) {
     jsonResponse(res, 400, {
       error: "invalid_request",
-      detail: "missing required field: telegram_id",
+      detail: "missing required fields: telegram_id, chat_id",
     });
     return;
   }
 
-  const idStr = String(telegram_id);
+  const idStr = String(bridgeReq.telegram_id);
   if (!isAllowlisted(idStr)) {
     jsonResponse(res, 403, {
       error: "tenant_not_allowed",
-      telegram_id,
+      telegram_id: bridgeReq.telegram_id,
     });
     return;
   }
 
-  jsonResponse(res, 200, {
-    reply_text: text
-      ? "Привет! Я получил твоё сообщение."
-      : "Привет! Отправь описание еды, и я помогу.",
-    needs_confirmation: source !== "text" || text.length > 0,
-    ...(message_id ? { reply_to_message_id: message_id } : {}),
-    ...(chat_id ? { chat_id } : {}),
-  });
+  const effectiveDeps = deps ?? createSidecarDeps(pilotUserIds);
+  const reply = await routeBridgeRequest(effectiveDeps, bridgeReq);
+
+  if (reply) {
+    jsonResponse(res, 200, {
+      reply_text: reply.text,
+      typing_renewal_required: reply.typingRenewalRequired,
+      reply_markup: reply.replyMarkup,
+      ...(bridgeReq.message_id ? { reply_to_message_id: bridgeReq.message_id } : {}),
+    });
+  } else {
+    jsonResponse(res, 200, {
+      reply_text: "Привет! Отправь описание еды, и я помогу.",
+      typing_renewal_required: false,
+    });
+  }
 }
 
 async function handleCallback(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const body = await readBody(req);
+  const effectiveDeps = deps ?? createSidecarDeps(pilotUserIds);
+
+  const bridgeReq: BridgeRequest = {
+    telegram_id: (body.telegram_id as number) ?? 0,
+    chat_id: (body.chat_id as number) ?? 0,
+    source: "callback",
+    text: undefined,
+    callback_data: body.callback_data as string | undefined,
+    message_id: body.message_id as number | undefined,
+  };
+
+  const reply = await routeBridgeRequest(effectiveDeps, bridgeReq);
   jsonResponse(res, 200, {
-    reply_text: "Запись обработана.",
+    reply_text: reply?.text ?? "Обработано.",
     edit_message_id: body.message_id ?? undefined,
   });
 }
 
 async function handleCron(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const effectiveDeps = deps ?? createSidecarDeps(pilotUserIds);
+
+  const bridgeReq: BridgeRequest = {
+    telegram_id: 0,
+    chat_id: 0,
+    source: "cron",
+    trigger_type: "daily_summary",
+  };
+
+  const reply = await routeBridgeRequest(effectiveDeps, bridgeReq);
   jsonResponse(res, 200, {
+    reply_text: reply?.text ?? "",
     summary_sent_to: pilotUserIds.map((id) => parseInt(id, 10)).filter((n) => Number.isFinite(n)),
     skipped_count: 0,
   });
@@ -139,11 +191,15 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
 export interface ServerOptions {
   pilotUserIds?: string[];
+  deps?: C1Deps;
 }
 
 export function createServer(opts?: ServerOptions): http.Server {
   if (opts?.pilotUserIds) {
     pilotUserIds = opts.pilotUserIds;
+  }
+  if (opts?.deps) {
+    deps = opts.deps;
   }
   return http.createServer((req, res) => {
     handleRequest(req, res).catch((err) => {

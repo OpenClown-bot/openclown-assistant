@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { PluginApi, InboundClaimEvent } from "../../packages/kbju-bridge-plugin/src/types.js";
+import {
+  isCronAllowed,
+  assertCronAllowed,
+  createCronFilter,
+  CRON_RESTRICTED_TOOLS,
+} from "../../packages/kbju-bridge-plugin/src/cronPolicy.js";
 
 function makePluginApi(): PluginApi {
   return {
@@ -281,5 +287,100 @@ describe("kbju-bridge plugin registered tools", () => {
     const callArgs = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
       .calls[0];
     expect(callArgs[0]).toContain("/kbju/message");
+  });
+});
+
+describe("cron restricted context", () => {
+  it("isCronAllowed returns true only for kbju_cron", () => {
+    expect(isCronAllowed("kbju_cron")).toBe(true);
+    expect(isCronAllowed("kbju_message")).toBe(false);
+    expect(isCronAllowed("kbju_callback")).toBe(false);
+    expect(isCronAllowed("unknown_tool")).toBe(false);
+  });
+
+  it("assertCronAllowed throws for non-kbju_cron tools", () => {
+    expect(() => assertCronAllowed("kbju_cron")).not.toThrow();
+    expect(() => assertCronAllowed("kbju_message")).toThrow(
+      /not allowed in cron restricted context/
+    );
+    expect(() => assertCronAllowed("kbju_callback")).toThrow(
+      /not allowed in cron restricted context/
+    );
+  });
+
+  it("createCronFilter returns true only for allowed tools", () => {
+    const filter = createCronFilter();
+
+    expect(filter("kbju_cron")).toBe(true);
+    expect(filter("kbju_message")).toBe(false);
+    expect(filter("kbju_callback")).toBe(false);
+    expect(filter("unknown_tool")).toBe(false);
+  });
+
+  it("CRON_RESTRICTED_TOOLS contains only kbju_cron", () => {
+    expect(CRON_RESTRICTED_TOOLS).toEqual(["kbju_cron"]);
+    expect(CRON_RESTRICTED_TOOLS).toHaveLength(1);
+  });
+
+  it("cron filter blocks all non-kbju_cron bridge tools", () => {
+    const filter = createCronFilter();
+    const allTools = ["kbju_message", "kbju_cron", "kbju_callback"];
+
+    const allowed = allTools.filter(filter);
+    const blocked = allTools.filter((t) => !filter(t));
+
+    expect(allowed).toEqual(["kbju_cron"]);
+    expect(blocked).toEqual(["kbju_message", "kbju_callback"]);
+  });
+
+  it("cron restricted context dispatches only kbju_cron to /kbju/cron", async () => {
+    const cronFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          summary_sent_to: [111, 222],
+          skipped_count: 0,
+        }),
+    });
+    const messageFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ reply_text: "OK" }),
+    });
+
+    globalThis.fetch = vi
+      .fn()
+      .mockImplementationOnce(async (url: string) => {
+        if (typeof url === "string" && url.includes("/kbju/cron")) {
+          return cronFetch();
+        }
+        return messageFetch();
+      });
+
+    const { register } = await import(
+      "../../packages/kbju-bridge-plugin/src/index.js"
+    );
+    const api = makePluginApi();
+    register(api);
+
+    const cronHandler = (api.registerCommand as ReturnType<typeof vi.fn>).mock
+      .calls[1][1] as (args: unknown) => Promise<unknown>;
+    const filter = createCronFilter();
+
+    expect(filter("kbju_cron")).toBe(true);
+
+    const result = await cronHandler({
+      trigger: "daily_summary",
+      timezone: "Europe/Moscow",
+    });
+    const resultObj = result as Record<string, unknown>;
+
+    expect(resultObj.summary_sent_to).toEqual([111, 222]);
+    expect(resultObj.skipped_count).toBe(0);
+
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    const cronCalls = calls.filter(
+      (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("/kbju/cron")
+    );
+    expect(cronCalls).toHaveLength(1);
   });
 });
