@@ -96,6 +96,24 @@ Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appen
 
 **Follow-up suggestions:** None beyond what the ticket already excludes.
 
+### 2026-05-05T13:30Z — glm-5.1 via opencode+OmniRoute (iter-2, RV-CODE-017 pass_with_changes)
+
+**Findings addressed:**
+- F-L1 (Low): Unbounded breach timestamp array — extracted `pruneBreachTimestamps()` private method, called inline after `push()` in `checkTenantAccess` AND at start of `getBreachCountLastHour`. Array now self-prunes on every breach insertion, no longer requires a `getBreachCountLastHour` call to bound growth.
+- F-M2 (Medium): Transaction-internal detection bypass — added JSDoc on `BreachDetectingTenantStore.withTransaction` documenting that transaction-internal cross-tenant repository calls are RLS-denied at the SQL layer without firing C12 breach events. Added test verifying zero breach events + RLS-error propagation for in-transaction cross-tenant access.
+
+**Files changed:**
+- `src/observability/breachDetector.ts` — extracted `pruneBreachTimestamps()`, called from `checkTenantAccess` and `getBreachCountLastHour`
+- `src/store/tenantStore.ts` — added 20-line JSDoc on `BreachDetectingTenantStore.withTransaction`
+- `tests/observability/breachDetector.test.ts` — added 2 new test cases (15 total)
+
+**Verification commands and results:**
+- `npm run build` — clean
+- `npm test` — 600 tests passed, 0 failed
+- `npm run lint` — clean
+- `npm run typecheck` — clean
+- `python3 scripts/validate_docs.py` — 80 artifacts, 0 failed
+
 ---
 
 ## Handoff Checklist
