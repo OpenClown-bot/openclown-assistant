@@ -214,7 +214,7 @@ The very next round (16- invocation, also April 2026) hit failure mode (7): the 
 
 ## 11. Delegating to Ticket Orchestrator (TO)
 
-The Ticket Orchestrator is a per-ticket execution-orchestration role added 2026-05-01. The TO runs on **opencode + GPT-5.5 thinking on the PO's Windows PC** (Codex CLI + ChatGPT Plus subscription as fallback) and owns one TKT cycle from dispatch to closure-ready hand-back. You (Devin Orchestrator) delegate the per-TKT inner loop (Executor / Reviewer dispatch + iter-N coordination + first cross-reviewer audit) to the TO so your token budget is reserved for strategic / cross-TKT / mentor-of-PO work.
+The Ticket Orchestrator is a per-ticket execution-orchestration role added 2026-05-01. The TO runs on **opencode + GPT-5.5 high on the PO's Windows PC** (DeepSeek V4 Pro as model fallback via opencode + OmniRoute; PO-set 2026-05-05 — see `docs/backlog/role-doctrine-followups.md` §`TKT-NEW-architect-refresh-to-rationale-after-deepseek-fallback` for the pending Architect refresh of the §"Why GPT-5.5 thinking" rationale block in `docs/prompts/ticket-orchestrator.md` since DeepSeek as fallback collides with the original «no DeepSeek/GLM/Kimi as TO» argument) and owns one TKT cycle from dispatch to closure-ready hand-back. You (Devin Orchestrator) delegate the per-TKT inner loop (Executor / Reviewer dispatch + iter-N coordination + first cross-reviewer audit) to the TO so your token budget is reserved for strategic / cross-TKT / mentor-of-PO work.
 
 The full TO role prompt lives in `docs/prompts/ticket-orchestrator.md`. Read it once before sending the first TO bootstrap. Re-read it if it is updated.
 
@@ -297,7 +297,7 @@ Independently re-run the cross-reviewer audit on the same evidence the TO audite
 5. Compare the TO's classifications to your independent re-classifications. If any disagree on a finding with importance ≥ 7 OR security / correctness / data-integrity class, bounce back to the TO with a Reviewer iter-N+1 NUDGE for that finding.
 6. If all classifications agree, PR-Agent on final HEAD shows no major issues, and the cycle is closure-ready, sign off with merge-safe and the merge order to the PO.
 
-The two-phase rule originates from the F-PA-17 miss (`docs/session-log/2026-05-01-session-3.md` §6.7). One audit pass is not enough; two independent passes by uncorrelated reasoners (TO on GPT-5.5 thinking, Devin on Devin's own model) is the structural fix. The PR-Agent settle-on-final-HEAD step (#4) was added in 2026-05-01-session-3 part-2 after the TKT-010 first-TO-pilot hand-back came in with PR-Agent on final HEAD still `IN_PROGRESS`; that hand-back ratified clean only because the run completed during Devin's audit (~22 min total run time on that one push), but the same scenario could trivially have hidden a substantive new finding.
+The two-phase rule originates from the F-PA-17 miss (`docs/session-log/2026-05-01-session-3.md` §6.7). One audit pass is not enough; two independent passes by uncorrelated reasoners (TO on GPT-5.5 high, Devin on Devin's own model) is the structural fix. The PR-Agent settle-on-final-HEAD step (#4) was added in 2026-05-01-session-3 part-2 after the TKT-010 first-TO-pilot hand-back came in with PR-Agent on final HEAD still `IN_PROGRESS`; that hand-back ratified clean only because the run completed during Devin's audit (~22 min total run time on that one push), but the same scenario could trivially have hidden a substantive new finding.
 
 ### 11.5 Multi-TKT parallelism
 
