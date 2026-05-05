@@ -166,6 +166,25 @@ describe("BreachDetector", () => {
     now.setTime(now.getTime() + 61 * 60 * 1000);
     expect(detector.getBreachCountLastHour()).toBe(0);
   });
+
+  it("breachTimestamps prunes itself even when getBreachCountLastHour is never called", () => {
+    const now = new Date("2026-05-05T10:00:00Z");
+    const emitted: RedactedBreachEvent[] = [];
+    const deps: BreachDetectorDeps = {
+      emit: (e) => emitted.push(e),
+      now: () => now,
+      hashUserId: (id) => sha256Half(id),
+    };
+    const detector = new BreachDetector(deps);
+    for (let i = 0; i < 500; i++) {
+      try { detector.checkTenantAccess(AUTHENTICATED_USER, OTHER_USER, "read", "users"); } catch {}
+    }
+    now.setTime(now.getTime() + 70 * 60 * 1000);
+    for (let i = 0; i < 500; i++) {
+      try { detector.checkTenantAccess(AUTHENTICATED_USER, OTHER_USER, "read", "users"); } catch {}
+    }
+    expect(detector.getBreachCountLastHour()).toBe(500);
+  });
 });
 
 describe("BreachDetectingTenantStore", () => {
@@ -217,6 +236,31 @@ describe("BreachDetectingTenantStore", () => {
     expect(emitted).toHaveLength(1);
     expect(emitted[0].event_name).toBe("kbju_tenant_breach_detected");
     expect(emitted[0].operation).toBe("write");
+  });
+
+  it("transaction-internal cross-tenant repository call is RLS-denied without firing a breach event", async () => {
+    const { deps, emitted } = makeDetectorDeps();
+    const detector = new BreachDetector(deps);
+
+    const innerStore: TenantStore = {
+      ...makeStubStore(),
+      withTransaction: vi.fn(async (userId, action) => {
+        const repo = {
+          createUser: vi.fn().mockRejectedValue(new Error("permission denied for table users (RLS)")),
+        } as unknown as Parameters<typeof action>[0];
+        return action(repo);
+      }),
+    };
+
+    const wrapped = new BreachDetectingTenantStore(innerStore, AUTHENTICATED_USER, detector);
+
+    await expect(
+      wrapped.withTransaction(AUTHENTICATED_USER, async (repo) => {
+        await repo.createUser(OTHER_USER, { telegramUserId: "x", telegramChatId: "y", timezone: "UTC" } as any);
+      })
+    ).rejects.toThrow(/permission denied|RLS/);
+
+    expect(emitted).toHaveLength(0);
   });
 });
 
