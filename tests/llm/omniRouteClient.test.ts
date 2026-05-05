@@ -123,3 +123,35 @@ describe("callOmniRoute retry backoff", () => {
     globalThis.fetch = originalFetch;
   });
 });
+
+describe("callOmniRoute kill-switch", () => {
+  it("AC6: returns stall_detected outcome when kill-switch file is present without spending tokens", async () => {
+    const existingPaths = new Set(["/tmp/kbju_kill_switch_active"]);
+    const fileExists = (path: string) => existingPaths.has(path);
+
+    const logger = makeMockLogger();
+    const spendTracker = makeMockSpendTracker();
+
+    const result = await callOmniRoute(mockConfig, {
+      ...makeOptions(),
+      logger,
+      spendTracker,
+      killSwitchPath: "/tmp/kbju_kill_switch_active",
+      fileExists,
+    });
+
+    expect(result.outcome).toBe("stall_detected");
+    expect(result.rawResponseText).toBe("");
+    expect(result.inputUnits).toBe(0);
+    expect(result.outputUnits).toBe(0);
+    expect(result.estimatedCostUsd).toBe(0);
+
+    const warnCalls = (logger.warn as ReturnType<typeof vi.fn>).mock.calls;
+    const killSwitchCall = warnCalls.find(
+      (c: unknown[]) => typeof c[1] === "object" && c[1] !== null && "kill_switch_path" in (c[1] as Record<string, unknown>),
+    );
+    expect(killSwitchCall).toBeDefined();
+
+    expect(spendTracker.recordCostAndCheckBudget).not.toHaveBeenCalled();
+  });
+});

@@ -171,29 +171,29 @@ export async function executeWithStallWatchdog<T>(
 ): Promise<T> {
   const { config, provider, model, tenantId, now, emit, execute, onFallback } = params;
 
-  const controller = new AbortController();
-
-  const watchdog = new StallWatchdog(
-    config,
-    {
-      now,
-      emit,
-      abort: () => controller.abort(),
-    },
-    provider,
-    model,
-    tenantId,
-  );
-
   let attempt = 0;
 
   while (attempt <= config.maxRetries) {
-    if (attempt === 0) {
-      watchdog.start();
-    } else {
-      watchdog.incrementRetry();
-      watchdog.restart();
+    const controller = new AbortController();
+    const watchdog = new StallWatchdog(
+      config,
+      {
+        now,
+        emit,
+        abort: () => controller.abort(),
+      },
+      provider,
+      model,
+      tenantId,
+    );
+
+    if (attempt > 0) {
+      for (let i = 0; i < attempt; i++) {
+        watchdog.incrementRetry();
+      }
     }
+
+    watchdog.start();
 
     try {
       const result = await execute(controller.signal, () => watchdog.touch());
@@ -223,7 +223,9 @@ export async function executeWithStallWatchdog<T>(
           model,
           tenantId,
         );
-        fallbackWatchdog.incrementRetry();
+        for (let i = 0; i < attempt; i++) {
+          fallbackWatchdog.incrementRetry();
+        }
         fallbackWatchdog.start();
 
         try {
