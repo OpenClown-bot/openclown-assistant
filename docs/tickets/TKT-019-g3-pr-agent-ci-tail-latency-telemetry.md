@@ -2,13 +2,13 @@
 id: TKT-019
 title: "G3 PR-Agent CI tail-latency telemetry"
 version: 0.1.0
-status: draft
+status: ready
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
 assigned_executor: "glm-5.1"
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-05
 ---
 
 # TKT-019: G3 PR-Agent CI tail-latency telemetry
