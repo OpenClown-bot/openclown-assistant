@@ -20,7 +20,7 @@ PR #125 delivers a clean, well-tested C13 stall-watchdog middleware (`StallWatch
 - [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: All ACs covered by passing tests, middleware contract matches ADR-012 constants and bounded labels, scope clean, no blockers or medium+ findings.
+One-sentence justification: All ACs covered by passing tests, middleware contract matches ADR-012@0.1.0 constants and bounded labels, scope clean, no blockers or medium+ findings.
 
 Recommendation to PO: approve & merge.
 
@@ -33,7 +33,7 @@ Recommendation to PO: approve & merge.
   - `src/shared/types.ts` (+`"C13"` ComponentId — see F-N1)
   - `tests/observability/stallWatchdog.test.ts` (new, 10 tests)
   - `tests/llm/omniRouteClient.test.ts` (+kill-switch AC6 integration test)
-  - `docs/tickets/TKT-018-g2-model-stall-detector-synthetic-tests.md` (status + execution log)
+  - TKT-018@0.1.0 ticket file (status + execution log)
 - [x] No changes to TKT §3 NOT-In-Scope items
   - No Rust/WASM dependency.
   - No provider-health ping calls.
@@ -83,7 +83,7 @@ _None._
   The PR description lists "test: tests/observability/stallWatchdog.test.ts" without line numbers. The actual tests are explicitly AC-tagged in the test file (see AC mapping in this review). A tighter table improves traceability for the PO and future reviewers. **Responsible role:** Devin Orchestrator. **Suggested remediation:** patch PR body with the AC↔line mapping from this review.
 
 - **F-NIT — `src/shared/types.ts` ComponentId extension C11 → C11|C12|C13.**
-  Pre-flagged by Devin Orchestrator (F-N1). Structurally required for typecheck of the C13 integration. Architect oversight (TKT-017 also missed C12). No action needed.
+  Pre-flagged by Devin Orchestrator (F-N1). Structurally required for typecheck of the C13 integration. Architect oversight (TKT-017@0.1.0 also missed C12). No action needed.
 
 ## Red-team probes (Reviewer must address each)
 - **Error paths / LLM timeout:**
@@ -103,4 +103,4 @@ _None._
 - **Off-by-one in retry counters:**
   - `maxRetries = 2` yields up to 3 total attempts in `executeWithStallWatchdog` (`attempt` 0 → fallback → `attempt` 2). `omniRouteClient.ts` tracks `stallRetryCount` independently and respects the same bound. Correct.
 - **Missing authz / tenant isolation:**
-  - `tenant_id` is used as a bounded metric label, not for access control. The existing C12 breach detector (TKT-017) handles tenant isolation separately.
+  - `tenant_id` is used as a bounded metric label, not for access control. The existing C12 breach detector (TKT-017@0.1.0) handles tenant isolation separately.
