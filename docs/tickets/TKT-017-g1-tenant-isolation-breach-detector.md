@@ -2,7 +2,7 @@
 id: TKT-017
 title: "G1 tenant-isolation breach detector"
 version: 0.1.0
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
