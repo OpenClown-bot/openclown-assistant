@@ -2,13 +2,13 @@
 id: TKT-017
 title: "G1 tenant-isolation breach detector"
 version: 0.1.0
-status: draft
+status: ready
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
 assigned_executor: "glm-5.1"
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-05-05
 ---
 
 # TKT-017: G1 tenant-isolation breach detector
@@ -77,4 +77,3 @@ Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appen
 - [x] Acceptance Criteria are machine-checkable.
 - [x] References are version-pinned.
 - [x] `assigned_executor` is justified.
-
