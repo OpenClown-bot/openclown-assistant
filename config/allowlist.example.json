@@ -1,0 +1,4 @@
+{
+  "users": [123456789, 987654321],
+  "comment": "Telegram user IDs. Sidecar picks up changes within 30s. No restart."
+}
