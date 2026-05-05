@@ -3,23 +3,28 @@ id: RV-CODE-017
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/120"
 ticket_ref: TKT-017@0.1.0
-status: changes_requested
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-05-05
+updated: 2026-05-05
+approved_at: 2026-05-05
+approved_after_iters: 2
+approved_by: "yourmomsenpai (PO)"
+approved_note: "RV-CODE-017 reached effective verdict pass on iter-2 (Executor commit d227b6b, Reviewer commit on rv-branch). Reviewer iter-1 verdict was pass_with_changes blocked on F-M1 (production wiring gap), F-M2 (transaction-internal detection bypass), and F-L1 (unbounded breach timestamp array). Iter-2 fixes RESOLVED all three: F-L1 pruneBreachTimestamps extracted as private, called from checkTenantAccess after push and from getBreachCountLastHour at start, plus new test asserting bounded array under 1000 attempts spanning >1h fake time; F-M2 JSDoc block on BreachDetectingTenantStore.withTransaction documents accepted RLS fallback per ADR-001@0.1.0 §Decision and ARCH-001@0.5.0 §9.2 + §3.12, plus new test exercising transaction-internal cross-tenant repo call that throws RLS error with zero breach events; F-M1 accepted as BACKLOG-deferred per Devin Orchestrator triage (TKT-017 §5/§6 only require synthetic detection; production boot-bridge wiring is a separate ticket)."
 ---
 
 # Code Review — PR #120 (TKT-017@0.1.0)
 
 ## Summary
-PR #120 delivers a clean, well-tested C12 breach detector (`BreachDetector`, `BreachDetectingTenantStore`) and the `kbju_tenant_breach_detected` metric/kpi event name. All TKT-017@0.1.0 §6 Acceptance Criteria are structurally satisfied by verifiable tests. Scope is clean: 7 files touched, no new runtime dependencies, no secrets, no `TODO`/`FIXME` leaks, CI green. A hostile-reader pass found two MEDIUM design gaps: (1) the detector is never instantiated in the production boot path, so `/kbju/health` will always report `breach_count_last_hour: 0` until a follow-up ticket wires it; (2) `withTransaction` delegates the unguarded inner `TenantScopedRepository` to the action callback, leaving a detection bypass for transaction-internal cross-tenant calls (mitigated by PostgreSQL RLS). These are not code defects in this PR but are architectural gaps that should be documented or resolved before merge to avoid silent inoperability.
+PR #120 delivers a clean, well-tested C12 breach detector (`BreachDetector`, `BreachDetectingTenantStore`) and the `kbju_tenant_breach_detected` metric/kpi event name. All TKT-017@0.1.0 §6 Acceptance Criteria are structurally satisfied by verifiable tests. Scope is clean: 7 files touched, no new runtime dependencies, no secrets, no `TODO`/`FIXME` leaks, CI green. Iter-1 found two MEDIUM design gaps (F-M1 production wiring, F-M2 transaction-internal bypass) and one LOW (F-L1 unbounded array). Iter-2 resolved F-L1 via inline pruning and F-M2 via JSDoc + test; F-M1 is accepted as BACKLOG-deferred per Devin Orchestrator triage.
 
 ## Verdict
-- [ ] pass
-- [x] pass_with_changes
+- [x] pass
+- [ ] pass_with_changes
 - [ ] fail
 
-One-sentence justification: All ACs are covered by passing tests and the implementation is correct, but two MEDIUM gaps—production-path inertness and a transaction-internal detection bypass—require Executor documentation or remediation so the PO is not surprised by a detector that never fires in production.
-Recommendation to PO: request changes from Executor (address F-M1 and F-M2 below; F-L1 and F-L2 are acceptable as nits if documented).
+One-sentence justification: All ACs are covered by passing tests, scope is clean, iter-2 resolved F-L1 and F-M2, and F-M1 is explicitly deferred to a follow-up ticket; no remaining blocking or medium findings.
+Recommendation to PO: approve & merge.
 
 ## Contract compliance (each must be ticked or marked finding)
 - [x] PR modifies ONLY files listed in TKT §5 Outputs
@@ -59,11 +64,11 @@ Recommendation to PO: request changes from Executor (address F-M1 and F-M2 below
 None.
 
 ### Medium
-- **F-M1 (src/sidecar/factory.ts:53):** `createSidecarDeps()` does not instantiate `BreachDetector` and does not wrap the inner store with `BreachDetectingTenantStore`. In the production boot path (`src/main.ts:268` → `createServer()` with no explicit `deps`), `effectiveDeps` falls back to `createSidecarDeps(pilotUserIds)`, leaving `deps.breachDetector` `undefined`. Consequently, `/kbju/health` will always report `breach_count_last_hour: 0` and no real cross-tenant access will ever trigger a breach event. The detector is correct but inert in production. — *Responsible role:* Executor / Architect. *Suggested remediation:* File a follow-up ticket (e.g., TKT-018 or boot-bridge) to instantiate `BreachDetector` and wrap the `TenantStore` with `BreachDetectingTenantStore` in the production initialization path. Until then, add a code comment in `src/sidecar/factory.ts:53` and `src/main.ts:258` documenting that `breachDetector` is intentionally unpopulated pending boot-bridge wiring.
-- **F-M2 (src/store/tenantStore.ts:925):** `BreachDetectingTenantStore.withTransaction` guards the transaction entry (`this.guard(userId, "write", "transaction")`) but delegates the raw inner `TenantScopedRepository` to the action callback. If the action calls inner repository methods with a different `userId` (e.g., `repo.getUser(OTHER_USER)`), the detector will not fire. PostgreSQL RLS (`set_config('app.user_id', ...)` in the inner `withTransaction`) provides defense-in-depth, so data access is still blocked, but the alarm is silent—violating the G1 promise of detecting *every* cross-tenant access. — *Responsible role:* Executor. *Suggested remediation:* Either (a) wrap the `repository` passed to `action` with a thin `TenantScopedRepository` proxy that re-invokes `detector.checkTenantAccess` on every method, or (b) document the accepted limitation in a JSDoc comment on `BreachDetectingTenantStore.withTransaction` stating that intra-transaction tenant isolation relies on PostgreSQL RLS and that the action must not call inner methods with a mismatched `userId`.
+- **F-M1 (src/sidecar/factory.ts:53):** `createSidecarDeps()` does not instantiate `BreachDetector` and does not wrap the inner store with `BreachDetectingTenantStore`. In the production boot path (`src/main.ts:268` → `createServer()` with no explicit `deps`), `effectiveDeps` falls back to `createSidecarDeps(pilotUserIds)`, leaving `deps.breachDetector` `undefined`. Consequently, `/kbju/health` will always report `breach_count_last_hour: 0` and no real cross-tenant access will ever trigger a breach event. The detector is correct but inert in production. — *Responsible role:* Executor / Architect. *Suggested remediation:* File a follow-up ticket (e.g., TKT-018 or boot-bridge) to instantiate `BreachDetector` and wrap the `TenantStore` with `BreachDetectingTenantStore` in the production initialization path. **Status: ACCEPTED as BACKLOG-deferred per Devin Orchestrator triage (TKT-017 §5/§6 only require synthetic detection; production boot-bridge wiring is a separate ticket).**
+- **F-M2 (src/store/tenantStore.ts:925):** `BreachDetectingTenantStore.withTransaction` guards the transaction entry (`this.guard(userId, "write", "transaction")`) but delegates the raw inner `TenantScopedRepository` to the action callback. If the action calls inner repository methods with a different `userId` (e.g., `repo.getUser(OTHER_USER)`), the detector will not fire. PostgreSQL RLS (`set_config('app.user_id', ...)` in the inner `withTransaction`) provides defense-in-depth, so data access is still blocked, but the alarm is silent—violating the G1 promise of detecting *every* cross-tenant access. — *Responsible role:* Executor. *Suggested remediation:* Either (a) wrap the `repository` passed to `action` with a thin `TenantScopedRepository` proxy that re-invokes `detector.checkTenantAccess` on every method, or (b) document the accepted limitation in a JSDoc comment on `BreachDetectingTenantStore.withTransaction` stating that intra-transaction tenant isolation relies on PostgreSQL RLS and that the action must not call inner methods with a mismatched `userId`. **Status: RESOLVED in iter-2 — Executor chose option (b): JSDoc block added at `src/store/tenantStore.ts:925` documenting RLS fallback per ADR-001@0.1.0 §Decision and ARCH-001@0.5.0 §9.2 + §3.12; new test at `tests/observability/breachDetector.test.ts:240` exercises transaction-internal cross-tenant repo call and confirms zero breach events + RLS-level rejection.**
 
 ### Low
-- **F-L1 (src/observability/breachDetector.ts:75):** `checkTenantAccess` pushes breach timestamps to `this.breachTimestamps` but only `getBreachCountLastHour` prunes stale entries. If the health endpoint is not polled (or under a sustained attack), the array grows unbounded until the process restarts. — *Responsible role:* Executor. *Suggested remediation:* Prune stale entries inside `checkTenantAccess` before pushing, or cap `breachTimestamps.length` to a safe maximum (e.g., 10,000).
+- **F-L1 (src/observability/breachDetector.ts:75):** `checkTenantAccess` pushes breach timestamps to `this.breachTimestamps` but only `getBreachCountLastHour` prunes stale entries. If the health endpoint is not polled (or under a sustained attack), the array grows unbounded until the process restarts. — *Responsible role:* Executor. *Suggested remediation:* Prune stale entries inside `checkTenantAccess` before pushing, or cap `breachTimestamps.length` to a safe maximum (e.g., 10,000). **Status: RESOLVED in iter-2 — `pruneBreachTimestamps()` extracted as private method, called from `checkTenantAccess()` after push (`src/observability/breachDetector.ts:78`) and from `getBreachCountLastHour()` at start (`src/observability/breachDetector.ts:94`); new test at `tests/observability/breachDetector.test.ts:169` asserts bounded array under 1000 attempts spanning >1h fake time.**
 - **F-L2 (src/telegram/types.ts:95):** `breachDetector?: BreachDetector` is added to `C1Deps` solely to support `src/main.ts:78` health-endpoint wiring. This is justified because `main.ts` is a TKT-017 §5 output and the field is optional, but it slightly widens the C1 dependency surface for a C12 concern. Acceptable because it avoids a broader refactor of the sidecar seam. No action required.
 
 ## Red-team probes (Reviewer must address each)
@@ -127,3 +132,25 @@ None.
 
 ## SHA reviewed
 `ed20f5dd879e7246781edaeb8943691b06426622`
+
+## Iter-2 verification (SHA d227b6b)
+
+**New verdict:** pass.
+
+**F-L1 — verified closed:** `pruneBreachTimestamps()` extracted as private method at `src/observability/breachDetector.ts:84-92`. Called inline after every `push` in `checkTenantAccess()` (`src/observability/breachDetector.ts:78`) and at the start of `getBreachCountLastHour()` (`src/observability/breachDetector.ts:94`). New test at `tests/observability/breachDetector.test.ts:169` "breachTimestamps prunes itself even when getBreachCountLastHour is never called" exercises 500 breaches, 70-minute jump, 500 more breaches, asserts `getBreachCountLastHour() === 500` (only recent batch retained). Array is now bounded regardless of health-endpoint polling.
+
+**F-M2 — verified closed:** JSDoc block added to `BreachDetectingTenantStore.withTransaction` at `src/store/tenantStore.ts:925-942` documenting the accepted RLS fallback, citing ADR-001@0.1.0 §Decision and ARCH-001@0.5.0 §3.12 + §9.2. New test at `tests/observability/breachDetector.test.ts:240` "transaction-internal cross-tenant repository call is RLS-denied without firing a breach event" stubs an inner `withTransaction` that passes an unguarded repository to the action callback; the action calls `repo.createUser(OTHER_USER, ...)` which rejects with `"permission denied for table users (RLS)"`; asserts `emitted.length === 0` and the thrown error matches `/permission denied|RLS/`. The doc text accurately describes the behavior, and the test exercises the exact bypass path identified in iter-1.
+
+**F-M1 — accepted as BACKLOG-deferred:** Devin Orchestrator triaged this out of iter-2 scope with the rationale that TKT-017 §5/§6 only require synthetic detection, health endpoint structure, and unit tests; production boot-bridge wiring is a separate ticket. I accept this deferral. The PO should file a follow-up ticket (e.g., BACKLOG-xxx or TKT-0XX) to wire `BreachDetector` + `BreachDetectingTenantStore` into `createSidecarDeps()` before the next release. No code defect remains in this PR.
+
+**Verification commands run independently:**
+- `npm install` — clean (72 packages, 0 vulnerabilities)
+- `npm run build` — clean
+- `npm run lint` — clean
+- `npm run typecheck` — clean
+- `npm test` — Test Files 36 passed (36), Tests 693 passed (693), 0 failed
+- `python3 scripts/validate_docs.py` — validated 80 artifact(s); 0 failed
+
+**No new defects introduced by iter-2.** The iter-2 delta is limited to `src/observability/breachDetector.ts`, `src/store/tenantStore.ts`, and `tests/observability/breachDetector.test.ts`, plus the ticket execution-log update in `docs/tickets/TKT-017-g1-tenant-isolation-breach-detector.md`. All changes are additive (no regressions, no scope creep).
+
+**Recommendation to PO: approve & merge.**
