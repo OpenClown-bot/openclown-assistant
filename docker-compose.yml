@@ -1,5 +1,5 @@
 services:
-  app:
+  kbju-sidecar:
     build: .
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
@@ -14,11 +14,35 @@ services:
       PO_ALERT_CHAT_ID: ${PO_ALERT_CHAT_ID}
       MONTHLY_SPEND_CEILING_USD: ${MONTHLY_SPEND_CEILING_USD:-10}
       AUDIT_DB_URL: ${AUDIT_DB_URL}
+      SERVER_PORT: "3000"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://localhost:3000/kbju/health',r=>{process.exit(r.statusCode===200?0:1)});req.on('error',()=>process.exit(1));"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - openclaw_state:/app/state
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  openclaw-gateway:
+    image: ghcr.io/nicholasgriffintn/openclaw:latest
+    environment:
+      KBJU_SIDECAR_URL: "http://kbju-sidecar:3000"
+      PLUGIN_kbju_bridge_ENABLED: "true"
+    depends_on:
+      kbju-sidecar:
+        condition: service_healthy
+    volumes:
+      - openclaw_state:/home/openclaw/.openclaw
     networks:
       - internal
     logging:
@@ -51,25 +75,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    entrypoint: ["node", "-e", "require('./dist/deployment/healthCheck.js').startMetricsServer()"]
+    entrypoint: ["node", "-e", "require('./dist/src/deployment/healthCheck.js').startMetricsServer()"]
     environment:
       METRICS_HOST: "metrics"
       METRICS_PORT: "9464"
     ports:
       - "127.0.0.1:9464:9464"
     healthcheck:
-      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://metrics:9464/healthz',(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.exit(JSON.parse(d).status==='ok'?0:1)}catch{process.exit(1)}});r.on('error',()=>process.exit(1))});req.on('error',()=>process.exit(1));req.setTimeout(3000,()=>{req.destroy();process.exit(1)})"]
-      interval: 30s
+      test: ["CMD", "node", "-e", "const http=require('http');const req=http.get('http://metrics:9464/healthz',r=>{process.exit(r.statusCode===200?0:1)});req.on('error',()=>process.exit(1));"]
+      interval: 15s
       timeout: 5s
-      start_period: 10s
       retries: 3
     networks:
       - internal
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "5"
+        max-size: "5m"
+        max-file: "3"
 
 volumes:
   kbju_pgdata:
@@ -77,4 +100,3 @@ volumes:
 
 networks:
   internal:
-    driver: bridge
