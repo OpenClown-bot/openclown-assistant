@@ -2,6 +2,7 @@ import type { C1Deps, TelegramHandlers } from "../telegram/types.js";
 import type { NormalizedTelegramUpdate } from "../telegram/types.js";
 import type { RussianReplyEnvelope } from "../shared/types.js";
 import type { MetricsRegistry } from "../observability/metricsEndpoint.js";
+import type { Allowlist } from "../security/allowlist.js";
 
 export function createHandlerStub(
   replyText: string
@@ -50,7 +51,7 @@ function createNullMetricsRegistry(): MetricsRegistry {
   };
 }
 
-export function createSidecarDeps(pilotUserIds: string[]): C1Deps {
+export function createSidecarDeps(pilotUserIds: string[], allowlist?: Allowlist): C1Deps {
   return {
     handlers: createStubHandlers(),
     sendMessage: async () => {},
@@ -63,5 +64,6 @@ export function createSidecarDeps(pilotUserIds: string[]): C1Deps {
     },
     pilotUserIds,
     metricsRegistry: createNullMetricsRegistry(),
+    allowlist,
   };
 }
