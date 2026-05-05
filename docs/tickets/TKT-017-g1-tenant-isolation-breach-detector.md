@@ -2,13 +2,17 @@
 id: TKT-017
 title: "G1 tenant-isolation breach detector"
 version: 0.1.0
-status: in_review
+status: done
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
 assigned_executor: "glm-5.1"
 created: 2026-05-04
 updated: 2026-05-05
+completed_at: 2026-05-05
+completed_by: "lindwurm.22.shane (PO)"
+completed_note: |
+  TKT-017@0.1.0 closed after Executor PR #120 (squash sha c9a441c4) and Kimi RV-CODE-017 review PR #121 (squash sha af0e98e0) were both merged to main on 2026-05-05. Implementation final head before PR #120 squash was d227b6bf1314ab6b480827254dcad448b5885902 after two Executor iterations: iter-1 (HEAD ed20f5dd) delivered the C12 BreachDetector + BreachDetectingTenantStore wrapper with all six §6 ACs covered by tests, but Kimi's iter-1 verdict was pass_with_changes on three findings (F-M1 production wiring gap in `createSidecarDeps()`, F-M2 transaction-internal detection bypass via the unwrapped inner TenantScopedRepository, F-L1 unbounded `breachTimestamps[]` if `getBreachCountLastHour()` is never called). Iter-2 (HEAD d227b6b) resolved F-L1 via inline `pruneBreachTimestamps()` extraction called from both `checkTenantAccess()` and `getBreachCountLastHour()` plus a regression test under fake-timers, and resolved F-M2 via a JSDoc block on `BreachDetectingTenantStore.withTransaction` documenting the accepted RLS fallback per ADR-001@0.1.0 §Decision and ARCH-001@0.5.0 §3.12 + §9.2 plus a vitest case asserting transaction-internal cross-tenant repo calls are RLS-denied without firing a breach event. F-M1 was accepted as BACKLOG-deferred per Devin Orchestrator triage on the rationale that TKT-017@0.1.0 §5/§6 only require synthetic detection, health-endpoint structure, and unit tests; production boot-bridge wiring (`createSidecarDeps()` instantiating `BreachDetector` and wrapping the inner TenantStore) is a separate ticket and was filed as a new BACKLOG entry under `docs/backlog/observability-followups.md` § "TKT-NEW-wire-breach-detector-into-production-boot-path". Local pre-merge re-verification on d227b6b passed: `npm run build` clean, `npm run lint` clean, `npm run typecheck` clean, `npm test` 36/36 test files and 693/693 tests passed (iter-1 691 + 2 new iter-2 tests), `python3 scripts/validate_docs.py` 80 artifacts 0 failed. Kimi K2.6 RV-CODE-017 verdict on iter-2 HEAD d227b6b was pass (rv-branch HEAD 8a3e76e). Qodo PR-Agent (DeepSeek V4 Pro on OmniRoute) was green on iter-1 HEAD ed20f5d with no findings; on iter-2 HEAD d227b6b CI hit a GitHub Actions hosted-runner provisioning flake (three consecutive retries timed out at 15 minutes each in the queue with no logs and conclusion=cancelled-promoted-to-failure). Devin Orchestrator declared merge-safe on the basis of (1) iter-1 PR-Agent green plus iter-2 being four purely additive commits with zero changes to the docs-ci validation surface (no `docs/architecture/`, `docs/prd/`, `docs/adr/`, `scripts/validate_docs.py`, or `package.json` modifications), (2) Kimi's load-bearing iter-2 pass verdict, and (3) full local re-verification. PO chose option A (merge now with documented CI infra flake) over option B (wait for runners to recover). Executor model deviation: ticket assigned glm-5.1, executed by glm-5.1 successfully on iter-2 after iter-1 stalled three consecutive times mid-stream around the 105K-token / 52% context point (the same G2 model-stall pattern that TKT-018 will detect automatically); recovered on iter-1 via a locked-design continuation prompt with per-step commit-and-push discipline. No code defect remains; F-M1 is the only outstanding BACKLOG item.
 ---
 
 # TKT-017: G1 tenant-isolation breach detector
