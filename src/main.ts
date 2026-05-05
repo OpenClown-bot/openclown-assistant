@@ -33,21 +33,39 @@ function jsonResponse(res: http.ServerResponse, statusCode: number, body: unknow
   res.end(payload);
 }
 
-function readBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+const MAX_BODY_SIZE = 64 * 1024;
+
+type BodyResult = { ok: true; body: Record<string, unknown> } | { ok: false; oversized: true };
+
+function readBody(req: http.IncomingMessage): Promise<BodyResult> {
   return new Promise((resolve, reject) => {
     let data = "";
+    let size = 0;
+    let overflow = false;
+
     req.on("data", (chunk: Buffer) => {
+      if (overflow) return;
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        overflow = true;
+        data = "";
+        return;
+      }
       data += chunk.toString();
     });
     req.on("end", () => {
+      if (overflow) {
+        resolve({ ok: false, oversized: true });
+        return;
+      }
       if (!data) {
-        resolve({});
+        resolve({ ok: true, body: {} });
         return;
       }
       try {
-        resolve(JSON.parse(data) as Record<string, unknown>);
+        resolve({ ok: true, body: JSON.parse(data) as Record<string, unknown> });
       } catch {
-        resolve({ _parse_error: true });
+        resolve({ ok: true, body: { _parse_error: true } });
       }
     });
     req.on("error", reject);
@@ -86,8 +104,12 @@ function toBridgeRequest(body: Record<string, unknown>): BridgeRequest | null {
 }
 
 async function handleMessage(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const body = await readBody(req);
-  const bridgeReq = toBridgeRequest(body);
+  const result = await readBody(req);
+  if (!result.ok) {
+    jsonResponse(res, 413, { error: "payload_too_large" });
+    return;
+  }
+  const bridgeReq = toBridgeRequest(result.body);
 
   if (!bridgeReq) {
     jsonResponse(res, 400, {
@@ -125,9 +147,13 @@ async function handleMessage(req: http.IncomingMessage, res: http.ServerResponse
 }
 
 async function handleCallback(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const body = await readBody(req);
+  const result = await readBody(req);
+  if (!result.ok) {
+    jsonResponse(res, 413, { error: "payload_too_large" });
+    return;
+  }
 
-  const bridgeReq = toBridgeRequest({ ...body, source: "callback" });
+  const bridgeReq = toBridgeRequest({ ...result.body, source: "callback" });
   if (!bridgeReq) {
     jsonResponse(res, 400, {
       error: "invalid_request",
@@ -149,11 +175,17 @@ async function handleCallback(req: http.IncomingMessage, res: http.ServerRespons
   const reply = await routeBridgeRequest(effectiveDeps, bridgeReq);
   jsonResponse(res, 200, {
     reply_text: reply?.text ?? "Обработано.",
-    edit_message_id: body.message_id ?? undefined,
+    edit_message_id: result.body.message_id ?? undefined,
   });
 }
 
 async function handleCron(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const result = await readBody(req);
+  if (!result.ok) {
+    jsonResponse(res, 413, { error: "payload_too_large" });
+    return;
+  }
+
   const effectiveDeps = deps ?? createSidecarDeps(pilotUserIds);
 
   const bridgeReq: BridgeRequest = {

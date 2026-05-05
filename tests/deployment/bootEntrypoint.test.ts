@@ -267,6 +267,64 @@ describe("bootEntrypoint", () => {
     expect(call.callbackData).toBe("confirm_meal:draft456");
   });
 
+  it("oversized /kbju/message returns 413 payload_too_large and does not invoke handler", async () => {
+    stubH.textMealCalls.length = 0;
+    const bigText = "x".repeat(70 * 1024);
+
+    const result = await fetch({
+      path: "/kbju/message",
+      method: "POST",
+      body: { telegram_id: 111, chat_id: 111, text: bigText },
+    });
+
+    expect(result.status).toBe(413);
+    expect(result.body.error).toBe("payload_too_large");
+    expect(stubH.textMealCalls.length).toBe(0);
+  });
+
+  it("oversized /kbju/callback returns 413 payload_too_large and does not invoke handler", async () => {
+    stubH.callbackCalls.length = 0;
+    const bigData = "x".repeat(70 * 1024);
+
+    const result = await fetch({
+      path: "/kbju/callback",
+      method: "POST",
+      body: { telegram_id: 111, chat_id: 111, callback_data: bigData },
+    });
+
+    expect(result.status).toBe(413);
+    expect(result.body.error).toBe("payload_too_large");
+    expect(stubH.callbackCalls.length).toBe(0);
+  });
+
+  it("oversized /kbju/cron returns 413 payload_too_large and does not invoke handler", async () => {
+    stubH.summaryDeliveryCalls.length = 0;
+    const bigData = "x".repeat(70 * 1024);
+
+    const result = await fetch({
+      path: "/kbju/cron",
+      method: "POST",
+      body: { big: bigData },
+    });
+
+    expect(result.status).toBe(413);
+    expect(result.body.error).toBe("payload_too_large");
+    expect(stubH.summaryDeliveryCalls.length).toBe(0);
+  });
+
+  it("413 payload_too_large responses include X-Kbju-Bridge-Version: 1.0", async () => {
+    const bigText = "x".repeat(70 * 1024);
+
+    const result = await fetch({
+      path: "/kbju/message",
+      method: "POST",
+      body: { telegram_id: 111, chat_id: 111, text: bigText },
+    });
+
+    expect(result.status).toBe(413);
+    expect(result.headers["x-kbju-bridge-version"]).toBe("1.0");
+  });
+
   it("POST /kbju/cron reaches the summaryDelivery handler through seam", async () => {
     stubH.summaryDeliveryCalls.length = 0;
 
