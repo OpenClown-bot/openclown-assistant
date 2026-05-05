@@ -92,6 +92,7 @@ export interface C1Deps {
   logger: import("../shared/types.js").OpenClawLogger;
   pilotUserIds: readonly string[];
   metricsRegistry: import("../observability/metricsEndpoint.js").MetricsRegistry;
+  breachDetector?: import("../observability/breachDetector.js").BreachDetector;
 }
 
 export class C1MalformedUpdateError extends Error {
