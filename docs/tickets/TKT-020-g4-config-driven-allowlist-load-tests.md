@@ -2,7 +2,7 @@
 id: TKT-020
 title: "G4 config-driven allowlist and load tests"
 version: 0.1.0
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
