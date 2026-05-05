@@ -3,7 +3,7 @@
 > Required reading for: **Architect** (Phase 0: Recon), **Executor** (before writing skill code), **Reviewer** (SPEC mode — to spot capability mismatches).
 > NOT for **Business Planner** beyond constraint awareness — openclaw is implementation infra, not a product feature.
 
-OpenClaw is a self-hosted gateway / agent-runtime that hosts "skills" written in **TypeScript on Node 24**. The PO has locked openclaw as the production runtime for `openclown-assistant`. Architects design *within* this runtime; they do not revisit it.
+OpenClaw is a self-hosted gateway / agent-runtime that hosts plugins and skills written in **TypeScript on Node 24**. The PO has locked openclaw as the production runtime for `openclown-assistant`. Architects design *within* this runtime; they do not revisit it.
 
 ## Sources of truth (always cite when you reference openclaw behaviour)
 
@@ -23,7 +23,7 @@ The Architect MUST map each PRD Goal to whichever of these built-ins covers it. 
 | Voice transcription wake-word | Pre-routes voice messages to a transcription skill via `VoiceWake` | The skill itself (we either fork or write — see `awesome-skills.md`) |
 | Sandbox / process isolation | Each skill runs in a sandboxed Node 24 process | — |
 | Multi-agent routing | Routes a single user input through a chain of skills | The chain config (declarative) |
-| Cron / scheduled triggers | `cron-tools` plugin for periodic skill invocation | Schedule definitions for daily / weekly summaries |
+| Cron / scheduled triggers | Gateway cron plus bridge tools for periodic invocation | Schedule definitions for daily / weekly summaries |
 | Model failover | Built-in retry across providers when one returns error | Provider list (we feed OmniRoute as the primary; see `llm-routing.md`) |
 | Observability hooks | Per-skill logs, latency metrics, token spend | Concrete log format (ArchSpec §8) |
 | Secret injection | Env-var based, no in-code keys | `.env.example` schema (ArchSpec §9) |
@@ -39,6 +39,16 @@ A skill is a TypeScript class exporting:
 
 Skills are **stateless across calls** unless they declare a persistent store via openclaw (we declare SQLite for KBJU history — pending ADR).
 
+## Plugin anatomy (what the KBJU bridge uses)
+
+The KBJU Gateway bridge is an OpenClaw **plugin**, not a skill:
+
+- `openclaw.plugin.json` declares plugin metadata and entrypoint.
+- `api.on("inbound_claim", handler)` can claim Telegram text/voice/photo messages before agent dispatch.
+- Returning `{ handled: true, reply }` skips the agent loop and sends the reply through the originating channel.
+- `api.registerTool(...)` exposes bounded bridge tools such as `kbju_cron` and `kbju_callback` to a restricted agent context.
+- `api.registerHook("message:preprocessed", ...)` can be used as a catch-all pattern for unbound conversations if `inbound_claim` only fires for plugin-bound turns.
+
 ## Hard constraints openclaw imposes on our design
 
 - **Language:** TypeScript on Node 24. No Python, Go, Rust skills. (Polyglot via subprocess is technically possible but adds an ADR's worth of trade-off — Architect must justify if proposed.)
@@ -49,7 +59,7 @@ Skills are **stateless across calls** unless they declare a persistent store via
 
 ## Testing skills
 
-OpenClaw provides a local harness (`openclaw run --skill .`) that boots the skill in dev mode with mocked Telegram input. Executor tickets that touch skills should use this harness in their AC, not a full openclaw deployment.
+OpenClaw provides local harnesses for plugin/skill development. Executor tickets that touch the KBJU bridge must test the plugin hook path (`inbound_claim`) and registered bridge tools, not only the sidecar HTTP server.
 
 ## What openclaw does NOT close
 
@@ -62,4 +72,93 @@ These are exactly the components we audit `awesome-skills.md` for fork-candidate
 
 ## Known gotchas (cite a source before adding to this list)
 
-- *(empty — append entries with citation as we hit them in development)*
+### Architect-3 empirical findings (v0.5.0 alternatives-design, 2026-05-04)
+
+**G1: UPDATED by SPIKE-001 — external HTTP routing is feasible through a plugin, not a skill.**
+The older "skill `handle(input, ctx)` bridge" assumption is outdated. SPIKE-001 found that `inbound_claim`
+fires in classify/preflight before agent dispatch; a plugin handler can make a Node `fetch()` call to the
+KBJU sidecar and return `{ handled: true, reply }`, which skips the agent loop. The HYBRID bridge must
+therefore be a repo-owned OpenClaw plugin using `inbound_claim` plus registered tools, not a skill handler
+and not a fork of OpenClaw internals.
+Source: SPIKE-001@0.1.0; OpenClaw `src/plugins/hook-message.types.ts` and `src/plugins/hook-types.ts`.
+
+**G2: Skills are stateless across calls — sidecar process boundary is a separate concern.**
+openclaw sandbox per skill (^ §What openclaw closes) provides process isolation at the skill level,
+but does NOT provide HTTP-server lifecycle management for a sidecar process. Docker Compose must
+manage the KBJU sidecar as a separate service (ADR-011 §4).
+Source: openclaw.md:24 "Each skill runs in a sandboxed Node 24 process" — sandbox is per-skill invocation,
+not per-HTTP-server.
+
+**G3: `ctx.log` vs `console.log` — observability hooks require the former.**
+The KBJU sidecar, running outside openclaw's sandbox, cannot use `ctx.log`. Structured JSON logging
+to stdout (captured by Docker logging driver) is the equivalent pattern for the sidecar.
+Source: openclaw.md:48 "Logs are emitted via `ctx.log`, not `console.log`."
+
+**G4: Cron triggers are gateway-internal — sidecar cron routes through a restricted bridge tool.**
+KBJU sidecar daily summaries are triggered by OpenClaw Gateway invoking the registered `kbju_cron` tool,
+which POSTs to `/kbju/cron`; the sidecar does not run its own public cron and has no direct Telegram Bot
+API access. SecureClaw-style cost monitoring is recommended as a supplementary guard for recurring jobs.
+Source: SPIKE-001@0.1.0; SPIKE-002@0.1.0.
+
+**G5: Callback queries are not proven zero-LLM through `inbound_claim`.**
+SPIKE-001 found callback queries route through a separate Telegram callback chain, not ordinary
+`inbound_claim`. TKT-016@0.1.0 must first attempt plugin-level callback interception; fallback is a
+restricted `kbju_callback` tool with no other tools allowed.
+Source: SPIKE-001@0.1.0.
+
+**G6: Community plugins do not replace the KBJU bridge.**
+SPIKE-002 found no existing community plugin that implements `inbound_claim → HTTP`, deterministic
+Telegram callback routing, distributed cron coordination, or portion-aware KBJU calculation. Reuse is
+pattern/supplement only: openclown dual-hook capture, SecureClaw failure modes/kill switch/cost monitor,
+Riphook tool-enforcement patterns, and Calorie Visualizer `foods.json` + USDA fallback.
+Source: SPIKE-002@0.1.0.
+
+### HTTP Bridge Contract (designed by Architect-3, ADR-011)
+
+The KBJU sidecar exposes four endpoints on an internal Docker network:
+
+- `POST /kbju/message` — primary endpoint. Accepts `{telegram_id, text, source, message_id, chat_id}`, returns `{reply_text, needs_confirmation, reply_to_message_id}`. Error codes: 400 (invalid), 403 (not allowed), 500 (internal), 503 (degraded).
+- `POST /kbju/callback` — async callback handler. Accepts `{callback_data, telegram_id, message_id}`, returns `{reply_text, edit_message_id}`.
+- `POST /kbju/cron` — cron trigger endpoint. Accepts `{trigger, timezone}`, returns `{summary_sent_to, skipped_count}`.
+- `GET /kbju/health` — health check. Returns `{status, uptime_seconds, tenant_count, breach_count_last_hour, stall_count_last_hour}`.
+
+All endpoints include header `X-Kbju-Bridge-Version: 1.0`. Versioning is independent of openclaw's internal plugin API.
+
+### Subagent-Delegation Pattern (forked from hermes-agent)
+
+Source: hermes-agent `delegate_tool.py:1836-1878` (thread-pool children with `goal+context+toolsets` contract).
+
+Forked into KBJU sidecar as: the `POST /kbju/message` JSON body is the delegation contract —
+`telegram_id` = identity, `text` = goal+context, `source` = capability selector. The sidecar internally
+routes to C4 (meal logging) / C2 (onboarding) / C8 (history) / C9 (summary) based on `source` +
+message content. Subagent status tracking (`initializing|awaiting_llm|final_response|done|error`)
+is derived from nanobot's `SubagentManager` status phases (`agent/subagent.py:1-47`).
+
+### Model-Stall Algorithm (forked from zeroclaw)
+
+Source: zeroclaw `stall_watchdog.rs:29-124` (AtomicU64 timestamp + background Tokio task polling at
+`timeout/2` + callback on stall).
+
+Ported to TypeScript as C13 StallWatchdog middleware (ADR-012):
+- `lastTokenAt = Date.now()` — equivalent to `AtomicU64.touch()`
+- `setInterval(STALL_THRESHOLD_MS / 2, checkStall)` — equivalent to background Tokio task
+- On stall: `AbortController.abort()` + fallback to OpenClaw's primary provider (GPT-5.3 via OmniRoute)
+
+The Rust impl monitors channel transport stalls (Discord websocket keepalive, `discord.rs:1060-1084`).
+The TypeScript port monitors LLM call token velocity — a different abstraction layer but same algorithmic
+pattern.
+
+
+### Architect-4 synthesis update (ARCH-001@0.5.0 PR-D, 2026-05-04)
+
+Architect-4 preserves the PR-C empirical gotcha but makes the canonical decision explicit: OpenClaw remains load-bearing as Telegram/channel/cron gateway, while KBJU business logic runs in a Node 24 sidecar over a versioned HTTP bridge. This does **not** assume OpenClaw AgentSkills are TypeScript handler classes; TKT-016@0.1.0 must prove a gateway bridge adapter or stop for an ADR amendment. If the bridge cannot be built without unstable internals, Executor must not silently fall back to raw grammY.
+
+SPIKE-001 resolved the bridge adapter evidence gap: the adapter is an OpenClaw plugin using `inbound_claim` for text/voice/photo messages and registered `kbju_cron` / `kbju_callback` tools for bounded cron/callback dispatch. `src/telegram/entrypoint.ts` `routeMessage()` is not the Telegram routing path under HYBRID; the sidecar reuses business modules behind the C1 seam.
+
+Canonical bridge endpoints from ADR-011@0.1.0:
+- `POST /kbju/message`
+- `POST /kbju/callback`
+- `POST /kbju/cron`
+- `GET /kbju/health`
+
+All bridge requests/responses carry `X-Kbju-Bridge-Version: 1.0`; the sidecar stays on the internal Docker network only.
