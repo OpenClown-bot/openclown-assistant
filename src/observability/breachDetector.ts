@@ -75,11 +75,12 @@ export class BreachDetector {
     });
 
     this.breachTimestamps.push(this.deps.now().getTime());
+    this.pruneBreachTimestamps();
 
     throw new TenantNotAllowedError(reqHash, ownerHash, operation, entityType);
   }
 
-  public getBreachCountLastHour(): number {
+  private pruneBreachTimestamps(): void {
     const nowMs = this.deps.now().getTime();
     const cutoff = nowMs - ONE_HOUR_MS;
     let writeIdx = 0;
@@ -90,7 +91,11 @@ export class BreachDetector {
       }
     }
     this.breachTimestamps.length = writeIdx;
-    return writeIdx;
+  }
+
+  public getBreachCountLastHour(): number {
+    this.pruneBreachTimestamps();
+    return this.breachTimestamps.length;
   }
 }
 
