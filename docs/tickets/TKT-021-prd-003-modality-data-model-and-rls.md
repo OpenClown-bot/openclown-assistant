@@ -3,7 +3,7 @@ id: TKT-021
 title: "PRD-003 modality data model migrations + RLS + right-to-delete cascade"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C-data-model"
 depends_on: []

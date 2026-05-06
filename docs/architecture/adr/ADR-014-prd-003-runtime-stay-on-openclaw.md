@@ -2,7 +2,7 @@
 id: ADR-014
 title: "PRD-003 runtime decision: stay on openclaw (ARCH-001 extension)"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:

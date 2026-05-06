@@ -3,7 +3,7 @@ id: TKT-027
 title: "C22 Adaptive Summary Composer with deterministic section ordering + zero-event suppression"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C22"
 depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0"]

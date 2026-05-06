@@ -2,7 +2,7 @@
 id: ADR-017
 title: "Sleep record semantics: midnight-spanning attribution and nap-class isolation"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:

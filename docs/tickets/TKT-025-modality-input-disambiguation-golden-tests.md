@@ -3,7 +3,7 @@ id: TKT-025
 title: "Modality-input disambiguation golden tests + R1 misclassification telemetry"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C16+observability"
 depends_on: ["TKT-022@0.1.0"]

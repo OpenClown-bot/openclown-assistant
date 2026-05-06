@@ -3,7 +3,7 @@ id: TKT-023
 title: "C18 Sleep Logger with paired-event state machine + sanity-floor + DST-safe attribution"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C18"
 depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]

@@ -3,7 +3,7 @@ id: TKT-028
 title: "C21 Modality Settings Service with /settings command + ≤30s propagation"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C21"
 depends_on: ["TKT-021@0.1.0"]

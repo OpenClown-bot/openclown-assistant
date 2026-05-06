@@ -3,7 +3,7 @@ id: TKT-022
 title: "C16 Modality Router — hybrid deterministic chain + LLM-fallback classifier (ADR-015@0.1.0 amended Option C)"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C16"
 depends_on: ["TKT-021@0.1.0"]

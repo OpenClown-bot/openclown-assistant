@@ -2,7 +2,7 @@
 id: ADR-015
 title: "Modality-input disambiguation strategy (hybrid deterministic-first + LLM-fallback on ambiguous)"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:

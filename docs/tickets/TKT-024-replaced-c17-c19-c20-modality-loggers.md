@@ -3,7 +3,7 @@ id: TKT-024
 title: "C17 Water Logger + C19 Workout Logger + C20 Mood Logger — REPLACED (split into 3 tickets per RV-SPEC-013@0.1.0 F-M4)"
 version: 0.1.0
 status: done
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C17+C19+C20"
 depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]

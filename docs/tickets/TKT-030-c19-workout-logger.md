@@ -3,7 +3,7 @@ id: TKT-030
 title: "C19 Workout Logger — closed-enum extraction + forced-output JSON schema + photo support"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C19"
 depends_on: ["TKT-021@0.1.0", "TKT-022@0.1.0"]
