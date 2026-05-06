@@ -27,7 +27,7 @@ export const KPI_EVENT_NAMES = {
   route_unmatched: "route_unmatched",
   tenant_breach_detected: "kbju_tenant_breach_detected",
   llm_call_stalled: "kbju_llm_call_stalled",
-runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
+  runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
   allowlist_reload: "kbju_allowlist_reload",
   allowlist_blocked: "kbju_allowlist_blocked",
   allowlist_size: "kbju_allowlist_size",

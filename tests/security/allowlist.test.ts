@@ -415,10 +415,10 @@ describe("isOperationAllowed", () => {
     expect(isOperationAllowed("forget_me", "block_all")).toBe(false);
   });
 
-  it("allows only read-only operations in safe_mode", () => {
+  it("allows only read-only + safe start operations in safe_mode", () => {
+    expect(isOperationAllowed("start", "safe_mode")).toBe(true);
     expect(isOperationAllowed("history", "safe_mode")).toBe(true);
     expect(isOperationAllowed("summary_delivery", "safe_mode")).toBe(true);
-    expect(isOperationAllowed("start", "safe_mode")).toBe(false);
     expect(isOperationAllowed("text_meal", "safe_mode")).toBe(false);
     expect(isOperationAllowed("voice_meal", "safe_mode")).toBe(false);
     expect(isOperationAllowed("photo_meal", "safe_mode")).toBe(false);
@@ -426,7 +426,7 @@ describe("isOperationAllowed", () => {
     expect(isOperationAllowed("forget_me", "safe_mode")).toBe(false);
   });
 
-  it("allows only read-only operations in read_only mode", () => {
+  it("allows only strict read paths in read_only mode (no start)", () => {
     expect(isOperationAllowed("history", "read_only")).toBe(true);
     expect(isOperationAllowed("summary_delivery", "read_only")).toBe(true);
     expect(isOperationAllowed("start", "read_only")).toBe(false);

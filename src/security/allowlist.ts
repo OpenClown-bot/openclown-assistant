@@ -12,6 +12,7 @@ interface AllowlistFile {
   mode?: AllowlistMode;
 }
 
+const SAFE_MODE_ROUTES = new Set(["start", "history", "summary_delivery"]);
 const READ_ONLY_ROUTES = new Set(["history", "summary_delivery"]);
 
 export function isOperationAllowed(
@@ -24,6 +25,7 @@ export function isOperationAllowed(
     case "block_all":
       return false;
     case "safe_mode":
+      return SAFE_MODE_ROUTES.has(routeKind);
     case "read_only":
       return READ_ONLY_ROUTES.has(routeKind);
     default:
@@ -38,7 +40,6 @@ export class Allowlist {
   private mode: AllowlistMode = "normal";
   private logger: OpenClawLogger;
   private metricsRegistry: MetricsRegistry;
-private watcher: boolean = false;
 
   constructor(
     filePath: string,
@@ -56,9 +57,10 @@ private watcher: boolean = false;
       this.seedFromEnv(seedIds);
     }
 
-    this.watcher = true;
-    fs.watchFile(filePath, { interval: 1000 }, () => {
-      this.loadFile();
+    fs.watchFile(filePath, { interval: 1000 }, (curr, prev) => {
+      if (curr.mtimeMs > prev.mtimeMs) {
+        this.loadFile();
+      }
     });
   }
 
@@ -85,10 +87,7 @@ private watcher: boolean = false;
   }
 
   close(): void {
-    if (this.watcher) {
-      fs.unwatchFile(this.filePath);
-      this.watcher = false;
-    }
+    fs.unwatchFile(this.filePath);
   }
 
   private loadFile(): void {
