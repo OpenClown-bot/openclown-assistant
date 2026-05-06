@@ -32,6 +32,36 @@ Your three core obligations, in priority order:
 | Repo VPS (current) | 6 vCPU, 7.6 GiB RAM, 75 GB disk, Ubuntu 24.04 — temporary baseline, may grow |
 | Auth on Devin sessions | New accounts: GitHub PAT in Devin secrets (`GITHUB_PAT` or similar). Original account: native GitHub integration. The orchestrator MUST NOT assume native integration — always check `list_secrets` first. |
 
+### 2.1 Frontmatter `owner` field convention (added 2026-05-06)
+
+Different artefact types use different `owner:` values, intentionally. **The convention is by-artefact-type, not by-default.** Verify against existing files before authoring or auditing:
+
+| Artefact type | Directory | `owner:` value | Rationale |
+|---|---|---|---|
+| PRD | `docs/prd/` | `"@yourmomsenpai"` | PRDs encode the Product Owner's intent; the PO is the canonical owner regardless of which agent (Business Planner, Reviewer, Devin Orchestrator) authored or amended the file. |
+| ArchSpec | `docs/architecture/` | `"@OpenClown-bot"` | ArchSpecs encode runtime / runtime-adjacent design owned by the project (system identity), not by the PO personally. |
+| Roadmap | `docs/roadmap/` | `"@OpenClown-bot"` | Strategic-direction artefact owned by the project (same rationale as ArchSpec). |
+| ADR | `docs/adr/` | `"@OpenClown-bot"` (default) | Architecture decisions are project-owned by default; PO-owned ADRs are exceptional and must be explicitly justified in the ADR body. |
+| Ticket | `docs/tickets/` | `"@OpenClown-bot"` | Implementation work-units owned by the project. |
+| Review | `docs/reviews/` | `"@OpenClown-bot"` | Review artefacts are project-owned. |
+| Backlog | `docs/backlog/` | `"@OpenClown-bot"` | Backlog entries are project-owned. |
+
+**Why this rule exists.** ROADMAP-001@0.1.0 §6 finding F-C-1 (struck per RV-SPEC-011 F-M1 on 2026-05-06) proposed flipping `PRD-003@0.1.2` `owner: "@yourmomsenpai"` to `"@OpenClown-bot"` based on a misread of PRD-001@0.2.0 + PRD-002@0.2.1 — the BP authoring the roadmap had assumed the convention was "everything except this one PRD-003 uses `@OpenClown-bot`". The Reviewer (Kimi K2.6) RV-SPEC-011 F-M1 verified that PRD-001 + PRD-002 + PRD-003 *all* use `@yourmomsenpai`; the convention is by-artefact-type, not "everyone except PRDs". The PO authorised the F-C-1 strike on 2026-05-06 chat (`a` to "Authorise F-C-1 strike") and asked that the convention be documented here so future BP / Architect / Reviewer sessions do not repeat the misread.
+
+**Verification command.** Any cross-artefact audit that touches an `owner:` field MUST run:
+
+```bash
+grep '^owner:' docs/prd/PRD-*.md docs/architecture/ARCH-*.md docs/roadmap/ROADMAP-*.md docs/adr/ADR-*.md docs/tickets/TKT-*.md
+```
+
+before proposing an "inconsistency" finding. If the grep shows a by-artefact-type split matching the table above, the split is intentional and not a finding.
+
+**Application to roles.**
+
+- **BP / Architect / Reviewer / Executor:** when authoring a new artefact, set `owner:` per the table above. Do not copy from a different-artefact-type sibling without verifying.
+- **Reviewer (RV-SPEC / RV-CODE):** when auditing an existing artefact set, never propose "flip owner X → Y to match the others" without first running the grep. The "others" may belong to a different artefact-type.
+- **Devin Orchestrator clerical sub-PRs:** when applying a frontmatter promotion (status / version / approved_*), do not touch the `owner:` field unless the rule above is violated by the target file.
+
 ## 3. The pipeline (stable)
 
 ```
