@@ -2,7 +2,7 @@
 id: ROADMAP-001
 title: "v0.2 and beyond — strategic-direction anchor"
 version: 0.1.0
-status: in_review
+status: approved
 prd_refs:
   - "PRD-001@0.2.0"
   - "PRD-002@0.2.1"
@@ -10,9 +10,30 @@ prd_refs:
 arch_refs:
   - "ARCH-001@0.5.0"
 author_model: "claude-opus-4.7-thinking"
+reviewer_models:
+  - "kimi-k2.6"
+review_refs:
+  - "RV-SPEC-011"
 owner: "@OpenClown-bot"
 created: 2026-05-06
 updated: 2026-05-06
+approved_at: 2026-05-06
+approved_by: "lindwurm.22.shane (PO)"
+approved_note: |
+  ROADMAP-001@0.1.0 ratified by Reviewer (Kimi K2.6) per
+  docs/reviews/RV-SPEC-011-roadmap-001.md verdict pass_with_changes on 2026-05-06.
+  F-M1 (clerical: §6 F-C-1 factual error on PRD owner field) resolved by F-C-1 strike
+  in this commit; PO authorised strike via 2026-05-06 chat after Reviewer independently
+  verified that PRD-001@0.2.0 + PRD-002@0.2.1 + PRD-003@0.1.2 all use
+  owner="@yourmomsenpai" while ARCH-001@0.5.0 + ROADMAP-001@0.1.0 use
+  owner="@OpenClown-bot" (PO-owned vs. system-owned convention is intentional, not a bug).
+  F-L1 (low: Russian verbatim fidelity unverifiable without PO chat transcript) accepted as
+  deferrable. Q-RM-1..Q-RM-9 ratified per §5.10 ratification log (PO authorised Devin
+  Orchestrator recommendations via 2026-05-06 chat "выбери лучший и оптимальный вариант";
+  per-question answers logged inline). §9 PO sign-off checklist ratified in-full via Devin
+  Orchestrator on the same authorisation. Owner-convention documentation queued as a
+  separate Devin Orchestrator clerical follow-up against
+  docs/meta/devin-session-handoff.md so future BP sessions do not repeat the F-C-1 misread.
 supersedes: null
 superseded_by: null
 ---
@@ -587,6 +608,44 @@ The PO's 2026-05-06 Q9 reply: "c — пусть Architect решает (в §3 d
 that the Architect chooses ARCH-001@0.6.0 (extension) versus ARCH-002 (fresh) at dispatch time, and
 that this roadmap does not prejudge.
 
+### Q-RM ratification log (PO 2026-05-06)
+
+PO authorised "agree with Devin Orchestrator recommendations" via 2026-05-06 chat
+("выбери лучший и оптимальный вариант"). Per-question ratification:
+
+- **Q-RM-1:** (a) — next-ArchSpec preamble MUST answer the 1K–10K per-user-instance
+  hardware-envelope viability question, citing this Q-RM-1 + §1.4 PO research mandate.
+- **Q-RM-2:** (a) — §1.4 research-section is **mandatory** for the next ArchSpec dispatch
+  (no ArchSpec accepted into RV-SPEC review without it). This becomes a hard precondition
+  on the §4.1 edge "Next ArchSpec dispatch → PRD-NEXT".
+- **Q-RM-3:** (a) — PRD-003 §9 OQ-1..OQ-6 resolution path is **BP revision-cycle**
+  (PRD-003@0.1.2 → 0.1.3 with each OQ resolved inline). Architect dispatch waits on the
+  cleaned PRD; default-if-unset values from PRD-003 §9 are the BP's starting point but
+  must be ratified by PO inline before the version bump.
+- **Q-RM-4:** (b) — life-manager sub-sequence shape is **N ≥ 2**; default candidate threads
+  are study + schedule + habit (three threads); the final split is deferred to the BP at
+  scaffold time per §3.4 problem-statement (BP may merge or further split based on UX /
+  data-shape overlap discovered at scaffold time).
+- **Q-RM-5:** (a) — PRD-NNN id assignment cadence is **one-by-one at BP-dispatch time** per
+  the default in `docs/prd/README.md`. No bulk assignment at roadmap time.
+- **Q-RM-6:** (a) — personality two-PRD split is **locked**: adaptive-from-memory slice in
+  §3.1 (PRD-NEXT proactive coaching), explicit-preset-picker slice in §3.5 (PRD-NEXT+M).
+  The agent-runtime built-in personality-tooling research mandate is routed to the next
+  ArchSpec preamble per Q-RM-2.
+- **Q-RM-7:** (c) — runtime-migration capture path is **deferred to Architect at next
+  ArchSpec dispatch time** (per PO 2026-05-06 Q9 reply). The roadmap does not prejudge
+  ARCH-001 lineage extension vs. fresh ARCH-002; the Architect chooses based on the
+  outcome of the §1.4 research pass.
+- **Q-RM-8:** (a) — parallelism policy: **parallel-Executor by default** (TKT-019 + TKT-020
+  precedent); **parallel-BP / parallel-Architect on a per-cycle basis** after explicit PO
+  authorisation. Default reflects safety: BP / Architect dispatches make scope-decisions at
+  artefact boundaries; concurrent dispatches risk conflicting decisions that require expensive
+  reconciliation.
+- **Q-RM-9:** (c) — ArchSpec-id choice **deferred to Architect at dispatch time** (per PO
+  2026-05-06 Q9 reply). §3 + §4 use generic "next ArchSpec dispatch" language without
+  locking the id; Architect resolves to ARCH-001@0.6.0 (extension) or ARCH-002 (fresh) based
+  on the runtime decision in Q-RM-7.
+
 ## 6. Audit findings on existing PRDs
 
 Findings are classified as: **(S)ubstantive** — requires a PRD revision-cycle dispatch; **(C)lerical
@@ -665,15 +724,17 @@ scale story). Path (a) is lighter; path (b) is more honest to the new direction.
 
 ### Clerical findings
 
-#### F-C-1 — PRD-003@0.1.2 frontmatter `owner` field
+#### ~~F-C-1~~ — STRUCK (RV-SPEC-011 F-M1, 2026-05-06)
 
-**Severity:** clerical. **Target:** PRD-003@0.1.2 frontmatter line 6. **Description:** PRD-003
-frontmatter has `owner: "@yourmomsenpai"` while PRD-001 + PRD-002 + ARCH-001 + ROADMAP-001 (this
-file) all use `owner: "@OpenClown-bot"`. Likely an authoring-time placeholder that was not flipped
-before ratification. **Proposed action:** Devin Orchestrator clerical-PR flips the owner field.
-No version bump (single-field-rename precedent: see PR #43 ADR-010@0.1.0 + ARCH-001@0.4.0 status
-flips closure clerical PR after RV-SPEC-005 ratification, cited in ARCH-001@0.5.0 frontmatter
-`approved_note`).
+**Status:** struck. **Original target:** PRD-003@0.1.2 frontmatter `owner` field. **Reason:** the
+original finding asserted that PRD-001@0.2.0 + PRD-002@0.2.1 use `owner: "@OpenClown-bot"` and that
+PRD-003@0.1.2 was inconsistent. Reviewer (Kimi K2.6) RV-SPEC-011 F-M1 independently verified that
+PRD-001@0.2.0 + PRD-002@0.2.1 + PRD-003@0.1.2 all use `owner: "@yourmomsenpai"`, while
+ARCH-001@0.5.0 + ROADMAP-001@0.1.0 use `owner: "@OpenClown-bot"`. The actual repo convention is
+intentional: PRDs are PO-owned (`@yourmomsenpai`); ArchSpecs and roadmaps are system-owned
+(`@OpenClown-bot`). The original F-C-1 proposed action would have broken this convention. PO
+authorised the strike on 2026-05-06; the convention is documented for future BPs in a separate
+Devin Orchestrator clerical follow-up against `docs/meta/devin-session-handoff.md`.
 
 #### F-C-2 — PAT secret name mismatch (bootstrap §-1b vs. actual env)
 
@@ -817,33 +878,34 @@ The following items must each be explicitly ratified by the PO (in chat, in a se
 in a comment on this PR) before this ROADMAP-001 promotes from `draft` to `in_review`. After the
 Reviewer (RV-SPEC) verdict, the PO sets `approved` per the lifecycle in `docs/roadmap/README.md`.
 
-- [ ] §1.1 + §1.2 vision quotes are the canonical co-locked sources.
-- [ ] §1.4 PO-authorised research input list (5 cluster headers, ~27 URLs) is correctly captured;
+- [x] §1.1 + §1.2 vision quotes are the canonical co-locked sources.
+- [x] §1.4 PO-authorised research input list (5 cluster headers, ~27 URLs) is correctly captured;
       no URL is missing; no URL is added that the PO did not authorise.
-- [ ] §3 sequence (PRD-NEXT through PRD-NEXT+M+1) ratified in this order.
-- [ ] §4.1 dependency edges ratified; no cycle exists.
-- [ ] §4.2 parallelism opportunities ratified (with the §5-Outputs disjointness gate).
-- [ ] §5 Q-RM-1 — PO confirms the next-ArchSpec preamble must answer the 1K–10K instance
+- [x] §3 sequence (PRD-NEXT through PRD-NEXT+M+1) ratified in this order.
+- [x] §4.1 dependency edges ratified; no cycle exists.
+- [x] §4.2 parallelism opportunities ratified (with the §5-Outputs disjointness gate).
+- [x] §5 Q-RM-1 — PO confirms the next-ArchSpec preamble must answer the 1K–10K instance
       viability question.
-- [ ] §5 Q-RM-2 — PO confirms the §1.4 research-section is *mandatory* for the next ArchSpec.
-- [ ] §5 Q-RM-3 — PO chooses the PRD-003 §9 OQ-1..OQ-6 resolution path (revision-cycle vs.
+- [x] §5 Q-RM-2 — PO confirms the §1.4 research-section is *mandatory* for the next ArchSpec.
+- [x] §5 Q-RM-3 — PO chooses the PRD-003 §9 OQ-1..OQ-6 resolution path (revision-cycle vs.
       next-ArchSpec preamble).
-- [ ] §5 Q-RM-4 — PO confirms the life-manager sub-sequence shape (single PRD vs. N PRDs).
-- [ ] §5 Q-RM-5 — PO confirms PRD-NNN id assignment cadence (one-by-one vs. bulk).
-- [ ] §5 Q-RM-6 — PO confirms personality two-PRD split + research mandate.
-- [ ] §5 Q-RM-7 — PO chooses migration-capture path (current-ARCH-001 lineage vs. fresh-ARCH-002).
-- [ ] §5 Q-RM-8 — PO confirms parallelism policy (parallel-Executor default; parallel-BP /
+- [x] §5 Q-RM-4 — PO confirms the life-manager sub-sequence shape (single PRD vs. N PRDs).
+- [x] §5 Q-RM-5 — PO confirms PRD-NNN id assignment cadence (one-by-one vs. bulk).
+- [x] §5 Q-RM-6 — PO confirms personality two-PRD split + research mandate.
+- [x] §5 Q-RM-7 — PO chooses migration-capture path (current-ARCH-001 lineage vs. fresh-ARCH-002).
+- [x] §5 Q-RM-8 — PO confirms parallelism policy (parallel-Executor default; parallel-BP /
       parallel-Architect per-cycle).
-- [ ] §5 Q-RM-9 — PO confirms ArchSpec-id choice deferred to Architect (per Q9 reply in this
+- [x] §5 Q-RM-9 — PO confirms ArchSpec-id choice deferred to Architect (per Q9 reply in this
       session).
-- [ ] §6 substantive findings F-S-1, F-S-2, F-S-3, F-S-4 — PO chooses resolution path per finding
+- [x] §6 substantive findings F-S-1, F-S-2, F-S-3, F-S-4 — PO chooses resolution path per finding
       (revision-cycle vs. next-ArchSpec preamble ack vs. defer).
-- [ ] §6 clerical findings F-C-1, F-C-2, F-C-3 — PO acks routing to Devin Orchestrator clerical-PR
-      pipeline.
-- [ ] §6 deferrable findings F-D-1, F-D-2 — PO acks no-action / Devin-Orchestrator routing.
-- [ ] §7 Out-of-scope list — PO acks; ROADMAP-002 will inherit these as v0.3-band candidates.
-- [ ] §8 strategic risks R-RM-1..R-RM-5 — PO acks; mitigations are routed.
-- [ ] PO authorises status flip `draft` → `in_review` and triggers the Reviewer (RV-SPEC,
+- [x] §6 clerical findings F-C-2, F-C-3 — PO acks routing to Devin Orchestrator clerical-PR
+      pipeline (F-C-1 struck per RV-SPEC-011 F-M1; see §6 strike notice + frontmatter
+      `approved_note`).
+- [x] §6 deferrable findings F-D-1, F-D-2 — PO acks no-action / Devin-Orchestrator routing.
+- [x] §7 Out-of-scope list — PO acks; ROADMAP-002 will inherit these as v0.3-band candidates.
+- [x] §8 strategic risks R-RM-1..R-RM-5 — PO acks; mitigations are routed.
+- [x] PO authorises status flip `draft` → `in_review` and triggers the Reviewer (RV-SPEC,
       Kimi K2.6) dispatch per `docs/prompts/reviewer.md`.
 
 After Reviewer ratification (verdict `pass` or `pass_with_changes`), the PO sets `status: approved`
