@@ -2,7 +2,7 @@
 id: TKT-019
 title: "G3 PR-Agent CI tail-latency telemetry"
 version: 0.1.0
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.5.0
 prd_ref: PRD-002@0.2.1
 author_model: "claude-opus-4.7-thinking"
@@ -65,6 +65,8 @@ Measure PR-Agent CI latency phases exactly as PRD-002@0.2.1 G3 defines them.
 
 ## 10. Execution Log
 Synthesized by Architect-4 from PR-A / PR-B / PR-C input tickets. Executor appends timestamped entries below this line.
+
+- **2026-05-06T00:01Z (GLM 5.1):** Implementation complete. Created `scripts/pr-agent-telemetry.ts` with phase computation (computePhases), GitHub Actions API client (fetchJobsForRun, fetchRunForPr), rolling stats (computeRollingStats), PII/secret validation (validateTelemetryOutput, validateTelemetrySchema), and CLI entry point. Created `tests/scripts/pr-agent-telemetry.test.ts` with 29 tests covering all 6 ACs. Modified `.github/workflows/pr_agent.yml` to add "Compute PR-Agent CI telemetry" step (always runs, continue-on-error, outputs pr-agent-stats.json as CI log group). Current PR-Agent setup does not expose token-level timestamps (TTFT/TTLT require LLM-router call instrumentation), so script correctly emits `reason: "token_phase_unavailable"` and exits non-zero per AC3. `total_ci_stage_ms` is computed from GitHub Actions job/step timing. All 29 tests pass, typecheck clean, validate_docs 82/0.
 
 ---
 
