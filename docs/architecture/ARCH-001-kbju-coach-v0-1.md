@@ -2,13 +2,14 @@
 id: ARCH-001
 title: "KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness)"
 version: 0.5.0
-status: draft
+status: approved
 prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
 owner: "@OpenClown-bot"
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:
   - "kimi-k2.6"
-review_refs: []
+review_refs:
+  - "RV-SPEC-010"
 synthesis_inputs:
   - "PR-A: arch/ARCH-001-v0.5.0-integration-layer-and-observability (gpt-5.5-xhigh)"
   - "PR-B: arch/ARCH-001-v0.5.0-deepseek-deep-context-design (deepseek-v4-pro)"
@@ -16,7 +17,21 @@ synthesis_inputs:
   - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
   - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
 created: 2026-04-26
-updated: 2026-05-04
+updated: 2026-05-06
+approved_at: 2026-05-04
+approved_by: "lindwurm.22.shane (PO)"
+approved_note: |
+  ARCH-001@0.5.0 ratified by Reviewer (Kimi K2.6) per docs/reviews/RV-SPEC-010-arch-001-v0-5-0-synthesis-final.md
+  verdict APPROVED on 2026-05-04 (all 5 findings F-B1 / F-M1 / F-M2 / F-m1 / F-n1 closed by PR-D #110 closure
+  patch commit 1d9066c, validate_docs 78/0). Five implementation tickets TKT-016@0.1.0 through
+  TKT-020@0.1.0 subsequently shipped against this ArchSpec and merged to main: TKT-016 PR #116
+  (boot-bridge integration), TKT-017 PR #119 (G1 tenant-isolation breach detector), TKT-018 PR #125
+  (G2 model-stall detector), TKT-019 PR #130 (G3 PR-Agent CI tail-latency telemetry), TKT-020 PR #131
+  (G4 config-driven allowlist + load tests). PRD-002@0.2.1 G1-G4 fully closed on main 2026-05-06
+  per closure-PR #134 squash 369a3bd. The frontmatter status flip from draft to approved was missed
+  immediately after RV-SPEC-010 ratification on 2026-05-04 and is corrected here as a clerical patch
+  in Devin Orchestrator write-zone (precedent: PR #43 ADR-010@0.1.0 + ARCH-001@0.4.0 status flips
+  closure clerical PR after RV-SPEC-005 ratification).
 adrs:
   - ADR-001@0.1.0
   - ADR-002@0.1.0
