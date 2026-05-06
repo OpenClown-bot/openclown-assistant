@@ -173,30 +173,42 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
     if sup and isinstance(sup, str) and sup not in known_ids:
         errors.append(f"supersedes refers to unknown artifact: {sup}")
 
-    # Reviews legitimately reference the artifact under review by ID, even when
-    # the target is not yet on `main` (e.g. a SPEC-mode review of a `proposed`
-    # ADR sitting on its own arch-branch). Per `docs/prompts/reviewer.md`
-    # §A.15 / §B.15 review-PR branches are forked from `main`, so the target
-    # artifact's file may not exist on the rv-branch tree and would not appear
-    # in `known_ids`. Exempt the single artifact-id named in the review's
-    # `target_ref` (or `ticket_ref`, for code reviews) from the body
-    # existence-check below. All other references must still resolve.
-    target_artifact_id: str | None = None
+    # Reviews legitimately reference the artifacts under review by ID, even
+    # when the targets are not yet on `main` (e.g. a SPEC-mode review of a
+    # `proposed` ADR sitting on its own arch-branch). Per
+    # `docs/prompts/reviewer.md` §A.15 / §B.15 review-PR branches are forked
+    # from `main`, so the target artefacts' files may not exist on the
+    # rv-branch tree and would not appear in `known_ids`. Exempt the
+    # artifact-ids named in:
+    #   - `target_ref` (or `ticket_ref`, for code reviews) — single primary.
+    #   - `target_secondary_refs` — list of additional artefacts, used by
+    #     bundle-reviews where an ArchSpec extension brings new ADRs and
+    #     Tickets along (first usage: RV-SPEC-013 reviewing ARCH-001@0.6.0
+    #     plus ADR-014..018 plus TKT-021..028 as one coherent bundle).
+    # All other references must still resolve.
+    target_artifact_ids: set[str] = set()
     if art.type_ == "reviews":
         for ref_field in ("target_ref", "ticket_ref"):
             value = art.frontmatter.get(ref_field)
             if isinstance(value, str):
                 m = re.match(r"\s*((?:PRD|ARCH|ADR|TKT)-\d{3,})", value)
                 if m:
-                    target_artifact_id = m.group(1)
+                    target_artifact_ids.add(m.group(1))
                     break
+        secondary = art.frontmatter.get("target_secondary_refs")
+        if isinstance(secondary, list):
+            for entry in secondary:
+                if isinstance(entry, str):
+                    m = re.match(r"\s*((?:PRD|ARCH|ADR|TKT)-\d{3,})", entry)
+                    if m:
+                        target_artifact_ids.add(m.group(1))
 
     body_no_fences = re.sub(r"```.*?```", "", art.body, flags=re.DOTALL)
     for m in REF_RE.finditer(body_no_fences):
         kind, num, _ver = m.group(1), m.group(2), m.group(3)
         ref_id = f"{kind}-{num}"
         if ref_id not in known_ids:
-            if ref_id == target_artifact_id:
+            if ref_id in target_artifact_ids:
                 continue
             errors.append(f"referenced artifact {ref_id} does not exist")
 
