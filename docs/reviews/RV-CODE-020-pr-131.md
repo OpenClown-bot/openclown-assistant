@@ -1,11 +1,13 @@
 ---
 id: RV-CODE-020
+version: 0.1.0
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/openclown-assistant/pull/131"
 ticket_ref: TKT-020@0.1.0
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-05-06
+updated: 2026-05-06
 ---
 
 # Code Review — PR #131 (TKT-020@0.1.0)
