@@ -108,3 +108,23 @@ jobs:
           # a specific PR would benefit.
           github_action_config.auto_improve: "false"
           github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'
+
+      - name: Compute PR-Agent CI telemetry
+        if: always()
+        continue-on-error: true
+        run: |
+          npx tsx scripts/pr-agent-telemetry.ts > pr-agent-stats.json 2>telemetry-stderr.txt || true
+          echo "::group::PR-Agent CI Telemetry Output"
+          cat pr-agent-stats.json || echo "(no telemetry output)"
+          echo "::endgroup::"
+          if [ -s telemetry-stderr.txt ]; then
+            echo "::group::PR-Agent CI Telemetry Diagnostics"
+            cat telemetry-stderr.txt
+            echo "::endgroup::"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number || 0 }}
+          PR_AGENT_MODEL: "deepseek-v4-pro"
