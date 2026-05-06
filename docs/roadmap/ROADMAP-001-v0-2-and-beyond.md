@@ -750,6 +750,14 @@ single VPS provision and run N instances? Probably not; the actual deployment sh
 unproven. **Roadmap impact.** Sequencing-binding: §3.3 ArchSpec must answer this question before
 the PRD enters Executor cycle. **Mitigation.** Q-RM-1 surfaces this for explicit PO ratification
 that the next ArchSpec preamble must address the scaling question. Architect-side answer expected.
+**PO post-draft clarification (2026-05-06 chat, verbatim):** «если вопрос только в железе, то
+когда будет много киентов, мы железо будем менять на более мощное. просто тут вопрос разумности,
+хватит ли нам вообще железа.» This reduces R-RM-1 from a strategic-architecture risk to a
+hardware-ceiling planning concern: the next ArchSpec preamble must report on the upper-bound
+hardware envelope per per-user-instance (i.e. how many instances fit on what tier of hardware,
+and at what tier the per-user-instance pattern stops being sane regardless of hardware spend),
+but is not required to rethink the per-user-instance pattern itself. PO accepts hardware-scaling
+cost as the operational answer.
 
 ### R-RM-2 — Runtime re-evaluation may force migration of already-shipped code
 
@@ -762,6 +770,10 @@ to the replacement runtime. Migration cost is unestimated and may dominate the v
 **Mitigation.** Q-RM-7 surfaces the migration-capture question (under-current-ARCH-001 vs.
 fresh-ARCH-002). The Architect's research-section per Q-RM-2 should include an explicit migration
 cost estimate alongside any replacement recommendation, so the PO can do an informed go/no-go.
+**PO post-draft clarification (2026-05-06 chat, verbatim):** «насчет бюджетов не переживаем».
+This frees the next Architect dispatch to recommend the most strategically-correct runtime
+regardless of migration cost; the migration cost estimate per Q-RM-2 is reported for the record
+but does not gate the Architect's recommendation. Cost is no longer a blocker on R-RM-2.
 
 ### R-RM-3 — Six-PRD-deep sequence without time-box → focus drift / abandonment risk
 
