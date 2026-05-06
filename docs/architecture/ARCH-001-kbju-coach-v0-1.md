@@ -5,7 +5,7 @@ version: 0.6.0
 status: draft
 prd_ref: "PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3"
 owner: "@OpenClown-bot"
-author_model: "claude-sonnet-4.5"
+author_model: "claude-opus-4.7-thinking"
 reviewer_models:
   - "kimi-k2.6"
 review_refs:
@@ -16,7 +16,7 @@ synthesis_inputs:
   - "PR-C: arch/ARCH-001-v0.5.0-alternatives-design (deepseek-v4-pro)"
   - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
   - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
-  - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-sonnet-4.5)"
+  - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-opus-4.7-thinking)"
 created: 2026-04-26
 updated: 2026-05-06
 approved_at: 2026-05-04

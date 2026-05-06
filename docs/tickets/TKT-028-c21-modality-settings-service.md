@@ -10,7 +10,7 @@ depends_on: ["TKT-021@0.1.0"]
 blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-027@0.1.0"]
 estimate: M
 assigned_executor: "glm-5.1"
-author_model: "claude-sonnet-4.5"
+author_model: "claude-opus-4.7-thinking"
 created: 2026-05-06
 updated: 2026-05-06
 ---

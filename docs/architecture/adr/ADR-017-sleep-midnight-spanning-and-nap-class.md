@@ -4,7 +4,7 @@ title: "Sleep record semantics: midnight-spanning attribution and nap-class isol
 status: proposed
 arch_ref: ARCH-001@0.6.0
 prd_ref: PRD-003@0.1.3
-author_model: "claude-sonnet-4.5"
+author_model: "claude-opus-4.7-thinking"
 reviewer_models:
   - "kimi-k2.6"
 review_refs: []
