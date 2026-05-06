@@ -2,7 +2,7 @@
 id: ROADMAP-001
 title: "v0.2 and beyond — strategic-direction anchor"
 version: 0.1.0
-status: draft
+status: in_review
 prd_refs:
   - "PRD-001@0.2.0"
   - "PRD-002@0.2.1"
