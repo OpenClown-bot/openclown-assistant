@@ -1,11 +1,11 @@
 ---
 id: ARCH-001
-title: "KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness)"
-version: 0.5.0
-status: approved
-prd_ref: PRD-001@0.2.0; PRD-002@0.2.1
+title: "KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive Modalities"
+version: 0.6.0
+status: draft
+prd_ref: "PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3"
 owner: "@OpenClown-bot"
-author_model: "claude-opus-4.7-thinking"
+author_model: "claude-sonnet-4.5"
 reviewer_models:
   - "kimi-k2.6"
 review_refs:
@@ -16,6 +16,7 @@ synthesis_inputs:
   - "PR-C: arch/ARCH-001-v0.5.0-alternatives-design (deepseek-v4-pro)"
   - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
   - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
+  - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-sonnet-4.5)"
 created: 2026-04-26
 updated: 2026-05-06
 approved_at: 2026-05-04
@@ -46,6 +47,10 @@ adrs:
   - ADR-011@0.1.0
   - ADR-012@0.1.0
   - ADR-013@0.1.0
+  - ADR-014@0.1.0
+  - ADR-015@0.1.0
+  - ADR-016@0.1.0
+  - ADR-017@0.1.0
 tickets:
   - TKT-001@0.1.0
   - TKT-002@0.1.0
@@ -67,6 +72,14 @@ tickets:
   - TKT-018@0.1.0
   - TKT-019@0.1.0
   - TKT-020@0.1.0
+  - TKT-021@0.1.0
+  - TKT-022@0.1.0
+  - TKT-023@0.1.0
+  - TKT-024@0.1.0
+  - TKT-025@0.1.0
+  - TKT-026@0.1.0
+  - TKT-027@0.1.0
+  - TKT-028@0.1.0
 ---
 
 # ARCH-001: KBJU Coach v0.1
@@ -279,9 +292,313 @@ Architect-4 full-read inputs: PR-A diff = 1430 lines, PR-B diff = 1061 lines, PR
 2. **Two-process observability correlation:** The final design assumes a single `request_id` and redaction contract can be preserved across OpenClaw Gateway plugin logs, sidecar logs, C3 durable metrics, and PO alerts. If gateway logs cannot carry the sidecar `request_id`, G1/G2 incident reconstruction may be weaker than PRD-002@0.2.1 expects.
 3. **CI telemetry ownership boundary:** The final design assumes PR-Agent tail-latency metrics can be captured from CI/log surfaces without modifying `.github/**` in this Architect PR and without committing generated telemetry artifacts. TKT-019@0.1.0 must prove the CI surface before any Ready-for-Review promotion of implementation work.
 
+### 0.10 v0.6.0 PRD-003@0.1.3 Recon Delta (Adaptive Modalities)
+
+This subsection extends §0 with the PRD-003@0.1.3-specific recon required by PRD-003@0.1.3 §2.11
++ ROADMAP-001@0.1.0 §5 Q-RM-2 (deep-research engagement) + Q-RM-7 (runtime decision) + Q-RM-1
+(hardware envelope). Phase 0 recon for v0.5.0 surfaces (§0.1..§0.9) is preserved unchanged;
+this delta adds PRD-003@0.1.3 modality-specific findings.
+
+#### 0.10.1 PRD-003@0.1.3 capability-map delta vs `docs/knowledge/openclaw.md`
+
+OpenClaw runtime capabilities re-verified for the four new modalities (water / sleep / workout / mood):
+
+- **Voice transcription (C5 reuse):** Already covered by ADR-003@0.1.0 (Fireworks Whisper). No new
+  Provider needed for PRD-003@0.1.3 §5 US-2 voice "лёг", US-3 voice "бегал 30 мин", US-4 voice
+  "настроение 7". C5 emits a transcribed string into the C16 Modality Router classification path.
+- **Photo recognition (C7 reuse):** Already covered by ADR-004@0.1.0 (Qwen-VL). No new Provider
+  needed for PRD-003@0.1.3 §5 US-3 workout photo path. C7 emits structured photo extraction into
+  the C19 Workout Logger LLM-extraction prompt.
+- **Cron Dispatcher (C8 reuse):** Hourly GC of `sleep_pairing_state` expired rows (per ADR-017@0.1.0
+  §Decision) reuses C8 Cron Dispatcher with one new cron skill. No new infrastructure.
+- **Postgres + RLS (C3 reuse):** Per-user RLS pattern from ADR-001@0.1.0 reused without modification
+  for the seven new tables (`water_events`, `sleep_records`, `sleep_pairing_state`,
+  `workout_events`, `mood_events`, `modality_settings`, `modality_settings_audit`).
+- **Emit-boundary redaction (C10 reuse):** Existing emit-boundary redaction allowlist + reject
+  path (ARCH-001@0.5.0 §8.1, §10.7; TKT-015@0.1.0 hardening) extended additively with five new
+  forbidden fields (`mood_comment_text`, `workout_text`, `workout_raw_description`,
+  `sleep_text_input`, `sleep_voice_transcript`). Mechanism unchanged. See TKT-026@0.1.0.
+- **Telegram allowlist + failure modes (C15 reuse):** PRD-003@0.1.3 modalities open zero new
+  inbound channels (NG5 explicit). All new event handlers run inside the existing C1 entrypoint
+  scope behind the same C15 allowlist. No allowlist changes.
+
+What does NOT exist in OpenClaw built-ins and remains project-owned:
+
+- Modality classification (priority chain) → ADR-015@0.1.0 / C16 Modality Router (project-built)
+- Sleep-pairing state machine + DST attribution → ADR-017@0.1.0 / C18 Sleep Logger (project-built)
+- Workout closed-enum extraction → ADR-016@0.1.0 / C19 Workout Logger (project-built; reuses
+  OmniRoute provider abstraction from ADR-002@0.1.0)
+- Mood numeric + free-form-inference → C20 Mood Logger (project-built; reuses OmniRoute)
+- Per-modality settings + ≤30s propagation → C21 Modality Settings Service (project-built)
+- Adaptive summary section ordering / suppression → C22 Adaptive Summary Composer (project-built;
+  wraps the existing C9 Summary Recommendation Service without modifying it)
+
+#### 0.10.2 Fork-candidate audit per modality (≥3 candidates each)
+
+Per architect.md Phase 0 (audit ≥3 fork-candidate skills per major capability) and Q-RM-2
+research-section requirement (§1.4.1..§1.4.5 clusters, ~27 inputs total).
+
+**Water tracking (PRD-003@0.1.3 §2 G1):**
+- Candidate 1: `awesome-openclaw-skills/water-tracker` (no public repo with this exact name; the
+  cluster lists generic "habit / hydration tracker" entries that are demos, not production).
+- Candidate 2: `composio.dev/content/top-openclaw-skills` lists hydration as a typical skill use case
+  but no specific extraction prompt or schema is provided. Source is illustrative, not implementable.
+- Candidate 3: `mojafirma.ai/blog/openclaw-10-skills` mentions habit-tracking as #4 but again at
+  the conceptual level.
+- **Decision:** No fork candidate exists at production-quality. Build C17 Water Logger
+  ourselves on top of OmniRoute extraction (ADR-002@0.1.0). The implementation surface is
+  small (volume_ml + raw_text → row insert).
+
+**Sleep tracking (PRD-003@0.1.3 §2 G2):**
+- Candidate 1: `awesome-openclaw-skills` lists "sleep-tracker" repos but the top result is a
+  hello-world skill that just records the message timestamp.
+- Candidate 2: `levelup.gitconnected.com/5-openclaw-plugins-that-actually-make-it-production-ready`
+  references a "sleep summary" demo plugin that lacks midnight-spanning attribution and DST
+  handling — exactly the two semantics PRD-003@0.1.3 §5 US-2 + §8 R2 demand.
+- Candidate 3: `hermes-agent.nousresearch.com/docs/skills/` Hermes ecosystem has no sleep skill
+  in the canonical catalogue; community-contributed entries exist but follow a different runtime
+  model (persistent-memory) — not a fork candidate for OpenClaw.
+- **Decision:** No fork candidate exists with the required pairing state machine + DST attribution
+  + sanity-floor / ceiling soft-warn. Build C18 Sleep Logger ourselves per ADR-017@0.1.0.
+
+**Workout tracking (PRD-003@0.1.3 §2 G3):**
+- Candidate 1: `composio.dev/content/top-openclaw-plugins` lists fitness/exercise plugins as a
+  typical skill use case; entries are demos.
+- Candidate 2: `freecodecamp.org/news/openclaw-a2a-plugin-architecture-guide` references workout
+  logging as a sample plugin in its A2A guide — illustrative, not production.
+- Candidate 3: `datacamp.com/blog/top-agent-skills` lists workout extraction as a candidate skill
+  but supplies no closed-enum schema; would re-run into PRD-003@0.1.3 §3 NG10 (vendor lock to
+  external taxonomy) if forked.
+- **Decision:** No fork candidate matches the ADR-016@0.1.0 closed-enum + forced-output-set + 50-event
+  golden-set discipline. Build C19 Workout Logger ourselves.
+
+**Mood tracking (PRD-003@0.1.3 §2 G4):**
+- Candidate 1: `awesome-openclaw-skills` lists journaling-style "mood / sentiment" skills; all
+  treat mood as free-text only with no numeric scale.
+- Candidate 2: Hermes ecosystem (`hermes-agent.nousresearch.com/docs/skills/`) has a
+  community-contributed mood-coach skill that uses persistent memory + recommendation generation
+  — out of scope for PRD-003@0.1.3 (NG2 explicit non-goal: no cross-modality recommendations).
+- Candidate 3: `digitalocean.com/resources/articles/what-are-openclaw-skills` references mood as
+  illustrative; no schema.
+- **Decision:** No fork candidate matches the 1–10 numeric + optional comment + free-form-inference
+  contract. Build C20 Mood Logger ourselves.
+
+**Settings (PRD-003@0.1.3 §2 G5):**
+- Candidate 1: `awesome-openclaw-skills` "user-preferences" plugins exist but tied to specific
+  third-party SaaS (Notion, Airtable). Not applicable to a self-hosted Postgres + RLS surface.
+- Candidate 2: Hermes "memory-aware settings" approach uses the persistent-memory primitive that
+  PRD-003@0.1.3 explicitly does NOT need (per Q-RM-7 R-stay decision).
+- Candidate 3: OpenClaw built-in `settings` skill is internal config plumbing, not user-facing
+  modality toggles.
+- **Decision:** Build C21 ourselves; ≤30 s propagation TTL pattern reuses the precedent from
+  TKT-020@0.1.0 (allowlist hot-reload).
+
+**Adaptive summary (PRD-003@0.1.3 §2 G6):**
+- Candidate 1: `awesome-openclaw-skills` summary skills exist (daily / weekly templates) but are
+  KBJU-agnostic; would require complete rewrite for PRD-003@0.1.3 deterministic ordering +
+  zero-event suppression.
+- Candidate 2: Hermes "auto-skill-gen" feature could in theory generate per-modality renderers
+  but the proactive-coaching feature it serves is PRD-NEXT, not PRD-003@0.1.3.
+- Candidate 3: `0xNyk/awesome-hermes-agent` lists summary-style skills for the Hermes runtime;
+  not applicable to OpenClaw runtime under R-stay.
+- **Decision:** Build C22 Adaptive Summary Composer ourselves as a wrapper around the existing
+  C9 Summary Recommendation Service. Single-place change; no fork-vendor needed.
+
+**Build vs. fork vs. reuse summary:** All six new C16..C22 components built ourselves. No fork
+candidate matches PRD-003@0.1.3 specificity. Five existing components (C3 / C5 / C7 / C8 / C10
+/ C15) reused without modification. Two existing surfaces (C9 / C1 entrypoint) lightly extended
+additively (C9 wrapped by C22; C1 entrypoint dispatches through new C16 router before existing
+C4 KBJU path).
+
+#### 0.10.3 Q-RM-2 §1.4 PRD-NEXT research engagement (~27 URLs, 5 clusters)
+
+Per ROADMAP-001@0.1.0 §5 Q-RM-2 mandatory engagement. Each cluster header is cited verbatim per
+the dispatch instruction.
+
+**§1.4.1 Hermes Agent — primary documentation cluster:**
+
+URLs engaged: <https://github.com/nousresearch/hermes-agent>, <https://hermes-agent.nousresearch.com/docs/>,
+<https://hermes-agent.nousresearch.com/docs/skills/>, <https://hermes-agent.nousresearch.com/docs/integrations/>.
+
+Findings: Hermes Agent's distinctive primitives are (a) persistent-memory across sessions and
+(b) auto-skill-generation from interaction patterns. Both are PRD-NEXT (proactive-coaching) value,
+not PRD-003@0.1.3 value. PRD-003@0.1.3 §1 problem statement frames the four modalities as additive
+event-stream tracking — precisely what OpenClaw already supports without persistent memory or
+auto-skill-gen. Hermes' migration cost is high (full re-implementation of TKT-001@0.1.0..TKT-020@0.1.0
+on a different runtime; ~5× ARCH-001 build cost) and pays for capability PRD-003@0.1.3 does not
+consume. **Verdict:** Hermes is the right migration target for the §3.1 PRD-NEXT proactive-coaching
+cycle, not for PRD-003@0.1.3 modality tracking. Q_TO_BUSINESS_4 (this ArchSpec) defers the
+Hermes / OpenClaw runtime decision to PRD-NEXT.
+
+**§1.4.2 Hermes Agent — community / ecosystem cluster:**
+
+URLs engaged: <https://github.com/42-evey/hermes-plugins>, <https://hermesatlas.com/>,
+<https://github.com/0xNyk/awesome-hermes-agent>, <https://felo.ai/blog/best-hermes-agent-skills-2026/>,
+<https://github.com/amanning3390/hermeshub>.
+
+Findings: Community plugin ecosystem is comparable in scale to OpenClaw's `awesome-openclaw-skills`
+(SPIKE-002 found >50% of OpenClaw community skills deleted/archived; the same volatility appears
+in Hermes community). No specific PRD-003@0.1.3-applicable skill found that would justify migration.
+Hermes' "felo.ai best skills 2026" list emphasises agentic browsing + persistent learning loops
+— PRD-NEXT territory. **Verdict:** Confirms §1.4.1 conclusion. No PRD-003@0.1.3-specific Hermes
+skill that justifies migration cost.
+
+**§1.4.3 OpenClaw — primary documentation cluster:**
+
+URLs engaged: <https://openclaw.ai/>, <https://docs.openclaw.ai/tools/skills>,
+<https://docs.openclaw.ai/tools/plugin>, <https://docs.openclaw.ai/plugins/community>,
+<https://docs.openclaw.ai/plugins/bundles>, <https://github.com/openclaw/openclaw>.
+
+Findings: OpenClaw runtime is the locked baseline of ARCH-001@0.5.0 §0.1 and PRD-001@0.2.0 §7.
+Re-verified for PRD-003@0.1.3: skills + plugin model + sidecar HTTP bridge pattern (ARCH-001@0.5.0
+§3 ADR-011@0.1.0 HYBRID topology) accommodate the new C16..C22 components without architectural
+change. No new built-in capability needed for water / sleep / workout / mood event-stream tracking.
+**Verdict:** OpenClaw remains the runtime for PRD-003@0.1.3 (R-stay). No architectural migration
+required.
+
+**§1.4.4 OpenClaw — community / ecosystem cluster:**
+
+URLs engaged: <https://github.com/VoltAgent/awesome-openclaw-skills>,
+<https://mojafirma.ai/blog/openclaw-10-skills>,
+<https://www.digitalocean.com/resources/articles/what-are-openclaw-skills>,
+<https://composio.dev/content/top-openclaw-skills>,
+<https://composio.dev/content/top-openclaw-plugins>,
+<https://www.datacamp.com/blog/top-agent-skills>,
+<https://levelup.gitconnected.com/5-openclaw-plugins-that-actually-make-it-production-ready-524168333bac>,
+<https://www.freecodecamp.org/news/openclaw-a2a-plugin-architecture-guide/>.
+
+Findings: Per fork-candidate audit (§0.10.2), no production-quality skill exists for any of the
+four new modalities at the specificity PRD-003@0.1.3 demands. Community catalogue lists demos
+and conceptual references; SPIKE-002 SecureClaw/Riphook/Slate-class plugins remain the only
+production-graded fork candidates and are confined to security/observability — out of PRD-003@0.1.3
+scope. **Verdict:** Build C17..C22 ourselves; no community fork-vendor recommended.
+
+**§1.4.5 OpenClaw — fork / alternative-runtime cluster:**
+
+URLs engaged: <https://github.com/HKUDS/nanobot>, <https://github.com/sipeed/picoclaw>,
+<https://github.com/zeroclaw-labs/zeroclaw>, <https://github.com/nearai/ironclaw>.
+
+Findings: nanobot is research-grade. picoclaw / zeroclaw are ultra-lightweight forks designed for
+edge-device deployment (Raspberry Pi class, MCU-class). They drop features ARCH-001@0.5.0 relies
+on (HYBRID HTTP bridge, plugin metadata, callback-handling). ironclaw is a near.ai-internal fork
+with proprietary modifications. **Verdict:** None of these forks is a candidate for PRD-003@0.1.3.
+The mainstream OpenClaw is the only viable runtime under R-stay.
+
+**Q-RM-9 EXPANSION verdict (verbatim PO authority "может вообще всё переделать из 002 и 003,
+если это необходимо"):** Research findings do NOT demand redo of PRD-002@0.2.1 or PRD-003@0.1.3.
+PRD-002@0.2.1 G1..G4 closed on main (ARCH-001@0.5.0 closure-PR #134). PRD-003@0.1.3 §1..§7 framing
+remains aligned with the runtime baseline + research findings. **No EXPANSION recommendation.**
+PRD-003@0.1.3 proceeds as written; this ArchSpec extension is the right vehicle. Q_TO_BUSINESS_4
+defers the Hermes / OpenClaw migration question to the PRD-NEXT proactive-coaching cycle, which
+is explicitly authored for the persistent-memory + auto-skill-gen value proposition.
+
+#### 0.10.4 Q-RM-1 hardware envelope (1,000 per-user instances)
+
+Per ROADMAP-001@0.1.0 §5 Q-RM-1 + dispatch §-1 instruction (concrete = name + spec + monthly cost
++ provider example, sourced and cited inline; abstract feasibility statements auto-fail).
+
+**Reference machine (1,000-user scale concrete envelope):**
+
+| field | value |
+|---|---|
+| Provider | Hetzner |
+| Tier | EX44 dedicated root server |
+| CPU | Intel Core i5-13500 (14 cores / 20 threads, base 2.5 GHz / boost 4.8 GHz) |
+| RAM | 64 GB DDR4 |
+| Storage | 2 × 512 GB NVMe SSD |
+| Network | 1 Gbit/s dedicated, 20 TB included traffic |
+| Monthly cost | €44 (~$47 USD) |
+| Source | <https://www.hetzner.com/dedicated-rootserver/ex44/> |
+
+**Capacity planning for PRD-003@0.1.3 §7 1,000-user constraint:**
+
+Per-user load envelope (PRD-002@0.2.1 G1..G4 baseline + PRD-003@0.1.3 modality additive):
+- KBJU events: ~3 confirmed meals/day average (PRD-001@0.2.0 §2 G1) → 3 LLM extractions + 3
+  Postgres writes + 3 read-back per user-day.
+- PRD-003@0.1.3 modality events: water (~5/day), sleep (~1–2/day with potentially 2 paired-event
+  state transitions), workout (~0.5/day), mood (~1/day) → ~9 modality events/day average.
+- Voice transcription: ~30% of inputs are voice (PRD-001@0.2.0 §2 G3 evidence) → ~3.6 transcription
+  calls/user/day at ~$0.006/call (Whisper baseline).
+- Postgres writes: ~12 events/user-day; reads: ~20 (summaries + history scrolls).
+
+Total per 1,000 users: ~12,000 events/day, ~3,600 voice calls/day. Postgres footprint at 1,000
+users with 30-day retention: ~360,000 events × ~500 B per event-row = ~180 MB durable storage,
+well within EX44's 2×512GB capacity. CPU load: dominated by transcription + LLM call latency
+(I/O-bound, not CPU-bound); 14 cores with 20 threads handles concurrent webhook processing
+trivially at this scale. Network: 12 k events/day × ~1 KB/event = ~12 MB/day inbound + ~36 MB/day
+LLM-call outbound = well under 1 Gbit/s.
+
+**1,000-user deployment topology (concrete):** 1 × EX44 server (€44/month, ~$47 USD/month) handles
+1,000 users with comfortable headroom. Resilience: 2 × EX44 (€88/month, ~$94 USD/month) primary +
+hot-standby with Postgres streaming replication. Headroom for proactive-coaching PRD-NEXT load
+spike: 3 × EX44 cluster (€132/month, ~$140 USD/month). All three options remain well below the
+PO's "не переживаем" cost posture ratified in ROADMAP-001@0.1.0 §5.10 Q-RM-9.
+
+**Why concrete:** This envelope answers Q-RM-1 with name + spec + monthly cost + provider per the
+dispatch §-1 demand (abstract feasibility statements forbidden). Source <https://www.hetzner.com/dedicated-rootserver/ex44/>
+verified at 2026-05-06. Pricing is current; Hetzner publishes monthly fees inclusive of EU VAT
+exemption for non-EU customers. **No alternative provider audit performed** — this is one
+sourced concrete answer per Q-RM-1, not a multi-vendor comparison; multi-vendor comparison
+becomes relevant only if a future PRD changes the cost-posture envelope. Architect notes this
+as a Phase 11 weakness.
+
+#### 0.10.5 Q-RM-7 runtime decision summary (Architect's call)
+
+Three options analysed in ADR-014@0.1.0 §Options Considered (R-stay, R-migrate, R-hybrid).
+**Decision: R-stay (extend ARCH-001@0.5.0 to ARCH-001@0.6.0 on OpenClaw).** Detailed trade-offs
+sourced inline in ADR-014@0.1.0. Q_TO_BUSINESS_4 of this ArchSpec defers the
+Hermes-or-OpenClaw migration question to the PRD-NEXT proactive-coaching cycle where Hermes'
+persistent-memory + auto-skill-gen primitives provide concrete value matching that PRD's needs.
+
+#### 0.10.6 Top 3 weakest design points (per architect.md INTERACTION STYLE — lead with weakest)
+
+1. **C18 Sleep Logger pairing state machine has a hard 24-hour TTL.** A user who logs "лёг at
+   23:00" and then doesn't message for >24 h sees their evening event GC'd silently. This is per
+   ADR-017@0.1.0 §Consequences (intentional trade-off; PRD-003@0.1.3 §3 NG11 explicitly forbids
+   retroactive backfill). Risk: user surprise. Mitigation: the morning-no-pair clarifying-reply
+   path (state-machine path #4) explicitly tells the user "I see you got up but I don't know
+   when you went to sleep — how many hours did you sleep?" so the user can recover by reporting
+   duration directly, which then takes path #5 (single-event morning duration report). Still,
+   a single dropped pairing event is recoverable but not surfaced as such. PO sign-off acceptable
+   per §5 US-2 + §3 NG11; flagged here for visibility.
+2. **C16 Modality Router uses a deterministic priority chain, not an LLM classifier.** ADR-015@0.1.0
+   §Decision picks Option A (deterministic) over Option C (LLM classifier) for latency + cost.
+   Risk: novel Russian phrasing not in the seed keyword set falls through to the C4 KBJU
+   free-form path. Mitigation: the §1.4 R1 rolling-30-day misclassification-rate telemetry
+   (TKT-025@0.1.0) gives PO visibility; if the rate exceeds an action threshold, ADR-015@0.1.0
+   §Consequences explicitly contemplates a future Option C upgrade. Still, the seed keyword set
+   is at risk of staleness over PRD-003@0.1.3 lifetime. Mitigation: hot-reload via TKT-022@0.1.0
+   (config-driven matcher chain).
+3. **Hardware envelope (Q-RM-1) is single-vendor.** Per §0.10.4 the answer cites Hetzner only. A
+   multi-vendor comparison (e.g. Hetzner vs OVH vs Fly.io vs DigitalOcean dedicated) would
+   strengthen the answer for procurement diversification. Architect chose single-vendor concrete
+   over multi-vendor abstract per dispatch §-1. PO can request a multi-vendor follow-up at any
+   time; this is below-the-fold work, not blocking PRD-003@0.1.3 execution.
+
+### 1.4 PRD-NEXT research findings (Q-RM-2 evidence)
+
+Cross-cluster synthesis from §0.10.3:
+
+- **Hermes Agent** is the natural runtime-migration target IF and WHEN PRD-NEXT introduces
+  proactive coaching, persistent memory across sessions, or auto-skill-generation. Its primitives
+  do not align with PRD-003@0.1.3's event-stream-tracking needs.
+- **OpenClaw** remains the right runtime for PRD-003@0.1.3 per the R-stay decision (ADR-014@0.1.0).
+  Mainstream OpenClaw forks (picoclaw / zeroclaw / nanobot / ironclaw) are not candidates due to
+  feature-drop relative to ARCH-001@0.5.0 baseline.
+- **Community plugin ecosystems** (both Hermes and OpenClaw) offer no production-quality
+  fork-candidate skills for water / sleep / workout / mood tracking at PRD-003@0.1.3 specificity.
+  All six new C16..C22 components are project-built.
+
+This §1.4 satisfies Q-RM-2 verbatim cluster-engagement requirement. Research is also captured
+inline in ADR-014@0.1.0 §Context (cited there for the runtime-decision trade-off table) and in
+§0.10.2 (cited for the per-modality fork-candidate audit).
+
 ## 1. Context
-Implements: PRD-001@0.2.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope, and PO OBC/answers recorded in `docs/questions/Q-ARCH-001-gap-report-2026-04-26.md`.
-Does NOT implement: PRD-001@0.2.0 §3 Non-Goals.
+Implements: PRD-001@0.2.0 §2 Goals, §5 User Stories, §6 KPIs, §7 Technical Envelope; PRD-002@0.2.1
+§2 Goals (G1..G4); PRD-003@0.1.3 §2 Goals (G1..G6) for adaptive modalities + §5 user stories
+(US-1..US-7) + §6 KPIs (K1..K8) + §7 Technical Envelope; and PO OBC/answers recorded in
+`docs/questions/Q-ARCH-001-gap-report-2026-04-26.md`.
+Does NOT implement: PRD-001@0.2.0 §3 Non-Goals, PRD-003@0.1.3 §3 Non-Goals (NG1..NG11).
 
 ### 1.1 Trace matrix
 | PRD section | PRD Goal / US | Components that satisfy it |
@@ -312,6 +629,30 @@ Does NOT implement: PRD-001@0.2.0 §3 Non-Goals.
 | PRD-002@0.2.1 §2 G3 | PR-Agent CI tail-latency empirical validation (Qwen 3.6 Plus → GPT-5.3 Codex swap). | C14 PR-Agent Telemetry Emitter (NEW v0.5.0) |
 | PRD-002@0.2.1 §2 G4 | Scale-ready access control: static env-var allowlist → hot-reloadable config file, growth path to thousands. | C15 Config-Driven Allowlist (NEW v0.5.0) |
 | PRD-002@0.2.1 §3 NG | No new databases, no Kubernetes, no external APIs, no Redis. | C12, C13, C14, C15 all comply — zero new infra deps |
+| PRD-003@0.1.3 §2 G1 | Water tracking enabled (voice/text/quick-volume keyboard → per-user `water_events`). | C16 Modality Router (NEW v0.6.0); C17 Water Logger (NEW v0.6.0); C3 Tenant-Scoped Store |
+| PRD-003@0.1.3 §2 G2 | Sleep tracking enabled (voice/text → per-user `sleep_records`; midnight-spanning + nap-class normative). | C16 Modality Router (NEW v0.6.0); C18 Sleep Logger (NEW v0.6.0); C5 Voice Transcription Provider; C8 Cron Dispatcher; C3 Tenant-Scoped Store |
+| PRD-003@0.1.3 §2 G3 | Workout tracking enabled (voice/text/photo → per-user `workout_events`; closed-enum types). | C16 Modality Router (NEW v0.6.0); C19 Workout Logger (NEW v0.6.0); C5 Voice Transcription Provider; C7 Photo Recognition Provider; C3 Tenant-Scoped Store |
+| PRD-003@0.1.3 §2 G4 | Mood tracking enabled (1–10 numeric + optional comment + free-form-text inference). | C16 Modality Router (NEW v0.6.0); C20 Mood Logger (NEW v0.6.0); C3 Tenant-Scoped Store |
+| PRD-003@0.1.3 §2 G5 | Per-modality on/off settings honoured ≤30s. | C21 Modality Settings Service (NEW v0.6.0); C16 Modality Router (NEW v0.6.0); C17/C18/C19/C20 |
+| PRD-003@0.1.3 §2 G6 | Adaptive integration with KBJU summaries (deterministic ordering + zero-event suppression). | C22 Adaptive Summary Composer (NEW v0.6.0); C9 Summary Recommendation Service |
+| PRD-003@0.1.3 §5 US-1 | Water modality acceptance (persistence-first; OFF-state silent ignore; quick-volume keyboard). | C16, C17 |
+| PRD-003@0.1.3 §5 US-2 | Sleep modality acceptance (paired evening+morning; midnight-spanning attribution; nap-class isolation; sanity-floor / ceiling soft-warn). | C16, C18 |
+| PRD-003@0.1.3 §5 US-3 | Workout modality acceptance (closed-enum types; ≥80% recognition; multi-source — text/voice/photo). | C16, C19, C5, C7 |
+| PRD-003@0.1.3 §5 US-4 | Mood modality acceptance (1–10 + optional comment ≤280 chars; free-form-text inference with confirm). | C16, C20 |
+| PRD-003@0.1.3 §5 US-5 | Per-modality settings UX (Russian inline keyboard; KBJU NOT toggleable; ≤30s propagation). | C21, C1 |
+| PRD-003@0.1.3 §5 US-6 | Adaptive summary composition (KBJU unconditional; section ordering KBJU→water→sleep→workout→mood; zero-event suppression). | C22, C9 |
+| PRD-003@0.1.3 §5 US-7 | Privacy-preserving telemetry (extended emit-boundary redaction; right-to-delete cascade across all PRD-003@0.1.3 tables). | C10 (extended); C11 (extended); TKT-021@0.1.0 cascade migration |
+| PRD-003@0.1.3 §6 K1 | Per-modality logging volume (rolling 7-day, ≥1 active user with each modality ON). | All seven new tables; observability emit |
+| PRD-003@0.1.3 §6 K2 | Workout recognition success rate ≥80% / per-field accuracy ≥70%. | C19 Workout Logger; ADR-016@0.1.0 forced-output JSON validator; PO-ratified 50-event golden test set |
+| PRD-003@0.1.3 §6 K3 | Sleep sanity-floor / ceiling rejection rate <2% rolling-30-day. | C18 Sleep Logger; observability emit |
+| PRD-003@0.1.3 §6 K4 | Mood-comment redaction sample audit 100% on N≥100 events. | TKT-026@0.1.0 audit helper |
+| PRD-003@0.1.3 §6 K5 | Settings ≤30s propagation. | C21 Modality Settings Service TTL ≤30s |
+| PRD-003@0.1.3 §6 K6 | Adaptive-summary section-set audit 100% match on rolling-7-day window. | TKT-027@0.1.0 audit helper |
+| PRD-003@0.1.3 §6 K7 | Latency overhead ≤5% on KBJU summary path. | C22 ≤105% baseline measurement; PRD-003@0.1.3 §7 |
+| PRD-003@0.1.3 §6 K8 | Sample audit 100% redaction on PRD-003@0.1.3 telemetry (N≥100 rolling-7-day). | TKT-026@0.1.0 audit helper |
+| PRD-003@0.1.3 §3 NG1..NG11 | Non-Goals respected (e.g. NG6 KBJU NOT a toggleable modality; NG2 no cross-modality recommendations; NG11 no retroactive backfill). | All v0.6.0 components reject behaviours violating any NG; PRD-003@0.1.3 §3 enforced by ticket NOT-In-Scope clauses |
+| PRD-003@0.1.3 §8 R1 | Modality-misclassification telemetry (rolling-30-day informational metric). | C16 Modality Router `kbju_modality_route_outcome`; TKT-025@0.1.0 aggregation |
+| PRD-003@0.1.3 §8 R2 | Sleep edge cases (timezones / naps / fragmented / DST) addressed. | ADR-017@0.1.0 §Decision; C18 Sleep Logger DST-safe attribution |
 
 Every PRD Goal MUST appear. Every component MUST trace back to ≥1 PRD row.
 
@@ -508,6 +849,62 @@ graph LR
 - Outputs: O(1) `isAllowed(telegramId)` via `Set.has()`; metrics `kbju_allowlist_reload`, `kbju_allowlist_blocked`, `kbju_allowlist_size`.
 - LLM usage: none.
 - State: In-memory `Set<number>` rebuilt atomically on each reload; file-watch polls `fs.stat` at ~1s; max propagation ≤2s.
+
+### 3.16 C16 Modality Router (NEW v0.6.0 — PRD-003@0.1.3 §5 US-1..US-4 + §8 R1)
+- Responsibility: Classify inbound C1-claimed text / voice-transcribed-text into one of {kbju, water, sleep, workout, mood, ambiguous, zero_match} per ADR-015@0.1.0 deterministic priority chain. Dispatch to matching component or emit clarifying-reply inline keyboard for ambiguity.
+- Inputs: C1 inbound message envelope (text or transcribed text + user_id + timestamp); `config/modality-router.json` keyword chains; C21 `getSettings(user_id)` for OFF-state suppression at routing.
+- Outputs: dispatch decision (component reference) OR clarifying-reply payload OR fallthrough-to-C4-KBJU; metric `kbju_modality_route_outcome{outcome}`.
+- LLM usage: NONE (Option A of ADR-015@0.1.0 — explicit Architect choice; Option C LLM-classifier deferred to a future ADR if rolling-30-day misclassification rate exceeds action threshold).
+- State: Hot-reloadable matcher chain; in-process; mirrors C15 Allowlist pattern.
+- Failure modes: (a) zero match → falls through to existing C4 KBJU free-form path (preserves PRD-001@0.2.0 surface). (b) multi-match → clarifying inline keyboard; user tap drives dispatch. (c) malformed config → preserves last valid chain (C15 pattern).
+
+### 3.17 C17 Water Logger (NEW v0.6.0 — PRD-003@0.1.3 §2 G1)
+- Responsibility: Persist water intake events from voice / text / inline-keyboard quick-volume preset to `water_events` per PRD-003@0.1.3 §5 US-1.
+- Inputs: C16-routed water message; `water_events` write capability; C21 modality-OFF gate.
+- Outputs: `water_events` row insert; user-facing Russian confirmation reply; `kbju_modality_event_persisted{modality=water,source=...}`.
+- LLM usage: OmniRoute extraction prompt (ADR-002@0.1.0) for `volume_ml` from free-form text where preset keyboard not used.
+- State: stateless per request; persistence in C3 Tenant-Scoped Store via the new `water_events` table.
+- Failure modes: (a) modality OFF → silent ignore (per §5 US-1 OFF-state AC). (b) parse failure → friendly clarifying reply with the quick-volume preset keyboard.
+
+### 3.18 C18 Sleep Logger (NEW v0.6.0 — PRD-003@0.1.3 §2 G2 + ADR-017@0.1.0)
+- Responsibility: Persist sleep records from paired evening + morning events OR single-event morning duration per PRD-003@0.1.3 §5 US-2 + ADR-017@0.1.0 state machine. Compute DST-safe `attribution_date_local`. Enforce sanity-floor / ceiling soft-warn flow.
+- Inputs: C16-routed sleep message; user profile timezone; `sleep_records` + `sleep_pairing_state` write capability; `luxon` tz library; C21 modality-OFF gate; C8 Cron Dispatcher hourly tick for GC.
+- Outputs: `sleep_records` row insert (paired or single-event); `sleep_pairing_state` row insert/update/delete; user-facing Russian replies per six state-machine paths; `kbju_modality_event_persisted{modality=sleep,source=...}`.
+- LLM usage: OmniRoute extraction prompt for `duration_min` from free-form morning report.
+- State: in-flight evening "лёг" event lives in `sleep_pairing_state` with 24-hour TTL; hourly GC cron skill `src/skills/sleep-gc/` reuses C8 Cron Dispatcher (ARCH-001@0.5.0 §3.8).
+- Failure modes: (a) modality OFF → silent ignore. (b) sanity-floor (<30 min) or ceiling (>24 h) → soft-warn with confirm-as-is / correct path; no record persisted until user confirms. (c) "лёг then лёг" → older invalidated, new replaces. (d) "встал" without prior "лёг" → clarifying-reply asking for duration. (e) DST transition → handled by `luxon` IANA tz database; smoke-tested in TKT-023@0.1.0.
+
+### 3.19 C19 Workout Logger (NEW v0.6.0 — PRD-003@0.1.3 §2 G3 + ADR-016@0.1.0)
+- Responsibility: Persist workout events from voice / text / photo with closed-enum type extraction per ADR-016@0.1.0 forced-output JSON schema. Achieve PRD-003@0.1.3 §6 K2 ≥80% recognition + ≥70% per-field accuracy.
+- Inputs: C16-routed workout message OR C7 photo extraction output; `workout_events` write capability; C21 modality-OFF gate.
+- Outputs: `workout_events` row insert with closed-enum `type` ∈ {strength, running, cycling, swimming, walking, yoga, hiit, other}; user-facing Russian confirmation reply; `kbju_modality_event_persisted{modality=workout,source=...}`.
+- LLM usage: OmniRoute extraction prompt with forced-output JSON schema (ADR-016@0.1.0 §Decision verbatim contract). LLM provider / model is whatever OmniRoute (ADR-002@0.1.0) currently routes to; no PRD-003@0.1.3-specific provider pick.
+- State: stateless per request; persistence in `workout_events`.
+- Failure modes: (a) modality OFF → silent ignore. (b) zero quantifiable fields → clarifying-reply asking for at least one of duration / distance / weight (per §5 US-3 2nd AC). (c) extraction returns invalid JSON → deterministic post-validator (ADR-006@0.1.0 forced-output guardrail pattern reused) re-prompts once then asks user.
+
+### 3.20 C20 Mood Logger (NEW v0.6.0 — PRD-003@0.1.3 §2 G4)
+- Responsibility: Persist mood events with 1–10 numeric score + optional ≤280-char comment + free-form-text-with-inferred-score-confirmation flow per PRD-003@0.1.3 §5 US-4. 5-minute TTL on pending inferences.
+- Inputs: C16-routed mood message OR inline-keyboard 1–10 tap; `mood_events` write capability; C21 modality-OFF gate.
+- Outputs: `mood_events` row insert with `(score, comment_text)`; user-facing Russian confirmation reply (or inferred-score confirmation prompt); `kbju_modality_event_persisted{modality=mood,source=...}`.
+- LLM usage: OmniRoute inference prompt for free-form-text → inferred score (only when user did not provide a numeric score directly).
+- State: in-process pending-inference cache with 5-minute TTL per user; expired pending inferences are dropped silently.
+- Failure modes: (a) modality OFF → silent ignore. (b) comment >280 chars → truncate + friendly notice (per §5 US-4 2nd AC). (c) inferred score not confirmed within 5 minutes → drop silently.
+
+### 3.21 C21 Modality Settings Service (NEW v0.6.0 — PRD-003@0.1.3 §2 G5)
+- Responsibility: Expose `getSettings(user_id)` and `setSetting(user_id, modality, value)` for the four modalities (KBJU is NOT toggleable per PRD-003@0.1.3 §3 NG6). Provide `/settings` Telegram command surface with four-toggle inline keyboard. Honour ≤30 s propagation per §6 K5.
+- Inputs: `modality_settings` + `modality_settings_audit` table read/write capability; `/settings` command from C1.
+- Outputs: per-user settings; audit row per toggle change; user-facing Russian inline keyboard.
+- LLM usage: none.
+- State: in-process cache with TTL ≤30 s; cache miss reads from `modality_settings`; write invalidates cache for `(user_id, modality)`.
+- Failure modes: (a) DB read failure during `getSettings` → return cached value if available; on cache miss return safe default (all-ON) and emit observability counter; (b) write failure → propagate error to user with retry copy.
+
+### 3.22 C22 Adaptive Summary Composer (NEW v0.6.0 — PRD-003@0.1.3 §2 G6)
+- Responsibility: Wrap the existing C9 Summary Recommendation Service to fold modality sections into the daily / weekly / monthly summary per PRD-003@0.1.3 §5 US-6. Deterministic ordering KBJU → water → sleep → workout → mood. Zero-event suppression. OFF-modality suppression. KBJU section unconditional.
+- Inputs: existing C9 KBJU summary text; `water_events` / `sleep_records` / `workout_events` / `mood_events` table reads filtered by attribution date; C21 `getSettings(user_id)`.
+- Outputs: composed Russian summary text; rolling-7-day audit-mode K6 helper; latency budget ≤105% of existing C9 baseline (PRD-003@0.1.3 §7 ≤5% overhead).
+- LLM usage: none (uses C9's existing recommendation generation; no additional LLM hop introduced).
+- State: stateless per request.
+- Failure modes: (a) modality table read failure → emit empty section + observability counter; do NOT block KBJU summary delivery. (b) settings read failure → fall back to all-ON default safely.
 
 ## 4. Data Flow
 
@@ -856,6 +1253,105 @@ Schema invariants:
 - The K4 cross-user audit query is the **only** persistent mechanism that may read across `user_id`; it runs as the `kbju_audit` PostgreSQL role with `BYPASSRLS` (§9.2) under the separate `AUDIT_DB_URL` secret, never inside an application skill.
 - Raw voice clips and raw photo bytes are not represented in durable schemas.
 - Logs and metric metadata must never store raw prompt text, raw audio, raw photos, provider keys, or Telegram bot tokens.
+
+### 5.3 v0.6.0 PRD-003@0.1.3 modality tables (declarative — TKT-021@0.1.0 owns SQL)
+
+Seven new tables added in v0.6.0 per PRD-003@0.1.3 §2 G1..G6 + ADR-017@0.1.0 §Decision (sleep
+schemas verbatim). All inherit the ADR-001@0.1.0 RLS pattern (per-`user_id` policy; app role is
+not table owner; `BYPASSRLS` allowed only for the existing `kbju_audit` role under
+`AUDIT_DB_URL`). Right-to-delete cascade extended in TKT-021@0.1.0 to cover all seven.
+
+```
+water_events:
+  event_id: uuid PK
+  user_id: bigint NOT NULL  -- RLS subject
+  ts_utc: timestamptz NOT NULL
+  volume_ml: integer NOT NULL  -- CHECK 0 < volume_ml <= 5000
+  source: text NOT NULL  -- enum {text, voice, keyboard}
+  raw_text: text NULL  -- present iff source ∈ {text, voice}; redacted at emit per §8.1
+  created_at: timestamptz NOT NULL DEFAULT now()
+  index: (user_id, ts_utc DESC)
+
+sleep_records:
+  record_id: uuid PK
+  user_id: bigint NOT NULL  -- RLS subject
+  start_ts_utc: timestamptz NOT NULL
+  end_ts_utc: timestamptz NOT NULL
+  duration_min: integer NOT NULL  -- CHECK 30 <= duration_min <= 1440
+  attribution_date_local: date NOT NULL  -- user-tz calendar day of end_ts_utc
+  attribution_tz: text NOT NULL  -- IANA tz string snapshot (immutable)
+  is_nap: boolean NOT NULL  -- duration_min <= 240
+  is_paired_origin: boolean NOT NULL
+  created_at: timestamptz NOT NULL DEFAULT now()
+  index: (user_id, attribution_date_local, is_nap)
+
+sleep_pairing_state:
+  user_id: bigint PK  -- one outstanding "лёг" per user max
+  leg_event_ts_utc: timestamptz NOT NULL
+  expires_at_utc: timestamptz NOT NULL  -- leg_event_ts_utc + 24h
+  -- hourly GC cron skill (ARCH-001@0.6.0 §3.18) deletes rows where expires_at_utc < now()
+
+workout_events:
+  event_id: uuid PK
+  user_id: bigint NOT NULL  -- RLS subject
+  ts_utc: timestamptz NOT NULL
+  type: text NOT NULL  -- closed enum {strength, running, cycling, swimming, walking, yoga, hiit, other}
+  duration_min: integer NULL  -- CHECK duration_min IS NULL OR duration_min > 0
+  distance_km: numeric(6,2) NULL  -- CHECK distance_km IS NULL OR distance_km > 0
+  weight_kg: numeric(6,2) NULL
+  reps: integer NULL
+  sets: integer NULL
+  source: text NOT NULL  -- enum {text, voice, photo}
+  raw_text: text NULL  -- redacted at emit per §8.1; present iff source ∈ {text, voice}
+  raw_description: text NULL  -- present iff source = photo (Qwen-VL transcription)
+  created_at: timestamptz NOT NULL DEFAULT now()
+  index: (user_id, ts_utc DESC)
+
+mood_events:
+  event_id: uuid PK
+  user_id: bigint NOT NULL  -- RLS subject
+  ts_utc: timestamptz NOT NULL
+  score: integer NOT NULL  -- CHECK 1 <= score <= 10
+  comment_text: text NULL  -- CHECK comment_text IS NULL OR length(comment_text) <= 280
+  source: text NOT NULL  -- enum {keyboard, text, voice, inferred}
+  inferred_from_text: boolean NOT NULL DEFAULT false
+  raw_text: text NULL  -- redacted at emit per §8.1
+  created_at: timestamptz NOT NULL DEFAULT now()
+  index: (user_id, ts_utc DESC)
+
+modality_settings:
+  user_id: bigint PK  -- RLS subject; one row per user
+  water_on: boolean NOT NULL DEFAULT true
+  sleep_on: boolean NOT NULL DEFAULT true
+  workout_on: boolean NOT NULL DEFAULT true
+  mood_on: boolean NOT NULL DEFAULT true
+  updated_at: timestamptz NOT NULL DEFAULT now()
+  -- KBJU is NOT a column here per PRD-003@0.1.3 §3 NG6 + §5 US-5 6th AC
+
+modality_settings_audit:
+  audit_id: uuid PK
+  user_id: bigint NOT NULL  -- RLS subject
+  modality: text NOT NULL  -- enum {water, sleep, workout, mood}
+  old_value: boolean NOT NULL
+  new_value: boolean NOT NULL
+  ts_utc: timestamptz NOT NULL DEFAULT now()
+  index: (user_id, ts_utc DESC)
+```
+
+Schema invariants (additive to §5.2):
+
+- `raw_text` / `raw_description` / `comment_text` columns are persisted user-private fields and are
+  subject to §10.7 emit-boundary redaction; they may be read by C22 Adaptive Summary Composer to
+  render the user's own summary back to the user, but they MUST NOT appear in any structured-log,
+  metric-label, or alert-payload emit (TKT-026@0.1.0 enforces).
+- `attribution_tz` in `sleep_records` is immutable per row (snapshot at insert). Future PRDs that
+  allow tz updates do not retroactively rewrite history; this is per ADR-017@0.1.0 §Consequences.
+- All seven tables are user-owned and RLS-policed identically to the v0.1 / v0.5.0 tables.
+- `modality_settings` defaults all four flags to `true` (ON) at insert per PRD-003@0.1.3 §5 US-5
+  5th AC.
+- Right-to-delete cascade (PRD-003@0.1.3 §5 US-7) deletes all seven tables' rows for the target
+  `user_id` in a single transaction with the existing `confirmed_meals` / `meal_drafts` / etc.
+  cascade — TKT-021@0.1.0 owns the migration.
 
 ## 6. External Interfaces
 
@@ -1363,6 +1859,20 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 - R11: Callback queries may require one bounded LLM/tool hop if OpenClaw exposes no plugin-level callback interception. Mitigation: TKT-016@0.1.0 first attempts plugin-level callback handling; fallback agent context has only `kbju_callback` allowed and thinking disabled/minimal.
 - R12: Community plugin ecosystem is volatile (>50% deleted/archived in SPIKE-002). Mitigation: build the bridge ourselves; fork-and-vendor data/patterns only where licenses permit; install SecureClaw/Riphook as separate plugins rather than copying their code.
 - Q_TO_BUSINESS_3: Before HYBRID deploys to production VPS, PO ratifies the 5-ticket v0.5.0 Executor batch (TKT-016@0.1.0..TKT-020@0.1.0) vs deferring to a future sprint.
+
+### 12.2 v0.6.0 Risks (PRD-003@0.1.3 adaptive modalities)
+
+- **R13: C16 Modality Router seed keyword set staleness.** Deterministic priority chain (ADR-015@0.1.0) does not adapt to Russian-morphology drift over PRD-003@0.1.3 lifetime. Mitigation: hot-reloadable matcher chain (TKT-022@0.1.0); rolling-30-day misclassification telemetry (PRD-003@0.1.3 §8 R1 / TKT-025@0.1.0); explicit Option C upgrade contemplated in ADR-015@0.1.0 §Consequences.
+- **R14: C18 Sleep Logger 24-hour pairing TTL drops orphaned evening events silently.** A user who logs "лёг" then doesn't message for >24 h has the pairing GC'd. Recoverable via path #5 (single-event morning duration report) but not surfaced. PRD-003@0.1.3 §3 NG11 forbids retroactive backfill so user cannot correct after the fact. Mitigation: clarifying-reply on morning-no-pair path #4 nudges user to submit duration. Future PRD may revisit.
+- **R15: PRD-003@0.1.3 modality LLM extraction (water volume, workout closed-enum, mood inference) reuses OmniRoute (ADR-002@0.1.0) without modality-specific routing tuning.** Per Architect Phase 5 LLM-pick exception, LLM-provider/model picks are deferred to Q_TO_BUSINESS for PO ratification — but in this v0.6.0, OmniRoute's existing extraction surface is reused without a per-modality shortlist. If extraction quality misses K2 (workout ≥80% recognition / ≥70% per-field accuracy), a follow-up ADR may be needed to pick a per-modality model. Mitigation: PO-ratified 50-event golden test set (TKT-024@0.1.0) gives empirical ground for any future tune.
+- **R16: PRD-003@0.1.3 modality LLM picks deferred to Q_TO_BUSINESS rather than ratified now.** Per the Phase 5 LLM-pick exception, this ArchSpec does NOT pick specific OmniRoute targets for the four new prompt sites (water volume extraction, workout JSON-schema extraction, mood free-form-text inference, sleep duration extraction). All four reuse the existing OmniRoute provider abstraction, so the LLM-pick is what OmniRoute currently routes to. If PO wants a modality-specific lock, raise as a future ratification.
+- **R17: Hardware envelope (Q-RM-1) is single-vendor (Hetzner) and based on per-user load projection rather than measured production load.** §0.10.4 cites only Hetzner EX44; the projection is an engineer estimate, not a measured benchmark. Mitigation: at the 1,000-user scale the EX44 has ample headroom; PO can request a measured benchmark at any time. PO can also request a multi-vendor comparison if procurement diversification matters.
+
+- **Q_TO_BUSINESS_4 (Hermes vs OpenClaw runtime decision deferred to PRD-NEXT):** Per ADR-014@0.1.0 §Decision and §0.10.5 of this ArchSpec, the Hermes Agent runtime migration question is deferred to the §3.1 PRD-NEXT proactive-coaching cycle, where Hermes' persistent-memory + auto-skill-generation primitives provide concrete value. PRD-003@0.1.3 stays on OpenClaw. **PO ratification asked for at PRD-NEXT dispatch:** Will PRD-NEXT (proactive coaching) adopt Hermes Agent runtime, keep OpenClaw, or stage hybrid? Architect recommendation: **revisit at PRD-NEXT BP cycle**, not at this dispatch.
+
+- **Q_TO_BUSINESS_5 (LLM-provider/model picks for PRD-003@0.1.3 modality extraction):** Architect deferred per Phase 5 LLM-pick exception. Four new prompt sites — water volume extraction, workout JSON-schema extraction (closed-enum forced output), mood free-form-text inference, sleep duration extraction. All four reuse the existing OmniRoute (ADR-002@0.1.0) provider abstraction by default. Question for PO: ratify the OmniRoute-default reuse for v0.6.0, OR request a per-modality model shortlist (≥3 candidates each with cited trade-offs) for explicit ratification. Architect recommendation: **ratify OmniRoute reuse for v0.6.0**, revisit if K2 / K1 KPI evidence demands tuning.
+
+- **Q_TO_BUSINESS_6 (PO-ratified copy + golden sets):** This ArchSpec defers PO-content-ratification of: (a) `config/modality-router.json` keyword chains; (b) Russian Telegram reply copy across C17/C18/C19/C20/C21/C22; (c) the 50-event workout golden set (ADR-016@0.1.0); (d) the 20-event ambiguity golden set (TKT-025@0.1.0); (e) the water quick-volume keyboard preset values (small/medium/large in ml). All listed in the corresponding ticket §6 / §7 as "PO ratifies before sign-off". **PO ratification asked for**: please review at Reviewer dispatch or at first Executor handoff.
 
 ---
 

@@ -1,0 +1,97 @@
+---
+id: TKT-028
+title: "C21 Modality Settings Service with /settings command + ≤30s propagation"
+version: 0.1.0
+status: ready
+arch_ref: ARCH-001@0.6.0
+prd_ref: PRD-003@0.1.3
+component: "C21"
+depends_on: ["TKT-021@0.1.0"]
+blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-027@0.1.0"]
+estimate: M
+assigned_executor: "glm-5.1"
+author_model: "claude-sonnet-4.5"
+created: 2026-05-06
+updated: 2026-05-06
+---
+
+# TKT-028: C21 Modality Settings Service with /settings command + ≤30s propagation
+
+## 1. Goal
+Land the C21 Modality Settings Service exposing a `/settings` Telegram command surface that toggles each of the four PRD-003@0.1.3 modalities ON / OFF with ≤30 s propagation per PRD-003@0.1.3 §5 US-5.
+
+## 2. In Scope
+- New module `src/modality/settings/service.ts` exporting `getSettings(userId)`, `setSetting(userId, modality, value)` reading / writing the `modality_settings` table from TKT-021@0.1.0.
+- New `/settings` Telegram command surface (or equivalent menu entry — exact label PO-ratified before sign-off) showing four toggles labelled in Russian for water / sleep / workout / mood (KBJU NOT shown — always-on per PRD-003@0.1.3 §3 NG6 + §5 US-5 6th AC bullet).
+- An in-process settings cache with TTL ≤30 s honouring PRD-003@0.1.3 §5 US-5 K5 ≤30s propagation. The TTL ensures any external write to `modality_settings` (e.g. by a future PRD's settings API) propagates through within budget.
+- Settings audit row in `modality_settings_audit` (TKT-021@0.1.0 schema) per toggle change.
+- All four modalities default ON for new users (PRD-003@0.1.3 §5 US-5 5th AC bullet); existing v0.1 users (PO + partner) inherit ON-on-deploy via a one-time migration in TKT-021@0.1.0 (or here if Executor judges the seed belongs with the service module).
+- Russian-language `/settings` reply copy in `src/modality/settings/copy.ru.ts`.
+
+## 3. NOT In Scope
+- The `modality_settings` + `modality_settings_audit` tables themselves (TKT-021@0.1.0).
+- Per-modality OFF-state acceptance bullets in C17/C18/C19/C20 (each handler enforces OFF-state independently — TKT-023@0.1.0 + TKT-024@0.1.0).
+- The C22 Adaptive Summary Composer's settings read (TKT-027@0.1.0 reads `modality_settings` directly via `getSettings`).
+- Personality / preset customization (PRD-003@0.1.3 §3 NG9 explicit non-goal — preserved).
+- Future settings API (web view, /settings via REST, etc.) — out of scope per PRD-003@0.1.3 §3 NG5 (no new channel).
+
+## 4. Inputs
+- ARCH-001@0.6.0 §3.21 (C21 component spec)
+- PRD-003@0.1.3 §2 G5 (verbatim per-modality on/off goal)
+- PRD-003@0.1.3 §5 US-5 (verbatim AC bullets)
+- PRD-003@0.1.3 §6 K5 (≤30s propagation KPI)
+- PRD-003@0.1.3 §3 NG6 (KBJU is NOT a toggleable modality)
+- TKT-021@0.1.0 `modality_settings` + `modality_settings_audit` schemas
+- Existing `src/telegram/entrypoint.ts` (the C1 entrypoint where `/settings` command will be routed)
+- Existing `src/skills/cron-tools/...` (precedent for an in-process cache with TTL)
+
+## 5. Outputs
+- [ ] `src/modality/settings/service.ts` exporting `getSettings(userId)`, `setSetting(userId, modality, value)` and the in-process cache with TTL.
+- [ ] `src/modality/settings/telegramCommand.ts` exporting the `/settings` command handler + inline-keyboard wiring.
+- [ ] `src/modality/settings/copy.ru.ts` Russian-language reply copy.
+- [ ] `src/telegram/entrypoint.ts` extended to route `/settings` to the new handler (additive; no changes to existing command routing).
+- [ ] `tests/modality/settings/service.test.ts` covering: get-default-ON, set-ON-to-OFF, set-OFF-to-ON, audit-row-written, settings-cache-TTL ≤30 s.
+- [ ] `tests/modality/settings/telegramCommand.test.ts` covering the inline-keyboard flow + Russian-copy assertions.
+- [ ] `tests/modality/settings/propagation.test.ts` covering K5 ≤30s propagation: write to `modality_settings` directly, then `getSettings` reflects the change within 30 s without explicit cache invalidation.
+
+## 6. Acceptance Criteria
+- [ ] `npm test -- tests/modality/settings/` passes.
+- [ ] `npm run lint` clean.
+- [ ] `npm run typecheck` clean (strict).
+- [ ] Manual smoke: `/settings` command → bot replies with the four-toggle inline keyboard. Tap "Sleep: OFF" → bot confirms, sleep-modality input is rejected within 30 s, the next summary suppresses the sleep section.
+- [ ] Manual smoke: tap "Sleep: ON" → bot confirms, subsequent sleep events are accepted, the next summary includes sleep section.
+- [ ] Manual smoke: KBJU is NOT shown in the settings keyboard (verify the keyboard has exactly four buttons).
+- [ ] All four modalities default ON for a freshly-created user fixture.
+- [ ] An audit row is written to `modality_settings_audit` for every toggle change with `(user_id, modality, old_value, new_value, ts)`.
+
+## 7. Constraints
+- Do NOT delete historical events when a modality is toggled OFF (PRD-003@0.1.3 §5 US-5 4th AC bullet — pre-toggle data preserved).
+- Do NOT show KBJU in the `/settings` keyboard.
+- Do NOT use a session-scoped cache that would persist beyond the TTL boundary; the propagation contract is global, not per-session.
+- The `/settings` command MUST be Russian-only at the user-facing layer (PRD-003@0.1.3 §7 Localization).
+- All SQL parameterised; all RLS-policy-scoped reads via the existing user-context middleware.
+- `assigned_executor: "glm-5.1"` justified: a Telegram command handler + a service module + a TTL cache; no security boundary beyond standard RLS-scoped reads (the security boundary lives in TKT-021@0.1.0); GLM-typical TypeScript module work.
+
+## 8. Definition of Done
+- [ ] All Acceptance Criteria pass.
+- [ ] PR opened with link to this TKT in description (version-pinned).
+- [ ] No `TODO` / `FIXME` left in code without a follow-up TKT suggestion logged in PR body.
+- [ ] Executor filled §10 Execution Log.
+- [ ] Ticket frontmatter `status: in_review` in a separate commit.
+
+## 9. Questions
+<!-- (empty) -->
+
+## 10. Execution Log
+<!-- (empty) -->
+
+---
+
+## Handoff Checklist
+- [x] Goal is one sentence.
+- [x] NOT-In-Scope has ≥1 explicit item (5 items).
+- [x] Acceptance Criteria are machine-checkable.
+- [x] Constraints explicitly list forbidden actions.
+- [x] All references version-pinned.
+- [x] `depends_on: ["TKT-021@0.1.0"]` (tables); `blocks` lists handlers + composer (they read settings via this service).
+- [x] `assigned_executor: "glm-5.1"` justified.
