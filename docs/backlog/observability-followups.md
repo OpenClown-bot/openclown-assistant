@@ -185,3 +185,83 @@ This works correctly for the synthetic ACs because the middleware test exercises
 **Estimated size:** XS to S (~50–150 LoC rewrite of `callOmniRoute()` + 1 integration test). Most of the size is in unwinding the existing linear retry sequence into the middleware's bounded-loop call shape.
 
 **Dependencies:** Hard-blocked on `TKT-NEW-reconcile-llm-timeout-ms-with-stall-threshold-default` (the timeout policy must be settled before the retry loop is rewritten, since the loop's iteration count is bounded by whichever timeout fires first). Hard-blocked on the streaming refactor TKT for the same reasons as `TKT-NEW-wire-stall-watchdog-per-delta-after-streaming-refactor`. Likely batched with both into a single follow-up TKT once the Architect ratifies the streaming refactor scope.
+
+## TKT-NEW-architect-pre-authorize-build-config-in-§5-outputs — When a TKT introduces a new source directory (e.g. `scripts/`), Architect should pre-authorize matching build-config edits in §5 Outputs
+
+**Source:** Reviewer (Kimi K2.6) finding `F-M1` on RV-CODE-019 PR #130 against TKT-019@0.1.0 PR #130 final HEAD `6ad13be`. Severity Medium. Accepted as BACKLOG-deferred per Devin Orchestrator pass-2 ratification audit on 2026-05-06 (Reviewer accepted as a necessary technical prerequisite for the cycle, but the underlying ticket-template gap is a forward-looking Architect concern). Cross-referenced in `docs/reviews/RV-CODE-019-tkt-019-pr-130.md` § Findings § Medium § F-M1 and TKT-019@0.1.0 frontmatter `completed_note`.
+
+**The issue.** TKT-019@0.1.0 §5 Outputs lists `scripts/pr-agent-telemetry.ts`, the matching test file, the `.github/workflows/pr_agent.yml` integration, and a §10 Execution Log entry — but does NOT list `tsconfig.json`. Per `CONTRIBUTING.md` § Roles, the Executor write-zone is `src/`, `tests/`, and the assigned Ticket file's `status` frontmatter only. The Executor (GLM 5.1) modified `tsconfig.json` line 18 to add `scripts/**/*.ts` to the `include` array because `npm run typecheck` does not cover the new `scripts/` directory by default — without this edit the typecheck CI step would not validate `scripts/pr-agent-telemetry.ts` and AC-6 ("`npm run typecheck` … pass") would be vacuous on the new file.
+
+The change is technically necessary — without it the new script ships untyped from CI's perspective. But it is also a write-zone contract violation by the strict reading of `CONTRIBUTING.md` § Roles, which Reviewer correctly flagged. The Reviewer's recommendation: accept the change for this PR, but for **future** tickets that introduce a new source directory (e.g. a future `tools/`, `migrations/`, `bench/`, or sub-`packages/` entry), Architect should pre-authorize the matching build-config edits in `§5 Outputs` so Executor does not have to choose between (a) bypassing typecheck on the new directory or (b) violating the write-zone contract.
+
+This is a **template-level fix in the Architect's TKT-authoring habit**, not a code change. It does not affect `main` runtime behavior. It is filed here so the next Architect cycle (whoever picks up the streaming refactor TKT family or an unrelated PRD-003 ticket) is reminded to inspect §5 Outputs for build-config completeness whenever a new directory or top-level file is introduced.
+
+**Why this was deferred to BACKLOG instead of resolved in TKT-019.** The fix is not a TKT-019 code change — TKT-019 is closed. The fix is either (a) an Architect-prompt-template update under `docs/prompts/architect.md` reminding the Architect to enumerate build-config files in §5 Outputs when introducing a new source directory, or (b) a one-time amendment to the Architect's reusable TKT skeleton that adds an "If introducing a new source directory, list `tsconfig.json` / `vitest.config.ts` / `package.json` / etc. in §5 Outputs" reminder. Both options live in `docs/prompts/` (Architect write-zone, not Devin Orchestrator write-zone), which is why this is a future-work IOU rather than a clerical Devin patch.
+
+**Proposed fix (Architect to ratify into a TKT, then Architect to apply directly to `docs/prompts/architect.md`).** Touch ONLY `docs/prompts/architect.md`. Specifically:
+
+1. Add a `§5 Outputs build-config checklist` subsection or one-liner reminder: "If this ticket introduces a new top-level source directory (`scripts/`, `tools/`, `bench/`, etc.), enumerate the matching build-config files in §5 Outputs (`tsconfig.json` `include` array, `vitest.config.ts` `include` array, `package.json` `scripts` entry, `.eslintrc.*` `overrides` for the new path)."
+
+2. Optionally add a parallel reminder for new test directories: "If this ticket introduces a new test directory layout (e.g. `tests/integration/`, `tests/load/`), enumerate `vitest.config.ts` in §5 Outputs."
+
+3. No code changes; no test changes; no validate_docs schema changes. Pure prompt-template hygiene.
+
+**NOT in scope of the eventual TKT.** Refactoring the existing `tsconfig.json` `include` array layout (already correct on main as of post-PR #130 merge). Auto-detecting new directories in CI (overkill for current scale). Migrating the project to TypeScript project-references (`composite: true`) — that is a separate architectural decision likely to surface in a future infrastructure-debt PRD.
+
+**Estimated size:** XS (1–3 lines added to `docs/prompts/architect.md`). Pure documentation hygiene.
+
+**Dependencies:** None. Architect can apply this whenever the next TKT-authoring cycle starts. No code path depends on it.
+
+## TKT-NEW-executor-ac-table-compliance-reminder — Executor PR description must include AC traceability table per `docs/prompts/executor.md` Definition of Done; reinforce in template
+
+**Source:** Reviewer (Kimi K2.6) finding `F-L1` on RV-CODE-020 PR #131 against TKT-020@0.1.0 PR #131 final HEAD `b4be5b4`. Severity Low. Triaged as non-blocking by Ticket Orchestrator pass-1 audit on 2026-05-06 because the Reviewer's AC verification table (in the RV-CODE-020 file body) covers the same surface, and the substantive AC claims are correct. Devin Orchestrator pass-2 audit concurred with non-blocking classification but escalated to BACKLOG as a process-compliance reminder. Cross-referenced in `docs/reviews/RV-CODE-020-pr-131.md` § Findings § Low § F-L1, PR-Agent persistent review block on PR #131 ("Missing AC proofs"), and TKT-020@0.1.0 frontmatter `completed_note`. Same surface-area concern that Kimi flagged on TKT-018 RV-CODE-018 as F-LOW-3 (orchestrator-clerical-deferred there per F-PR1).
+
+**The issue.** `docs/prompts/executor.md` Definition of Done requires the Executor PR body to include an AC-by-AC traceability table mapping each `§6 Acceptance Criterion` to a file:line proof citation OR a named test. PR #130 (TKT-019, GLM 5.1 Executor) included this table. PR #131 (TKT-020, DeepSeek V4 Pro Executor) did NOT — the PR description has Summary + Files + Verification sections but no AC table.
+
+This is a **process-compliance asymmetry between Executors**. GLM 5.1 follows the executor.md Definition of Done strictly; DeepSeek V4 Pro skipped one section. The substantive AC verification work was still done — RV-CODE-020 contains the full AC verdict map — but the canonical location (PR description) is missing it, which makes AC traceability harder for downstream readers (PO, future Architect, future audit) who would not naturally jump to the review file first.
+
+PR-Agent surfaced the same finding from the same angle ("Missing AC proofs"). Both findings collapse to: Executor invocation prompts (per-Executor or shared executor.md template) should reinforce the AC table requirement strongly enough that all Executor models comply uniformly.
+
+**Why this was deferred to BACKLOG instead of resolved in TKT-020.** Three reasons. First, the fix is a prompt-template change, not a code change — no patch to TKT-020 outputs. Second, editing PR descriptions post-Executor would tamper with the attribution chain (`docs/meta/devin-session-handoff.md` §5 forbidden-actions: "no commits of Reviewer's substantive deliverables"; while a PR description is GitHub UI metadata not a formal artifact, the same attribution principle applies — Executor authored the PR body and Devin Orchestrator should not retro-edit substantive sections). Third, the substantive AC verification is fully captured in RV-CODE-020, so the gap is documentation-canonicalization rather than missing verification.
+
+**Proposed fix (Architect or PO ratifies; whoever maintains `docs/prompts/`).** Touch ONLY `docs/prompts/executor.md` (Architect write-zone) and optionally the Ticket Orchestrator dispatch prompts under `docs/prompts/ticket-orchestrator.md` if those exist. Specifically:
+
+1. In `docs/prompts/executor.md` Definition of Done, promote the AC traceability table requirement from prose to a numbered checklist item with a worked example block (markdown table with 3 ACs and dummy proofs). Include a "Definition of Done failure mode" callout: "If you skip the AC table, the Reviewer must request changes; do not skip even when you know your AC claims are correct, because PR description is the canonical AC traceability surface for downstream readers."
+
+2. Optional: in the Ticket Orchestrator dispatch playbook (if `docs/prompts/ticket-orchestrator.md` exists, otherwise this becomes a Knowledge entry), add a pre-flight check that the dispatch prompt explicitly quotes the AC table requirement back to the Executor.
+
+3. No code changes; no validate_docs schema changes. Pure prompt-template hygiene.
+
+**NOT in scope of the eventual TKT.** Auto-validating PR descriptions in CI for AC table presence — overkill for current scale, would require parsing markdown which is fragile. Retroactively editing PR #131 description — out of write-zone, attribution-violating. Changing the executor model assignment policy (DeepSeek V4 Pro vs GLM 5.1 vs Codex GPT-5.5) based on this finding — not a model-quality issue, it is a prompt-clarity issue, and any Executor model would reproduce the gap if the prompt is ambiguous.
+
+**Estimated size:** XS (5–15 lines added to `docs/prompts/executor.md`). Pure documentation hygiene.
+
+**Dependencies:** None hard. Soft-blocked on whoever owns `docs/prompts/executor.md` write-zone (Architect per CONTRIBUTING.md § Roles, but PO can also edit prompt templates by precedent). Best applied before the next Executor dispatch on PRD-003 tickets so the next cycle benefits.
+
+## TKT-NEW-reviewer-frontmatter-precedent-version-updated-fields — Reviewer prompt should reinforce that every `docs/reviews/` artifact MUST include `version` and `updated` fields per RV-CODE-018 precedent
+
+**Source:** Qodo PR-Agent (GPT-5.3 Codex via OmniRoute) findings on PR #132 ("Missing Frontmatter") and PR #133 ("Missing required frontmatter fields" × 2 + "Malformed ticket_ref"). Severity Low. Importance per CONTRIBUTING.md § Roles: every artifact under `docs/reviews/` must include `id`, `version`, `status`, `created`, `updated`. RV-CODE-018 precedent on `main` (merged 2026-05-05 as part of PR #126 squash sha `bd56a78`) included all five required fields plus `target_pr`, `ticket_ref`, `reviewer_model`, `author_model`. RV-CODE-019 and RV-CODE-020 (Kimi K2.6 first-commits on 2026-05-06) MISSED `version` and `updated` despite the same Reviewer model on the same prompt template. Devin Orchestrator pass-2 ratification audit clerical-fixed both files in commit `8e1869c` on rv-branch (PO-authorized 2026-05-06 "делай правильно, прими решения сам"). Cross-referenced in `docs/reviews/RV-CODE-019-tkt-019-pr-130.md` (post-fix), `docs/reviews/RV-CODE-020-pr-131.md` (post-fix), TKT-019 + TKT-020 frontmatter `completed_note`, and PR #133 attribution comment.
+
+**The issue.** Two Kimi K2.6 review-cycle outputs in a row (RV-CODE-019 and RV-CODE-020, both committed 2026-05-06) MISSED `version: 0.1.0` and `updated: <date>` frontmatter fields. RV-CODE-019 additionally had a typo: `ticket_ref: TKT-019@0.1.0@0.1.0` (double `@0.1.0`). All three were caught by PR-Agent and the Ticket Orchestrator pass-1 hand-back, then clerical-fixed by Devin Orchestrator pass-2 with PO authorization.
+
+The repeat across two consecutive cycles signals a **prompt-template gap in `docs/prompts/reviewer.md` or in the Reviewer's mental schema for `docs/reviews/TEMPLATE-code.md`**. The Reviewer template likely lists the minimum required fields per `CONTRIBUTING.md` § Roles, but the precedent on `main` (RV-CODE-018) goes further — including optional but conventionally-expected fields like `version`, `updated`, `author_model`. Without explicit precedent reinforcement in the prompt, a fresh Reviewer session reads the bare template and produces minimum-compliant frontmatter that PR-Agent then flags.
+
+The fix is a prompt-template clarification: reinforce that every new `docs/reviews/` file should match the precedent on `main`, not the bare template — with explicit examples lifted from RV-CODE-018.
+
+**Why this was deferred to BACKLOG instead of resolved as a clerical patch on this cycle.** The cycle-level fix WAS done — Devin Orchestrator clerical commit `8e1869c` on rv-branch landed both `version` and `updated` fields plus the typo correction before PR #133 squash. The BACKLOG entry exists for the **upstream prompt-template fix** so future Reviewer cycles do not reproduce the gap and trigger another clerical-fix cycle.
+
+**Proposed fix (Architect or whoever maintains `docs/prompts/reviewer.md`).** Touch ONLY `docs/prompts/reviewer.md` and optionally `docs/reviews/TEMPLATE-code.md`. Specifically:
+
+1. In `docs/prompts/reviewer.md`, add a frontmatter checklist section that lifts the **full RV-CODE-018 frontmatter as a worked example** (verbatim block), with a callout: "Match this frontmatter shape exactly — do NOT use a minimum-field schema. PR-Agent will flag missing `version` / `updated` / `author_model` and the cycle will need a clerical fix."
+
+2. In `docs/reviews/TEMPLATE-code.md` (if it exists), add or update the example frontmatter block to include all RV-CODE-018 fields (id, version, type, target_pr, ticket_ref, status, reviewer_model, author_model, created, updated). Confirm `scripts/validate_docs.py` schema accepts the expanded shape (it currently does, since RV-CODE-018 + RV-CODE-019 + RV-CODE-020 all pass with 84 artifacts, 0 failed on main).
+
+3. Optional hardening: extend `scripts/validate_docs.py` schema-validation pass to require `version` + `updated` on `docs/reviews/` files. This would surface the gap at PR-CI time rather than relying on PR-Agent's heuristic flag. Only do this if the Architect agrees that elevating these fields from "convention" to "required" is the right call — currently they are convention-only.
+
+4. No code changes outside `scripts/validate_docs.py` if the schema-hardening option is taken; otherwise pure prompt-template hygiene.
+
+**NOT in scope of the eventual TKT.** Adding new mandatory frontmatter fields beyond `version` and `updated`. Backporting frontmatter changes to historical RV-CODE files on main (RV-CODE-001..017 likely have heterogeneous frontmatter shapes; not worth the churn). Switching `docs/reviews/` to a structured-data format (JSON / YAML schema). Changing Reviewer model selection.
+
+**Estimated size:** XS (10–25 lines in `docs/prompts/reviewer.md` + optional 5 lines in `docs/reviews/TEMPLATE-code.md`). If schema-hardening option is taken, XS to S (5–10 lines added to `scripts/validate_docs.py`).
+
+**Dependencies:** None hard. Best applied before the next Reviewer dispatch on PRD-003 tickets so the next cycle benefits.
