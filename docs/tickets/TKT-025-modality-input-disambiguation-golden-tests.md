@@ -21,44 +21,62 @@ updated: 2026-05-06
 Land the PRD-003@0.1.3 §8 R1 rolling-30-day modality-misclassification rate telemetry plus the PO-ratified ambiguity-clarifying-reply golden test set.
 
 ## 2. In Scope
-- New telemetry view / aggregation that exposes a 30-day rolling rate from the `kbju_modality_route_outcome` counter (TKT-022@0.1.0) — specifically: `(ambiguous_resolved + ambiguous_clarified) / total_routes` over a rolling 30-day window.
-- The view is exposed in the existing local-only observability surface (Prometheus / scrapeable endpoint) per ADR-009@0.1.0; no new dashboards in this ticket.
-- Expanded ambiguity golden test set covering ≥20 PO-ratified Russian morphology cases that produce the inline-keyboard clarifying reply (each case has a known-correct disambiguation outcome — the test asserts the routing decision is `ambiguous_clarified`, not a specific destination, since the user's tap on the keyboard is what dispatches).
+- New telemetry view / aggregation that exposes a 30-day rolling rate from the `kbju_modality_route_outcome` counter (TKT-022@0.1.0 amended Option C labels) — specifically:
+  - `misclassification_rate = (zero_match_llm_ambiguous + ambiguous_clarified) / total_routes`
+  - `llm_fallback_rate = (deterministic_multi_llm_resolved + zero_match_llm_resolved + zero_match_llm_ambiguous) / total_routes`
+  - both over a rolling 30-day window.
+- LLM-call observability: aggregate `kbju_modality_router_llm_call` (TKT-022@0.1.0 amended) into
+  `llm_failure_rate = failure / total_calls` for ADR-018@0.1.0 fallback-chain quality monitoring.
+- The views are exposed in the existing local-only observability surface (Prometheus / scrapeable endpoint) per ADR-009@0.1.0; no new dashboards in this ticket.
+- **Expanded golden test set covering both routing paths per ADR-015@0.1.0 amended Option C:**
+  - **Path 1 (deterministic single)**: ≥15 cases asserting deterministic-chain unique match → correct dispatch, no LLM call.
+  - **Path 2 (deterministic multi-match → LLM tie-breaker)**: ≥10 cases with mocked OmniRoute responses asserting candidate-set-constrained classifier returns expected label and routes correctly.
+  - **Path 3 (zero-match → LLM full-classifier high confidence)**: ≥5 cases with mocked OmniRoute high-confidence (≥0.6) responses.
+  - **Path 4 (zero-match → LLM full-classifier low confidence → AMBIGUOUS)**: ≥5 cases with mocked OmniRoute confidence < 0.6.
+  - **Path 5 (clarifying-reply fired)**: ≥5 cases asserting copy + keyboard structure per ARCH-001@0.6.0 §6.2.2 verbatim.
 - Documentation note: ARCH-001@0.6.0 §8 (Observability) already lists the rolling-30-day misclassification rate metric in the new §12.2 R13 entry; this ticket does NOT modify the ArchSpec, only the emitter + aggregator + golden test set.
 
 ## 3. NOT In Scope
-- The C16 Modality Router itself (TKT-022@0.1.0 owns the deterministic priority chain).
-- LLM-classifier fallback (Option C of ADR-015@0.1.0; explicitly deferred).
-- Action-able alerting on the 30-day rate (informational metric only per PRD-003@0.1.3 §8 R1 — "rolling-30-day modality-misclassification rate tracked as informational telemetry").
-- The PO-ratified golden set composition (composition is PO sign-off responsibility; this ticket implements the harness against an initial 20-case seed and includes an extension hook for the PO to add more without code edits).
+- The C16 Modality Router itself (TKT-022@0.1.0 owns the chain + LLM-classifier wiring).
+- ADR-018@0.1.0 LLM-pick selection — this ticket consumes the picks via OmniRoute mock; ADR-018@0.1.0 owns the picks themselves.
+- Action-able alerting on the 30-day rates (informational metric only per PRD-003@0.1.3 §8 R1 — "rolling-30-day modality-misclassification rate tracked as informational telemetry").
+- Live-LLM golden tests against actual Fireworks endpoints — mocks-only in CI; live-LLM smoke is an Operator-runbook concern, not a CI test.
 
 ## 4. Inputs
-- ARCH-001@0.6.0 §3.16 + §0.6 (C16 + observability deltas)
-- ADR-015@0.1.0 §Decision (verbatim contract; forced-output-set NOT used at this ticket)
+- ARCH-001@0.6.0 §3.16 (C16 spec) + §6.2 (Voice/Tone profile + concrete reply strings) + §8 (Observability)
+- ADR-015@0.1.0 amended §Decision (verbatim contract for both routing paths)
+- ADR-018@0.1.0 (LLM picks consumed via OmniRoute mock harness)
 - ADR-009@0.1.0 (observability + redaction patterns)
-- TKT-022@0.1.0 module `src/modality/router.ts`
+- TKT-022@0.1.0 modules `src/modality/router.ts` + `src/modality/router-classifier.ts`
 - PRD-003@0.1.3 §8 R1 (verbatim mitigation paragraph for the metric definition)
 - Existing `src/observability/kpiEvents.ts`
+- Existing `src/llm/omniroute.ts` mock harness (precedent in `tests/llm/omniroute.test.ts`)
 
 ## 5. Outputs
-- [ ] `src/observability/modalityMisclassificationRate.ts` exporting the 30-day rolling rate aggregation.
-- [ ] `tests/modality/router.ambiguity.test.ts` covering ≥20 PO-ratified ambiguous-input cases (initial 20 inline; extension via JSON file under `tests/fixtures/modality/ambiguous.json`).
-
+- [ ] `src/observability/modalityMisclassificationRate.ts` exporting the 30-day rolling misclassification + LLM-fallback + LLM-failure rate aggregations.
+- [ ] `tests/modality/router.golden.full.test.ts` covering all 5 paths (≥ 15+10+5+5+5 = 40 cases, extension via JSON files under `tests/fixtures/modality/`).
+- [ ] `tests/fixtures/modality/deterministic-single.json` (≥15 cases) — inline-default, JSON-extensible.
+- [ ] `tests/fixtures/modality/multi-match-llm-resolved.json` (≥10 cases with mocked LLM responses).
+- [ ] `tests/fixtures/modality/zero-match-high-confidence.json` (≥5 cases).
+- [ ] `tests/fixtures/modality/zero-match-low-confidence.json` (≥5 cases).
+- [ ] `tests/fixtures/modality/clarifying-reply-copy.json` (≥5 cases asserting verbatim Russian copy per ARCH-001@0.6.0 §6.2.2).
 - [ ] No production-code changes outside `src/observability/`.
 
 ## 6. Acceptance Criteria
-- [ ] `npm test -- tests/modality/router.ambiguity.test.ts` passes.
+- [ ] `npm test -- tests/modality/router.golden.full.test.ts` passes (all 5 paths, ≥40 cases).
 - [ ] `npm run lint` clean.
 - [ ] `npm run typecheck` clean (strict).
-- [ ] The metric is queryable via the existing local Prometheus surface; a manual scrape returns a non-empty value after a smoke run that produces ≥1 ambiguous_resolved + ≥1 ambiguous_clarified event.
+- [ ] The three metric views (misclassification_rate, llm_fallback_rate, llm_failure_rate) are queryable via the existing local Prometheus surface; manual scrape returns non-empty values after a smoke run exercising all 5 routing paths.
 - [ ] `python3 scripts/validate_docs.py` clean.
 
 ## 7. Constraints
-- Do NOT change the ADR-015@0.1.0 contract — observability is on top of, not inside, the router.
+- Do NOT change the ADR-015@0.1.0 amended contract — observability is on top of, not inside, the router.
+- Do NOT call live LLM endpoints in CI tests — mock OmniRoute via `tests/llm/omniroute.test.ts` precedent.
 - Do NOT emit raw user text into the metric labels (per ARCH-001@0.5.0 §8.1 redaction allowlist).
 - Do NOT add new dashboards or alert rules — informational only per PRD-003@0.1.3 §8 R1.
-- The 30-day rolling window MUST be computed over the existing metric retention; if the existing retention is shorter than 30 days, the metric returns `null` until enough data accrues (do not fabricate values).
-- `assigned_executor: "glm-5.1"` justified: ~50 LoC of metric-aggregation + a fixture-driven test set + a one-line doc edit; representative GLM workload.
+- The 30-day rolling windows MUST be computed over the existing metric retention; if the existing retention is shorter than 30 days, the metric returns `null` until enough data accrues (do not fabricate values).
+- Clarifying-reply copy in path-5 fixtures MUST match ARCH-001@0.6.0 §6.2.2 verbatim — character-equality assertion, not approximate.
+- `assigned_executor: "glm-5.1"` justified: ~80 LoC of metric-aggregation + 5-fixture-set golden test runner + extension hooks; representative GLM workload.
 
 ## 8. Definition of Done
 - [ ] All Acceptance Criteria pass.

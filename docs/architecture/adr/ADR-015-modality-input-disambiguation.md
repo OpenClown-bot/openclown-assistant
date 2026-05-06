@@ -1,6 +1,6 @@
 ---
 id: ADR-015
-title: "Modality-input disambiguation strategy (deterministic priority + clarifying reply)"
+title: "Modality-input disambiguation strategy (hybrid deterministic-first + LLM-fallback on ambiguous)"
 status: proposed
 arch_ref: ARCH-001@0.6.0
 prd_ref: PRD-003@0.1.3
@@ -17,7 +17,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-# ADR-015: Modality-input disambiguation strategy (deterministic priority + clarifying reply)
+# ADR-015: Modality-input disambiguation strategy (hybrid deterministic-first + LLM-fallback on ambiguous)
 
 ## Context
 
@@ -163,82 +163,123 @@ makes adding an LLM classifier hop on every message *expensive* — for text the
 
 ## Decision
 
-We will use **Option A — deterministic priority chain in C16 Modality Router** for the
-PRD-003@0.1.3 implementation cycle, with PRD-003@0.1.3 §8 R1 default priority "KBJU → water → sleep →
-workout → mood" hard-coded into the chain (config-tunable per ADR-013@0.1.0 hot-reload
-pattern; PO must ratify any change at next ArchSpec dispatch).
+**Amendment 2026-05-06 (PO clarification mid-PR-#142):** PO explicitly mandated
+LLM-driven understanding of context ("мы же ллмку использовать внутри будем, она сможет понять
+контекст или переспросить, если это потребуется"). Architect recommended Option C
+(Hybrid); PO ratified. ADR-015 is still in `proposed` (not yet Reviewer-ratified), so
+the Decision is rewritten in-place rather than via supersede + a follow-up ADR. The original
+Decision (Option A deterministic-only) is preserved below in `## Decision (rejected, was
+proposed pre-PO-clarification)` for audit trail.
 
-**For ambiguous-match cases** (multiple matchers fire on the same message): C16 emits a
-clarifying inline-keyboard reply ("Это запись еды или воды?") rather than silent
-best-guess persistence (per PRD-003@0.1.3 §8 R1 normative mitigation). The user's tap on the
-keyboard routes the message to the correct component without re-parsing.
+We will use **Option C — Hybrid: deterministic-first with LLM-fallback on ambiguous match**
+for the PRD-003@0.1.3 implementation cycle.
 
-**For zero-match cases**: C16 routes to the existing C4 KBJU free-form text path,
-preserving PRD-001@0.2.0 §5 US-3 behaviour exactly. This is also the path for KBJU-only
-generic meal text that doesn't contain any of the modality keywords.
+**Concrete shape:**
 
-**LLM-classifier picks (Option B / Option C)** are deferred. We have shortlisted three
-candidate models (Qwen-2.5-7B-Instruct on Fireworks, GPT-4o-mini on direct OpenAI,
-Claude-3.5-Haiku on Anthropic) but DO NOT pick a winner in this ADR. Per
-`docs/prompts/architect.md` Phase 5 LLM-pick exception, the final pick is deferred to PO
-ratification only IF the project later decides to add the LLM-fallback branch (Option C).
-This ADR records the shortlist for posterity; activation requires a follow-up ADR or
-ADR-015 amendment + PO ratification.
+1. **Deterministic chain runs first** with PRD-003@0.1.3 §8 R1 default priority `KBJU →
+   water → sleep → workout → mood`. The chain is small, hot-reloadable per ADR-013@0.1.0,
+   and seeded by Architect (not PO; per PO Q6 delegation 2026-05-06).
+2. **Single match → route directly.** Most clear messages ("выпил 250мл", "лёг", "жал 80×5×5",
+   `7/10`) match exactly one chain entry. Latency overhead < 1 ms; no LLM call.
+3. **Multi-match → LLM tie-breaker.** When two or more chain entries fire on the same
+   message (the Russian-morphology / context-collision case, e.g. "выпил пол-литра кефира"
+   matches both `kbju` and `water` chains), invoke the OmniRoute LLM classifier with a
+   hard-constrained candidate set: `{ KBJU, WATER, SLEEP, WORKOUT, MOOD, AMBIGUOUS }`,
+   with the deterministic-match candidates as a `must-be-one-of` constraint per
+   ADR-006@0.1.0 forced-output guardrail pattern. The LLM returns one token; C16 routes
+   accordingly. If the LLM returns `AMBIGUOUS` (a constrained-set option), C16 emits the
+   inline-keyboard clarifying reply per the original Option A path — the LLM
+   classifier itself can request user disambiguation by returning AMBIGUOUS.
+4. **Zero-match → LLM full-classifier fallback.** When no chain entry fires (free-form
+   morphology, novel slang, transliteration), invoke the LLM classifier with the *full*
+   `{ KBJU, WATER, SLEEP, WORKOUT, MOOD, AMBIGUOUS }` set. If the LLM returns a single
+   modality with high enough confidence (per ADR-018@0.1.0 confidence threshold), route.
+   If `AMBIGUOUS` (or low confidence), emit the clarifying inline-keyboard reply.
+5. **Clarifying-reply path (path 3-AMBIGUOUS or path 4-AMBIGUOUS)**: same shape as the
+   original Option A clarifying reply — inline keyboard with [«вода», «еда», «сон»,
+   «тренировка», «настроение», «отмена»]. User's tap routes to the correct
+   component without re-parsing.
 
-Why the losers lost (one sentence each, addressing their best case):
+**LLM-classifier picks** are made in **ADR-018@0.1.0** (Q5 PO-delegated picks; Architect
+chooses default + fallback per prompt site, no Q_TO_BUSINESS). The C16 fallback uses the
+ADR-018@0.1.0 "router-classifier" pick (default + fallback). All calls go through OmniRoute
+per ADR-002@0.1.0.
 
-- **Option B (LLM-classifier)**: pays a 16–30% latency tax on every text message and a
-  non-trivial recurring LLM spend on a routing decision that is overwhelmingly
-  deterministic (the keyword sets for water/sleep/workout/mood barely overlap), and
-  introduces an unnecessary hallucination surface in the routing layer that the project
-  is explicitly trying to minimise (ROADMAP-001@0.1.0 §1.2).
-- **Option C (Hybrid)**: a sound design that we may upgrade to in a follow-up cycle if
-  ambiguity-rate telemetry from PRD-003@0.1.3 R1 telemetry exceeds an actionable threshold,
-  but adopting it now adds two routing paths to maintain when the deterministic-only
-  path has not yet been measured to fail.
+Why the other options lost (one sentence each, addressing their best case):
+
+- **Option A (Deterministic-only)**: cannot disambiguate Russian-morphology / context-
+  collision cases ("пол-литра кефира" KBJU vs water) without keyword chain churn; PO
+  push-back 2026-05-06 explicitly rejected the keyword-chain-only approach.
+- **Option B (LLM-classifier always-on)**: pays 16–30% latency tax on the 80% of
+  messages that are unambiguously deterministic; cost line item is a strict superset of
+  Option C without commensurate accuracy gain.
+
+## Decision (rejected, was proposed pre-PO-clarification 2026-05-06)
+
+**Original Decision (Option A) preserved here for audit trail; not active.**
+
+> We will use Option A — deterministic priority chain in C16 Modality Router for the
+> PRD-003@0.1.3 implementation cycle, with PRD-003@0.1.3 §8 R1 default priority "KBJU → water → sleep →
+> workout → mood" hard-coded into the chain (config-tunable per ADR-013@0.1.0 hot-reload
+> pattern; PO must ratify any change at next ArchSpec dispatch). For ambiguous-match
+> cases: C16 emits a clarifying inline-keyboard reply rather than silent best-guess
+> persistence. For zero-match cases: C16 routes to the existing C4 KBJU free-form text
+> path. LLM-classifier picks (Option B / Option C) deferred.
+
+Flipped to Option C 2026-05-06 per PO Q6 push-back in PR #142 conversation.
 
 ## Consequences
 
 **Positive:**
 
-- Routing decision is fully deterministic and auditable. PRD-003@0.1.3 §8 R1 telemetry
-  (rolling-30-day modality-misclassification rate) is computable from C10 metric events
-  without any LLM trace.
-- Adding a new modality in a future PRD is a config edit (insert position + keyword
-  list), not a code-then-LLM-prompt-then-test cycle.
-- Latency budget (PRD-003@0.1.3 §7 ≤5%) preserved with substantial margin. On voice messages,
-  the current C5 transcription already takes 4–6 s; routing adds <1 ms.
-- Russian morphology problem (the hardest case identified in §Cons) is forced to surface
-  as a clarifying reply rather than a silent misclassification — which is exactly the
-  PRD-003@0.1.3 §8 R1 ratified mitigation shape.
+- Hot-path latency (the unambiguous 80% case) preserved at <1 ms; PRD-003@0.1.3 §7 ≤5%
+  budget intact for the deterministic chain.
+- Russian-morphology / context-collision cases (the hardest case under Option A) are
+  resolved by LLM tie-breaker rather than forcing the user to clarify on every
+  ambiguous-shape message; UX clearly improves on the morphology-collision sub-class.
+- Zero-match free-form messages (slang, transliteration, novel modality phrasings) get
+  LLM-classifier coverage instead of silently falling through to C4 KBJU free-form path.
+- Adding a new modality in a future PRD is still a config edit at the chain layer plus
+  an LLM prompt-set update at the classifier layer; both hot-reloadable per ADR-013@0.1.0.
+- C16 telemetry distinguishes the four routing paths (deterministic-single,
+  deterministic-multi-LLM-resolved, zero-match-LLM-resolved, zero-match-LLM-AMBIGUOUS,
+  clarifying-reply-fired) so PRD-003@0.1.3 §8 R1 rolling-30-day misclassification rate
+  remains computable.
 
 **Negative / trade-offs accepted:**
 
-- The matcher chain MUST be maintained when keyword surface drifts (e.g. user starts
-  using "h2o" or English-only mode). Drift is detectable by the ambiguity-rate
-  telemetry; the chain is config-driven (per ADR-013@0.1.0 hot-reload pattern) so an
-  amendment is a config push, not a redeploy.
-- Some genuinely ambiguous messages will produce a clarifying reply where a clever user
-  expects auto-routing. The PO has accepted this trade-off via PRD-003@0.1.3 §8 R1 ratification
-  ("ambiguous inputs trigger a friendly clarifying reply rather than silent best-guess
-  persistence").
-- A future Option C upgrade requires another ADR + an amendment to the C16 contract;
-  not a free upgrade. We document the shortlist now to preserve research artefact.
+- Two routing paths to maintain (deterministic chain + LLM classifier prompt + JSON
+  schema). Mitigation: TKT-025@0.1.0 golden tests cover both paths; ADR-006@0.1.0
+  forced-output guardrail covers the LLM-output validation.
+- LLM call on the ambiguous + zero-match minority of messages (estimated <20% combined
+  per the deterministic-chain seed coverage). Latency cost: ~800–1500 ms on those
+  messages; cost: ADR-018@0.1.0 picks a low-cost classifier (small open-weights model
+  via OmniRoute / Fireworks).
+- Hallucination surface in the routing layer (the project's bar is "никогда не
+  галлюцинировать" per ROADMAP-001@0.1.0 §1.2). Mitigated by: (a) hard-constrained
+  output set per ADR-006@0.1.0; (b) AMBIGUOUS as an explicit returnable token (LLM can
+  surface uncertainty); (c) clarifying-reply fallback when AMBIGUOUS is returned.
+- LLM picks (default + fallback) per modality and per router-classifier are PO-delegated
+  to Architect (Q5 PO ratification 2026-05-06); recorded in ADR-018@0.1.0.
 
 **Follow-up work:**
 
-- TKT-022@0.1.0 implements C16 Modality Router (per this ADR §Decision) including:
+- TKT-022@0.1.0 implements C16 Modality Router (per this ADR §Decision — amended Option C
+  Hybrid) including:
   - the deterministic matcher chain, ordered KBJU → water → sleep → workout → mood
-  - the clarifying-reply path for multi-match
-  - the zero-match → C4 free-form fallback
-  - C10 telemetry counter `kbju_modality_route_outcome` with labels {kbju, water, sleep,
-    workout, mood, ambiguous_resolved, ambiguous_clarified, zero_match_fallback} for
-    R1 rolling-30-day rate
-  - 1+ golden-test set covering the documented Russian morphology edge cases
+  - the LLM-fallback classifier (multi-match tie-breaker + zero-match full-classifier)
+    via OmniRoute (ADR-002@0.1.0) using ADR-018@0.1.0 picks
+  - the clarifying-reply path for AMBIGUOUS LLM output (or low-confidence single output)
+  - C10 telemetry counter `kbju_modality_route_outcome` with labels {deterministic_single,
+    deterministic_multi_llm_resolved, zero_match_llm_resolved, zero_match_llm_ambiguous,
+    ambiguous_clarified} for R1 rolling-30-day rate
+- ADR-018@0.1.0 picks the LLM model used at the C16 classifier site (and the four
+  modality-extraction sites).
+- TKT-025@0.1.0 owns the golden-test set covering both routing paths: Russian morphology
+  edge cases for the deterministic chain + LLM-fallback round-trip cases for the
+  classifier path.
 - Future ADR (post-PRD-003 ship) MAY amend this decision after ambiguity-rate telemetry
   is collected over a rolling 30-day production window.
-- The shortlisted LLM-classifier candidates (Qwen-2.5-7B-Instruct, GPT-4o-mini,
-  Claude-3.5-Haiku) are recorded in §Decision for posterity; they are NOT picked.
 
 ## References
 

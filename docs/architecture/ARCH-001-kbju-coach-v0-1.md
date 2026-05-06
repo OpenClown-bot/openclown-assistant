@@ -17,6 +17,7 @@ synthesis_inputs:
   - "SPIKE-001: OpenClaw bridge feasibility (deepseek-v4-pro)"
   - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
   - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-opus-4.7-thinking)"
+  - "v0.6.0 PR #142 mid-PR amendment: ADR-015 flipped Option A→C Hybrid; ADR-018 added (LLM picks per Q5 PO-delegation); §6.2 Voice/Tone profile + concrete reply strings added (per Q6 PO-delegation); claude-opus-4.7-thinking)"
 created: 2026-04-26
 updated: 2026-05-06
 approved_at: 2026-05-04
@@ -51,6 +52,7 @@ adrs:
   - ADR-015@0.1.0
   - ADR-016@0.1.0
   - ADR-017@0.1.0
+  - ADR-018@0.1.0
 tickets:
   - TKT-001@0.1.0
   - TKT-002@0.1.0
@@ -850,19 +852,19 @@ graph LR
 - LLM usage: none.
 - State: In-memory `Set<number>` rebuilt atomically on each reload; file-watch polls `fs.stat` at ~1s; max propagation ≤2s.
 
-### 3.16 C16 Modality Router (NEW v0.6.0 — PRD-003@0.1.3 §5 US-1..US-4 + §8 R1)
-- Responsibility: Classify inbound C1-claimed text / voice-transcribed-text into one of {kbju, water, sleep, workout, mood, ambiguous, zero_match} per ADR-015@0.1.0 deterministic priority chain. Dispatch to matching component or emit clarifying-reply inline keyboard for ambiguity.
-- Inputs: C1 inbound message envelope (text or transcribed text + user_id + timestamp); `config/modality-router.json` keyword chains; C21 `getSettings(user_id)` for OFF-state suppression at routing.
-- Outputs: dispatch decision (component reference) OR clarifying-reply payload OR fallthrough-to-C4-KBJU; metric `kbju_modality_route_outcome{outcome}`.
-- LLM usage: NONE (Option A of ADR-015@0.1.0 — explicit Architect choice; Option C LLM-classifier deferred to a future ADR if rolling-30-day misclassification rate exceeds action threshold).
-- State: Hot-reloadable matcher chain; in-process; mirrors C15 Allowlist pattern.
-- Failure modes: (a) zero match → falls through to existing C4 KBJU free-form path (preserves PRD-001@0.2.0 surface). (b) multi-match → clarifying inline keyboard; user tap drives dispatch. (c) malformed config → preserves last valid chain (C15 pattern).
+### 3.16 C16 Modality Router (NEW v0.6.0 — PRD-003@0.1.3 §5 US-1..US-4 + §8 R1; amended 2026-05-06 per ADR-015@0.1.0 Option C Hybrid)
+- Responsibility: Classify inbound C1-claimed text / voice-transcribed-text into one of {kbju, water, sleep, workout, mood, ambiguous, zero_match} per ADR-015@0.1.0 amended Option C Hybrid (deterministic-first chain → LLM tie-breaker on multi-match → LLM full-classifier on zero-match → AMBIGUOUS clarifying-reply). Dispatch to matching component or emit clarifying-reply inline keyboard.
+- Inputs: C1 inbound message envelope (text or transcribed text + user_id + timestamp); `config/modality-router.json` keyword chains (Architect-seeded; PO-delegated 2026-05-06); C21 `getSettings(user_id)` for OFF-state suppression at routing; OmniRoute (ADR-002@0.1.0) for the LLM-classifier fallback path.
+- Outputs: dispatch decision (component reference) OR clarifying-reply payload; metric `kbju_modality_route_outcome{outcome ∈ {deterministic_single, deterministic_multi_llm_resolved, zero_match_llm_resolved, zero_match_llm_ambiguous, ambiguous_clarified}}`.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/gpt-oss-20b`, fallback `accounts/fireworks/models/qwen3-vl-30b-a3b`, emergency-free `openrouter/nvidia/nemotron-3-super:free`. Forced JSON-mode with hard-constrained label set per ADR-006@0.1.0 guardrail. Confidence threshold for zero-match path: <0.6 → AMBIGUOUS.
+- State: Hot-reloadable matcher chain (ADR-013@0.1.0 pattern); in-process; mirrors C15 Allowlist pattern. LLM-classifier prompt + JSON-schema also hot-reloadable.
+- Failure modes: (a) deterministic single-match → direct route, <1ms. (b) deterministic multi-match → LLM tie-breaker (~400–700ms p50) constrained to deterministic candidate set; AMBIGUOUS → clarifying inline keyboard. (c) deterministic zero-match → LLM full-classifier with confidence; high-confidence single label → route; low-confidence or AMBIGUOUS → clarifying inline keyboard. (d) LLM default + fallback both fail → user-facing error per PRD-003@0.1.3 §6 NF reliability. (e) malformed deterministic config → preserves last valid chain (C15 pattern).
 
 ### 3.17 C17 Water Logger (NEW v0.6.0 — PRD-003@0.1.3 §2 G1)
 - Responsibility: Persist water intake events from voice / text / inline-keyboard quick-volume preset to `water_events` per PRD-003@0.1.3 §5 US-1.
 - Inputs: C16-routed water message; `water_events` write capability; C21 modality-OFF gate.
 - Outputs: `water_events` row insert; user-facing Russian confirmation reply; `kbju_modality_event_persisted{modality=water,source=...}`.
-- LLM usage: OmniRoute extraction prompt (ADR-002@0.1.0) for `volume_ml` from free-form text where preset keyboard not used.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/gpt-oss-20b`, fallback `accounts/fireworks/models/minimax-m2p7`. Forced JSON-mode for `volume_ml` extraction from free-form text where preset keyboard not used.
 - State: stateless per request; persistence in C3 Tenant-Scoped Store via the new `water_events` table.
 - Failure modes: (a) modality OFF → silent ignore (per §5 US-1 OFF-state AC). (b) parse failure → friendly clarifying reply with the quick-volume preset keyboard.
 
@@ -870,7 +872,7 @@ graph LR
 - Responsibility: Persist sleep records from paired evening + morning events OR single-event morning duration per PRD-003@0.1.3 §5 US-2 + ADR-017@0.1.0 state machine. Compute DST-safe `attribution_date_local`. Enforce sanity-floor / ceiling soft-warn flow.
 - Inputs: C16-routed sleep message; user profile timezone; `sleep_records` + `sleep_pairing_state` write capability; `luxon` tz library; C21 modality-OFF gate; C8 Cron Dispatcher hourly tick for GC.
 - Outputs: `sleep_records` row insert (paired or single-event); `sleep_pairing_state` row insert/update/delete; user-facing Russian replies per six state-machine paths; `kbju_modality_event_persisted{modality=sleep,source=...}`.
-- LLM usage: OmniRoute extraction prompt for `duration_min` from free-form morning report.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/deepseek-v3p2`. Forced JSON-mode for `{start_at, end_at, duration_min, is_nap}` extraction from free-form morning report.
 - State: in-flight evening "лёг" event lives in `sleep_pairing_state` with 24-hour TTL; hourly GC cron skill `src/skills/sleep-gc/` reuses C8 Cron Dispatcher (ARCH-001@0.5.0 §3.8).
 - Failure modes: (a) modality OFF → silent ignore. (b) sanity-floor (<30 min) or ceiling (>24 h) → soft-warn with confirm-as-is / correct path; no record persisted until user confirms. (c) "лёг then лёг" → older invalidated, new replaces. (d) "встал" without prior "лёг" → clarifying-reply asking for duration. (e) DST transition → handled by `luxon` IANA tz database; smoke-tested in TKT-023@0.1.0.
 
@@ -878,7 +880,7 @@ graph LR
 - Responsibility: Persist workout events from voice / text / photo with closed-enum type extraction per ADR-016@0.1.0 forced-output JSON schema. Achieve PRD-003@0.1.3 §6 K2 ≥80% recognition + ≥70% per-field accuracy.
 - Inputs: C16-routed workout message OR C7 photo extraction output; `workout_events` write capability; C21 modality-OFF gate.
 - Outputs: `workout_events` row insert with closed-enum `type` ∈ {strength, running, cycling, swimming, walking, yoga, hiit, other}; user-facing Russian confirmation reply; `kbju_modality_event_persisted{modality=workout,source=...}`.
-- LLM usage: OmniRoute extraction prompt with forced-output JSON schema (ADR-016@0.1.0 §Decision verbatim contract). LLM provider / model is whatever OmniRoute (ADR-002@0.1.0) currently routes to; no PRD-003@0.1.3-specific provider pick.
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/qwen3-vl-30b-a3b`, fallback `accounts/fireworks/models/deepseek-v3p2`. Forced-output JSON schema per ADR-016@0.1.0 §Decision verbatim contract.
 - State: stateless per request; persistence in `workout_events`.
 - Failure modes: (a) modality OFF → silent ignore. (b) zero quantifiable fields → clarifying-reply asking for at least one of duration / distance / weight (per §5 US-3 2nd AC). (c) extraction returns invalid JSON → deterministic post-validator (ADR-006@0.1.0 forced-output guardrail pattern reused) re-prompts once then asks user.
 
@@ -886,7 +888,7 @@ graph LR
 - Responsibility: Persist mood events with 1–10 numeric score + optional ≤280-char comment + free-form-text-with-inferred-score-confirmation flow per PRD-003@0.1.3 §5 US-4. 5-minute TTL on pending inferences.
 - Inputs: C16-routed mood message OR inline-keyboard 1–10 tap; `mood_events` write capability; C21 modality-OFF gate.
 - Outputs: `mood_events` row insert with `(score, comment_text)`; user-facing Russian confirmation reply (or inferred-score confirmation prompt); `kbju_modality_event_persisted{modality=mood,source=...}`.
-- LLM usage: OmniRoute inference prompt for free-form-text → inferred score (only when user did not provide a numeric score directly).
+- LLM usage: ADR-018@0.1.0 picks — default `accounts/fireworks/models/deepseek-v3p2`, fallback `accounts/fireworks/models/kimi-k2p6`. Forced JSON-mode for `{score: 1..10, factors: [str], note: str?}` from free-form text → inferred score (only when user did not provide a numeric score directly).
 - State: in-process pending-inference cache with 5-minute TTL per user; expired pending inferences are dropped silently.
 - Failure modes: (a) modality OFF → silent ignore. (b) comment >280 chars → truncate + friendly notice (per §5 US-4 2nd AC). (c) inferred score not confirmed within 5 minutes → drop silently.
 
@@ -1498,6 +1500,137 @@ Response (503 — unhealthy):
   "uptime_seconds": 12345
 }
 ```
+
+### 6.2 v0.6.0 Voice & Tone Profile + Concrete Reply Strings (PRD-003@0.1.3 modalities)
+
+**Architect-authored 2026-05-06 per PO Q6 delegation in PR #142 conversation** ("делегирую
+Architect'у tone-profile + строки целиком"). PO did NOT pre-define concrete strings; this
+section is the binding spec for Executor implementation across TKT-022@0.1.0..TKT-028@0.1.0.
+
+#### 6.2.1 Voice & tone profile
+
+**Persona:** caring, expert nutritionist-friend ("бабушка-нутрициолог" from PRD-001@0.2.0
+brand voice). Adult, warm, never patronising. Russian-language native register.
+
+**Tone constraints:**
+
+- **Length:** ≤140 chars per message body (Telegram-compose-friendly; well under 280
+  hard ceiling for inline replies).
+- **Pronouns:** «ты», never «вы». «я» about the bot only when natural.
+- **Emoji:** zero by default; allowed only when the user used emoji first in the same
+  thread (then mirror up to 1 emoji). Rationale: per PRD-001@0.2.0 brand voice, the bot is a
+  professional, not a chatbot; emoji-cuteness undermines the "expert-friend" register.
+- **Praise:** acknowledge action factually («записала»), never compliment ("молодец!",
+  "отлично!"). Praise inflates over time; factual confirmation does not.
+- **Numbers:** use unit-explicit formats — «250 мл», «6 ч 30 мин», «5 км / 32 мин»,
+  «7/10».
+- **Mistakes:** when extraction is uncertain, ASK — do not guess. Pattern: «Уточни:
+  [option A] или [option B]?». Per ROADMAP-001@0.1.0 §1.2 «никогда не галлюцинировать».
+- **Negative-path:** when modality is OFF or the input cannot be processed, never
+  apologise theatrically; state the situation factually («Учёт воды выключен. Включи в
+  /settings, если хочешь его вести.»).
+
+**Forbidden constructions:**
+
+- Theatrical praise: "молодец!", "отлично!", "супер!", "ты лучший/лучшая!"
+- Filler: "Ну что ж", "ага", "так-так"
+- Patronising: "помни про", "не забывай!", "ну-ну"
+- Apologies: "извини", "прости" (use "сейчас" / "сделаю" instead)
+- Marketing-speak: "удобно", "просто", "легко", "быстро"
+- Generic agreement: "хорошо!", "понял/поняла!", "ок!"
+
+**Allowed punctuation:** period, comma, dash, single question mark, single exclamation
+(rare — only for actual exclamation, not enthusiasm).
+
+#### 6.2.2 Concrete reply strings per component
+
+These strings are the **default** Russian copy to ship in TKT-022@0.1.0..TKT-028@0.1.0. Executor
+implements verbatim. PO may post-implementation suggest tweaks via an issue; copy churn
+is cheap (single-file edit + smoke test).
+
+**C16 Modality Router (clarifying-reply path — used by both AMBIGUOUS and low-confidence):**
+
+```
+Не разобралась, что записать. Уточни:
+[вода] [еда] [сон] [тренировка] [настроение] [отмена]
+```
+
+Inline keyboard buttons: 6 options, two rows of 3.
+
+**C17 Water Logger:**
+
+- Confirmation (preset keyboard): «Записала: 250 мл воды. За день: 1500 мл.»
+- Confirmation (free-form parsed): «Записала: 500 мл воды. За день: 1500 мл.»
+- Quick-volume keyboard prompt (when free-form parse failed): «Сколько воды? Выбери или
+  напиши число с единицей.» Buttons: [200 мл] [250 мл] [330 мл] [500 мл] [750 мл] [1 л]
+- Modality OFF: silent (per PRD-003@0.1.3 §5 US-1 OFF-state AC).
+
+**C18 Sleep Logger:**
+
+- Evening «лёг»: «Сладких снов. Утром скажи "встал" — посчитаю длительность.»
+- Morning «встал» (paired): «Записала: спал(а) 7 ч 15 мин. С 23:30 до 06:45.»
+- Morning «встал» (no prior «лёг»): «Не вижу записи "лёг" вчера. Сколько спал(а)? Можешь
+  написать "поспал(а) 7 часов" или "лёг в 23, встал в 7".»
+- Free-form duration: «Записала: спал(а) 6 ч 30 мин.»
+- Sanity-floor (<30 мин) warn: «Меньше 30 минут — это похоже на дрёму, а не сон. Записать
+  как «дневной сон» или отменить?» Buttons: [дневной сон] [отмена]
+- Sanity-ceiling (>24 ч) warn: «Больше 24 часов? Похоже, опечатка. Уточни длительность.»
+- Modality OFF: silent.
+
+**C19 Workout Logger:**
+
+- Confirmation (full extraction): «Записала тренировку: бег, 5 км / 32 мин.»
+- Confirmation (strength): «Записала тренировку: жим лёжа, 80 кг × 5 × 5.»
+- Confirmation (yoga/walking/swimming, duration only): «Записала тренировку: йога, 60 мин.»
+- Missing-quantifiable fields (per PRD-003@0.1.3 §5 US-3): «Записать тренировку. Уточни
+  длительность, дистанцию или вес — что-нибудь одно.»
+- Type-ambiguous (LLM says "other"): «Какая тренировка? [силовая] [бег] [велосипед]
+  [плавание] [ходьба] [йога] [HIIT] [другое]»
+- Modality OFF: silent.
+
+**C20 Mood Logger:**
+
+- Direct numeric: «Записала настроение 7/10.»
+- Free-form with inferred score (confirmation-required per §5 US-4): «Записать как 6/10?
+  Или укажи точную оценку 1-10.» Buttons: [подтвердить 6] [1] [2] [3] [4] [5] [7] [8]
+  [9] [10]
+- Free-form confirmed: «Записала настроение 6/10.»
+- 1-10 keyboard prompt (when no text): «Оцени настроение от 1 до 10.» Buttons: [1] [2]
+  [3] [4] [5] [6] [7] [8] [9] [10]
+- Comment >280 chars: «Сократила комментарий до 280 символов. Записала настроение 7/10.»
+- Pending-inference TTL expiry: silent drop per §5 US-4 5-minute TTL.
+- Modality OFF: silent.
+
+**C21 Modality Settings Service:**
+
+- `/settings` command response: «Что записывать?» + four-toggle inline keyboard:
+  - [💧 Вода: вкл] / [💧 Вода: выкл]
+  - [😴 Сон: вкл] / [😴 Сон: выкл]
+  - [🏃 Тренировки: вкл] / [🏃 Тренировки: выкл]
+  - [🙂 Настроение: вкл] / [🙂 Настроение: выкл]
+- Toggle confirmation: «Учёт воды включён.» / «Учёт воды выключен.»
+- Note: emoji here are for **UI affordance** in inline-keyboard (visual modality identity),
+  not for tone — exception to the no-emoji rule per Telegram-keyboard-UX convention.
+
+**C22 Adaptive Summary Composer (daily summary appendix per modality):**
+
+Section ordering: KBJU → water → sleep → workout → mood. Zero-event sections suppressed
+(except KBJU which is unconditional). Each section ≤2 lines.
+
+- Water section: «Вода: 1500 мл за день.» (or «Вода: данных нет.» when modality ON but no
+  events; suppressed when OFF)
+- Sleep section: «Сон: 7 ч 15 мин (с 23:30 до 06:45).»
+- Workout section: «Тренировка: бег, 5 км / 32 мин.» (or list up to 3 events compactly)
+- Mood section: «Настроение: 7/10.» (single event) or «Настроение: средне 7/10 (3 записи).»
+
+#### 6.2.3 Open issues for tone-profile
+
+- **Audit-mode K6** (rolling-7-day comparison ARCH-001@0.6.0 §5.3 Tab.6) MAY surface
+  copy-quality issues; if PO disagrees with copy after seeing it in production, file an
+  issue and Architect amends this §6.2 in the next ArchSpec cycle.
+- **Translation:** Russian-only for v0.6.0; non-Russian users get the English fallback
+  per PRD-001@0.2.0 §6 i18n NF (`ENGLISH_FALLBACK_COPY` config; Architect ratifies the
+  English equivalents as a separate section if/when PRD-NEXT requires it).
 
 ## 7. Tech Stack Decisions (linked ADRs)
 - Language / runtime: OpenClaw TypeScript plugin/skill runtime on Node 24, PO-locked by PRD-001@0.2.0 §7.
