@@ -38,7 +38,12 @@ DOCS_ROOT = REPO_ROOT / "docs"
 # orchestrator role between Devin accounts (or to opencode + GPT-5.5)
 # without losing context. Snapshots are by definition volatile operational
 # state, not versioned artifacts; see docs/session-log/README.md.
-FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta", "session-log"}
+# `roadmap` holds Business-Planner-authored roadmap / vision documents
+# (ROADMAP-NNN-*.md) — strategic-direction artifacts that span multiple
+# PRDs and may evolve over time without strict semver. See
+# docs/roadmap/README.md. Authored under one-off PO authorisation that
+# extends the BP write-zone beyond `docs/prd/` for that session only.
+FREEFORM_DIRS = {"prompts", "knowledge", "personality", "meta", "session-log", "roadmap"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL: set[str] = set()
 
