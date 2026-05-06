@@ -189,7 +189,7 @@ calibration.
 
 **JSON-mode + forced-output:** all five sites use Fireworks `response_format = { "type":
 "json_schema", "json_schema": ... }` per ADR-006@0.1.0 forced-output guardrail. Per-site
-schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-024@0.1.0 (C17/C18/C19/C20).
+schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 (C17/C18/C19/C20).
 
 ## Why the losers lost (one sentence each)
 
@@ -235,7 +235,7 @@ schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-024@0.1.0 (C17/C1
 **Follow-up work:**
 
 - TKT-022@0.1.0 implements C16 with the above default + fallback OmniRoute config.
-- TKT-023@0.1.0 / TKT-024@0.1.0 use the per-site picks above.
+- TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 use the per-site picks above.
 - TKT-025@0.1.0 golden tests validate JSON-mode reliability + Russian-quality of each
   default; failing test → escalate to fallback-as-default.
 - Architect amends ADR-018 if golden-test results force a swap (still in `proposed`,

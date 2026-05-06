@@ -7,7 +7,7 @@ arch_ref: ARCH-001@0.6.0
 prd_ref: PRD-003@0.1.3
 component: "C21"
 depends_on: ["TKT-021@0.1.0"]
-blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-027@0.1.0"]
+blocks: []
 estimate: M
 assigned_executor: "glm-5.1"
 author_model: "claude-opus-4.7-thinking"
@@ -30,10 +30,11 @@ Land the C21 Modality Settings Service exposing a `/settings` Telegram command s
 
 ## 3. NOT In Scope
 - The `modality_settings` + `modality_settings_audit` tables themselves (TKT-021@0.1.0).
-- Per-modality OFF-state acceptance bullets in C17/C18/C19/C20 (each handler enforces OFF-state independently — TKT-023@0.1.0 + TKT-024@0.1.0).
+- Per-modality OFF-state acceptance bullets in C17/C18/C19/C20 (each handler enforces OFF-state independently — TKT-023@0.1.0 + TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0).
 - The C22 Adaptive Summary Composer's settings read (TKT-027@0.1.0 reads `modality_settings` directly via `getSettings`).
 - Personality / preset customization (PRD-003@0.1.3 §3 NG9 explicit non-goal — preserved).
 - Future settings API (web view, /settings via REST, etc.) — out of scope per PRD-003@0.1.3 §3 NG5 (no new channel).
+- **Soft-dep rationale for C16/C18/C19/C20/C22**: C21 Modality Settings Service is a runtime configuration provider, NOT a compile-time dependency. Handlers (C16 via TKT-022@0.1.0, C18 via TKT-023@0.1.0, C19 via TKT-030@0.1.0, C20 via TKT-031@0.1.0, C22 via TKT-027@0.1.0) can be built and unit-tested with mocked settings; integration tests that need live settings will naturally run after C21 is deployed. Therefore downstream Tickets do NOT list TKT-028@0.1.0 in `depends_on`.
 
 ## 4. Inputs
 - ARCH-001@0.6.0 §3.21 (C21 component spec)

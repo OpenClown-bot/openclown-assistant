@@ -78,7 +78,9 @@ tickets:
   - TKT-021@0.1.0
   - TKT-022@0.1.0
   - TKT-023@0.1.0
-  - TKT-024@0.1.0
+  - TKT-029@0.1.0
+  - TKT-030@0.1.0
+  - TKT-031@0.1.0
   - TKT-025@0.1.0
   - TKT-026@0.1.0
   - TKT-027@0.1.0
@@ -2020,7 +2022,7 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 
 - **R13: C16 Modality Router seed keyword set staleness.** Deterministic priority chain (ADR-015@0.1.0) does not adapt to Russian-morphology drift over PRD-003@0.1.3 lifetime. Mitigation: hot-reloadable matcher chain (TKT-022@0.1.0); rolling-30-day misclassification telemetry (PRD-003@0.1.3 §8 R1 / TKT-025@0.1.0); explicit Option C upgrade contemplated in ADR-015@0.1.0 §Consequences.
 - **R14: C18 Sleep Logger 24-hour pairing TTL drops orphaned evening events silently.** A user who logs "лёг" then doesn't message for >24 h has the pairing GC'd. Recoverable via path #5 (single-event morning duration report) but not surfaced. PRD-003@0.1.3 §3 NG11 forbids retroactive backfill so user cannot correct after the fact. Mitigation: clarifying-reply on morning-no-pair path #4 nudges user to submit duration. Future PRD may revisit.
-- **R15: PRD-003@0.1.3 modality LLM extraction (water volume, workout closed-enum, mood inference) reuses OmniRoute (ADR-002@0.1.0) without modality-specific routing tuning.** Per Architect Phase 5 LLM-pick exception, LLM-provider/model picks are deferred to Q_TO_BUSINESS for PO ratification — but in this v0.6.0, OmniRoute's existing extraction surface is reused without a per-modality shortlist. If extraction quality misses K2 (workout ≥80% recognition / ≥70% per-field accuracy), a follow-up ADR may be needed to pick a per-modality model. Mitigation: PO-ratified 50-event golden test set (TKT-024@0.1.0) gives empirical ground for any future tune.
+- **R15: PRD-003@0.1.3 modality LLM extraction (water volume, workout closed-enum, mood inference) reuses OmniRoute (ADR-002@0.1.0) without modality-specific routing tuning.** Per Architect Phase 5 LLM-pick exception, LLM-provider/model picks are deferred to Q_TO_BUSINESS for PO ratification — but in this v0.6.0, OmniRoute's existing extraction surface is reused without a per-modality shortlist. If extraction quality misses K2 (workout ≥80% recognition / ≥70% per-field accuracy), a follow-up ADR may be needed to pick a per-modality model. Mitigation: PO-ratified 50-event golden test set (TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0) gives empirical ground for any future tune.
 - **R16: PRD-003@0.1.3 modality LLM picks deferred to Q_TO_BUSINESS rather than ratified now.** Per the Phase 5 LLM-pick exception, this ArchSpec does NOT pick specific OmniRoute targets for the four new prompt sites (water volume extraction, workout JSON-schema extraction, mood free-form-text inference, sleep duration extraction). All four reuse the existing OmniRoute provider abstraction, so the LLM-pick is what OmniRoute currently routes to. If PO wants a modality-specific lock, raise as a future ratification.
 - **R17: Hardware envelope (Q-RM-1) is single-vendor (Hetzner) and based on per-user load projection rather than measured production load.** §0.10.4 cites only Hetzner EX44; the projection is an engineer estimate, not a measured benchmark. Mitigation: at the 1,000-user scale the EX44 has ample headroom; PO can request a measured benchmark at any time. PO can also request a multi-vendor comparison if procurement diversification matters.
 

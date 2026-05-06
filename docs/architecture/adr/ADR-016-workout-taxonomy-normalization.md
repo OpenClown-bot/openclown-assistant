@@ -227,7 +227,7 @@ extraction. No `Q_TO_BUSINESS_N` for this ADR.
 
 **Follow-up work:**
 
-- TKT-024@0.1.0 implements C19 Workout Logger including the closed-enum schema, the
+- TKT-030@0.1.0 implements C19 Workout Logger including the closed-enum schema, the
   forced-output JSON prompt, the deterministic validator, and the photo-extraction path
   (PRD-003@0.1.3 §5 US-3 photo bullet) reusing C7 photo recognition.
 - C22 Adaptive Summary Composer (TKT-027@0.1.0) maintains the workout-type → Russian
