@@ -93,6 +93,7 @@ export interface C1Deps {
   pilotUserIds: readonly string[];
   metricsRegistry: import("../observability/metricsEndpoint.js").MetricsRegistry;
   breachDetector?: import("../observability/breachDetector.js").BreachDetector;
+  allowlist?: import("../security/allowlist.js").Allowlist;
 }
 
 export class C1MalformedUpdateError extends Error {

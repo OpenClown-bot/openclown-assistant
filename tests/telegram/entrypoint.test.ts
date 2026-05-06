@@ -6,6 +6,17 @@ import type { RussianReplyEnvelope, TelegramMessage, TelegramCallbackQuery, Tele
 import { MSG_VOICE_TOO_LONG, MSG_GENERIC_RECOVERY } from "../../src/telegram/messages.js";
 import { KPI_EVENT_NAMES, PROMETHEUS_METRIC_NAMES } from "../../src/observability/kpiEvents.js";
 import type { MetricsRegistry } from "../../src/observability/metricsEndpoint.js";
+import type { Allowlist, AllowlistMode } from "../../src/security/allowlist.js";
+
+function makeAllowlist(allowedIds: number[] = [111, 222], mode: AllowlistMode = "normal"): Allowlist {
+  const set = new Set(allowedIds);
+  return {
+    isAllowed: (id: number) => set.has(id),
+    getMode: () => mode,
+    getSize: () => set.size,
+    close: () => {},
+  } as unknown as Allowlist;
+}
 
 function makeHandlers(): TelegramHandlers {
   return {
@@ -39,6 +50,7 @@ function makeDeps(overrides?: Partial<C1Deps>): C1Deps {
       getSamples: vi.fn().mockReturnValue([]),
       render: vi.fn().mockReturnValue(""),
     } as unknown as MetricsRegistry,
+    allowlist: makeAllowlist(),
     ...overrides,
   };
 }
@@ -84,7 +96,7 @@ describe("routeMessage", () => {
     deps = makeDeps();
   });
 
-  it("rejects non-allowlisted Telegram user without calling any handler", async () => {
+  it("rejects non-allowlisted Telegram user without calling any handler, sends blocked message", async () => {
     const msg = makeMessage({ from: { id: 999, isBot: false, firstName: "Stranger" } });
     await routeMessage(deps, "req-1", msg);
 
@@ -94,7 +106,9 @@ describe("routeMessage", () => {
     expect(deps.handlers.photoMeal).not.toHaveBeenCalled();
     expect(deps.handlers.forgetMe).not.toHaveBeenCalled();
     expect(deps.handlers.history).not.toHaveBeenCalled();
-    expect(deps.sendMessage).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Извините, бот пока в закрытом тестировании." })
+    );
   });
 
   it("logs access_denied for non-allowlisted user", async () => {
@@ -367,16 +381,18 @@ describe("routeCronEvent", () => {
     );
   });
 
-  it("rejects non-allowlisted cron userId without calling summaryDelivery (D-I2)", async () => {
+  it("rejects non-allowlisted cron userId without calling summaryDelivery, sends blocked message (D-I2)", async () => {
     await routeCronEvent(deps, "req-cron-deny", 999, 999, "daily");
     expect(deps.handlers.summaryDelivery).not.toHaveBeenCalled();
-    expect(deps.sendMessage).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Извините, бот пока в закрытом тестировании." })
+    );
     expect(deps.logger.warn).toHaveBeenCalled();
   });
 });
 
 describe("non-allowlisted user produces no C3 write calls", () => {
-  it("no handler or sendMessage called for denied user", async () => {
+  it("no handler called for denied user, sends blocked message", async () => {
     const deps = makeDeps();
     const msg = makeMessage({
       from: { id: 9999, isBot: false, firstName: "Denied" },
@@ -388,7 +404,9 @@ describe("non-allowlisted user produces no C3 write calls", () => {
     for (const handler of allHandlers) {
       expect(handler).not.toHaveBeenCalled();
     }
-    expect(deps.sendMessage).not.toHaveBeenCalled();
+    expect(deps.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Извините, бот пока в закрытом тестировании." })
+    );
   });
 });
 

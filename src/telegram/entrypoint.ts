@@ -15,10 +15,13 @@ import {
   MSG_GENERIC_RECOVERY,
   MSG_VOICE_TOO_LONG,
 } from "./messages.js";
+import { isOperationAllowed } from "../security/allowlist.js";
 
 export const MAX_VOICE_DURATION_SECONDS = 15;
 
 const SERVICE_NAME = "kbju-telegram-entrypoint";
+
+const MSG_BLOCKED_USER = "Извините, бот пока в закрытом тестировании.";
 
 const ROUTE_KIND_EVENT_NAME: Record<RouteKind, string> = {
   start: KPI_EVENT_NAMES.onboarding_started,
@@ -31,11 +34,6 @@ const ROUTE_KIND_EVENT_NAME: Record<RouteKind, string> = {
   summary_delivery: KPI_EVENT_NAMES.summary_delivered,
   unsupported: KPI_EVENT_NAMES.route_unmatched,
 };
-
-function isAllowlisted(telegramUserId: number, pilotUserIds: readonly string[]): boolean {
-  const idStr = String(telegramUserId);
-  return pilotUserIds.includes(idStr);
-}
 
 function safeUserId(telegramUserId: number): string {
   return Number.isFinite(telegramUserId) ? String(telegramUserId) : "anonymous";
@@ -193,8 +191,25 @@ export async function routeMessage(
     throw error;
   }
 
-  if (!isAllowlisted(update.telegramUserId, deps.pilotUserIds)) {
+  if (deps.allowlist && !deps.allowlist.isAllowed(update.telegramUserId)) {
     logAccessDenied(deps, update);
+    await sendWithRetry(
+      deps,
+      {
+        chatId: update.telegramChatId,
+        text: MSG_BLOCKED_USER,
+        typingRenewalRequired: false,
+      },
+      update.requestId,
+      update.telegramUserId
+    );
+    return;
+  }
+
+  if (
+    deps.allowlist &&
+    !isOperationAllowed(update.routeKind, deps.allowlist.getMode())
+  ) {
     return;
   }
 
@@ -312,8 +327,25 @@ export async function routeCallbackQuery(
     throw error;
   }
 
-  if (!isAllowlisted(update.telegramUserId, deps.pilotUserIds)) {
+  if (deps.allowlist && !deps.allowlist.isAllowed(update.telegramUserId)) {
     logAccessDenied(deps, update);
+    await sendWithRetry(
+      deps,
+      {
+        chatId: update.telegramChatId,
+        text: MSG_BLOCKED_USER,
+        typingRenewalRequired: false,
+      },
+      update.requestId,
+      update.telegramUserId
+    );
+    return;
+  }
+
+  if (
+    deps.allowlist &&
+    !isOperationAllowed(update.routeKind, deps.allowlist.getMode())
+  ) {
     return;
   }
 
@@ -329,8 +361,25 @@ export async function routeCronEvent(
 ): Promise<void> {
   const update = normalizeCronEvent(requestId, userId, chatId, triggerType);
 
-  if (!isAllowlisted(update.telegramUserId, deps.pilotUserIds)) {
+  if (deps.allowlist && !deps.allowlist.isAllowed(update.telegramUserId)) {
     logAccessDenied(deps, update);
+    await sendWithRetry(
+      deps,
+      {
+        chatId: update.telegramChatId,
+        text: MSG_BLOCKED_USER,
+        typingRenewalRequired: false,
+      },
+      update.requestId,
+      update.telegramUserId
+    );
+    return;
+  }
+
+  if (
+    deps.allowlist &&
+    !isOperationAllowed(update.routeKind, deps.allowlist.getMode())
+  ) {
     return;
   }
 

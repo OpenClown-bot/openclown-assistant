@@ -28,6 +28,9 @@ export const KPI_EVENT_NAMES = {
   tenant_breach_detected: "kbju_tenant_breach_detected",
   llm_call_stalled: "kbju_llm_call_stalled",
   runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
+  allowlist_reload: "kbju_allowlist_reload",
+  allowlist_blocked: "kbju_allowlist_blocked",
+  allowlist_size: "kbju_allowlist_size",
 } as const;
 
 export type KpiEventName = (typeof KPI_EVENT_NAMES)[keyof typeof KPI_EVENT_NAMES];
@@ -65,6 +68,9 @@ export const PROMETHEUS_METRIC_NAMES = {
   kbju_tenant_breach_detected: "kbju_tenant_breach_detected",
   kbju_llm_call_stalled: "kbju_llm_call_stalled",
   kbju_runtime_kill_switch_active: "kbju_runtime_kill_switch_active",
+  kbju_allowlist_reload: "kbju_allowlist_reload",
+  kbju_allowlist_blocked: "kbju_allowlist_blocked",
+  kbju_allowlist_size: "kbju_allowlist_size",
 } as const;
 
 export type PrometheusMetricName = (typeof PROMETHEUS_METRIC_NAMES)[keyof typeof PROMETHEUS_METRIC_NAMES];
