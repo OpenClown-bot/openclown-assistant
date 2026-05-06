@@ -181,7 +181,7 @@ The decision must respect:
 
 We will use **Option A — R-stay, extend ARCH-001@0.6.0 to ARCH-001@0.6.0 on OpenClaw**.
 
-Why the losers lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option B (R-migrate to Hermes)**: Hermes's unique features — persistent cross-session
   memory and skill auto-generation — are precisely what §3.1 PRD-NEXT proactive coaching

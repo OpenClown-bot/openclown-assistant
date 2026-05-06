@@ -248,7 +248,7 @@ computation is on UTC timestamps so DST does not corrupt it.
 extended (in TKT-021@0.1.0) to include `DELETE FROM sleep_records WHERE user_id = ?` and
 `DELETE FROM sleep_pairing_state WHERE user_id = ?` in the same transaction.
 
-Why the losers lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option B (compute attribution at read)**: paying a tz-projection cost on every
   summary read at the 10 000-user scale (PRD-002@0.2.1 G4) breaches the PRD-003@0.1.3 §7

@@ -187,7 +187,7 @@ prompt) is *not* a new pick at this ADR; we reuse the ADR-002@0.1.0 OmniRoute pr
 + direct-key fallback chain that is already locked for PRD-001@0.2.0 §5 US-3 KBJU
 extraction. No `Q_TO_BUSINESS_N` for this ADR.
 
-Why the losers lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option B (open free-form + clustering)**: blurs the K2 measurement contract by
   making the fuzzy-matcher a measurement variable, and adds a periodic clustering /

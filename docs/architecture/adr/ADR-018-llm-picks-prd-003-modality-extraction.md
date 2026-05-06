@@ -22,6 +22,10 @@ updated: 2026-05-06
 
 # ADR-018: LLM picks for PRD-003@0.1.3 modality extraction + C16 router-classifier
 
+## Format Note
+
+This ADR uses per-site pick tables (one per LLM-call-site C16, C17–C20, C22, emergency-free, failover-trigger) instead of a single A/B/C Options structure because LLM model selection is independent per call-site and ≥3 real options are evaluated per site, satisfying `docs/prompts/architect.md` ≥3-options spirit. Future ADRs adding new LLM-call-sites should extend this table; no new ADR per site.
+
 ## Context
 
 Per `docs/prompts/architect.md` Phase 5 LLM-pick exception, the Architect MUST NOT pick

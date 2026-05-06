@@ -205,7 +205,7 @@ chooses default + fallback per prompt site, no Q_TO_BUSINESS). The C16 fallback 
 ADR-018@0.1.0 "router-classifier" pick (default + fallback). All calls go through OmniRoute
 per ADR-002@0.1.0.
 
-Why the other options lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option A (Deterministic-only)**: cannot disambiguate Russian-morphology / context-
   collision cases ("пол-литра кефира" KBJU vs water) without keyword chain churn; PO
