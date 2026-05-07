@@ -2,7 +2,7 @@
 id: ADR-014
 title: "PRD-003 runtime decision: stay on openclaw (ARCH-001 extension)"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:
@@ -181,7 +181,7 @@ The decision must respect:
 
 We will use **Option A — R-stay, extend ARCH-001@0.6.0 to ARCH-001@0.6.0 on OpenClaw**.
 
-Why the losers lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option B (R-migrate to Hermes)**: Hermes's unique features — persistent cross-session
   memory and skill auto-generation — are precisely what §3.1 PRD-NEXT proactive coaching

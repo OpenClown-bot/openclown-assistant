@@ -2,7 +2,7 @@
 id: ADR-016
 title: "Workout taxonomy normalization (closed-set with extraction-LLM fallback)"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:
@@ -187,7 +187,7 @@ prompt) is *not* a new pick at this ADR; we reuse the ADR-002@0.1.0 OmniRoute pr
 + direct-key fallback chain that is already locked for PRD-001@0.2.0 §5 US-3 KBJU
 extraction. No `Q_TO_BUSINESS_N` for this ADR.
 
-Why the losers lost (one sentence each, addressing their best case):
+## Why the losers lost
 
 - **Option B (open free-form + clustering)**: blurs the K2 measurement contract by
   making the fuzzy-matcher a measurement variable, and adds a periodic clustering /
@@ -227,7 +227,7 @@ Why the losers lost (one sentence each, addressing their best case):
 
 **Follow-up work:**
 
-- TKT-024@0.1.0 implements C19 Workout Logger including the closed-enum schema, the
+- TKT-030@0.1.0 implements C19 Workout Logger including the closed-enum schema, the
   forced-output JSON prompt, the deterministic validator, and the photo-extraction path
   (PRD-003@0.1.3 §5 US-3 photo bullet) reusing C7 photo recognition.
 - C22 Adaptive Summary Composer (TKT-027@0.1.0) maintains the workout-type → Russian

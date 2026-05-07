@@ -3,10 +3,10 @@ id: TKT-027
 title: "C22 Adaptive Summary Composer with deterministic section ordering + zero-event suppression"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C22"
-depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-026@0.1.0"]
+depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0"]
 blocks: []
 estimate: M
 assigned_executor: "glm-5.1"
@@ -33,7 +33,7 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 
 ## 3. NOT In Scope
 - The four modality event tables themselves (TKT-021@0.1.0).
-- The four modality event handlers (TKT-023@0.1.0 sleep; TKT-024@0.1.0 water/workout/mood).
+- The four modality event handlers (TKT-023@0.1.0 sleep; TKT-029@0.1.0 water / TKT-030@0.1.0 workout / TKT-031@0.1.0 mood).
 - The C21 Modality Settings Service (TKT-028@0.1.0).
 - The PRD-001@0.2.0 §5 US-7 KBJU summary template (reused unchanged from C9).
 - The summary delivery channel (Telegram via C1; reused unchanged).
@@ -100,5 +100,5 @@ Land the C22 Adaptive Summary Composer that folds active modality sections into 
 - [x] Acceptance Criteria are machine-checkable.
 - [x] Constraints explicitly list forbidden actions.
 - [x] All references version-pinned.
-- [x] `depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-026@0.1.0"]` (tables + sleep handler + water/workout/mood handlers + redaction extension).
+- [x] `depends_on: ["TKT-021@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0"]` (tables + sleep handler + water/workout/mood handlers + redaction extension).
 - [x] `assigned_executor: "glm-5.1"` justified.

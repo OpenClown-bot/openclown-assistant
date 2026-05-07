@@ -3,11 +3,11 @@ id: TKT-021
 title: "PRD-003 modality data model migrations + RLS + right-to-delete cascade"
 version: 0.1.0
 status: ready
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 component: "C-data-model"
 depends_on: []
-blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-024@0.1.0", "TKT-025@0.1.0", "TKT-026@0.1.0", "TKT-027@0.1.0", "TKT-028@0.1.0"]
+blocks: ["TKT-022@0.1.0", "TKT-023@0.1.0", "TKT-029@0.1.0", "TKT-030@0.1.0", "TKT-031@0.1.0", "TKT-026@0.1.0", "TKT-027@0.1.0", "TKT-028@0.1.0"]
 estimate: M
 assigned_executor: "codex-gpt-5.5"
 author_model: "claude-opus-4.7-thinking"

@@ -2,7 +2,7 @@
 id: ADR-018
 title: "LLM picks for PRD-003@0.1.3 modality extraction + C16 router-classifier"
 status: proposed
-arch_ref: ARCH-001@0.6.0
+arch_ref: ARCH-001@0.6.1
 prd_ref: PRD-003@0.1.3
 author_model: "claude-opus-4.7-thinking"
 reviewer_models:
@@ -21,6 +21,10 @@ updated: 2026-05-06
 ---
 
 # ADR-018: LLM picks for PRD-003@0.1.3 modality extraction + C16 router-classifier
+
+## Format Note
+
+This ADR uses per-site pick tables (one per LLM-call-site C16, C17–C20, C22, emergency-free, failover-trigger) instead of a single A/B/C Options structure because LLM model selection is independent per call-site and ≥3 real options are evaluated per site, satisfying `docs/prompts/architect.md` ≥3-options spirit. Future ADRs adding new LLM-call-sites should extend this table; no new ADR per site.
 
 ## Context
 
@@ -185,7 +189,7 @@ calibration.
 
 **JSON-mode + forced-output:** all five sites use Fireworks `response_format = { "type":
 "json_schema", "json_schema": ... }` per ADR-006@0.1.0 forced-output guardrail. Per-site
-schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-024@0.1.0 (C17/C18/C19/C20).
+schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 (C17/C18/C19/C20).
 
 ## Why the losers lost (one sentence each)
 
@@ -231,7 +235,7 @@ schemas defined in TKT-022@0.1.0 (C16) and TKT-023@0.1.0 / TKT-024@0.1.0 (C17/C1
 **Follow-up work:**
 
 - TKT-022@0.1.0 implements C16 with the above default + fallback OmniRoute config.
-- TKT-023@0.1.0 / TKT-024@0.1.0 use the per-site picks above.
+- TKT-023@0.1.0 / TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0 use the per-site picks above.
 - TKT-025@0.1.0 golden tests validate JSON-mode reliability + Russian-quality of each
   default; failing test → escalate to fallback-as-default.
 - Architect amends ADR-018 if golden-test results force a swap (still in `proposed`,

@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: "KBJU Coach v0.1 → v0.2 (Observability and Scale Readiness) + PRD-003 Adaptive Modalities"
-version: 0.6.0
+version: 0.6.1
 status: draft
 prd_ref: "PRD-001@0.2.0; PRD-002@0.2.1; PRD-003@0.1.3"
 owner: "@OpenClown-bot"
@@ -18,6 +18,7 @@ synthesis_inputs:
   - "SPIKE-002: OpenClaw community ecosystem audit (deepseek-v4-pro)"
   - "v0.6.0 ARCH-extension: PRD-003@0.1.3 adaptive modalities (claude-opus-4.7-thinking)"
   - "v0.6.0 PR #142 mid-PR amendment: ADR-015 flipped Option A→C Hybrid; ADR-018 added (LLM picks per Q5 PO-delegation); §6.2 Voice/Tone profile + concrete reply strings added (per Q6 PO-delegation); claude-opus-4.7-thinking)"
+  - "v0.6.1 amendment cycle: RV-SPEC-013@0.1.0 findings F-M1..F-M6 + F-L1..F-L2 (deepseek-v4-pro)"
 created: 2026-04-26
 updated: 2026-05-06
 approved_at: 2026-05-04
@@ -77,7 +78,9 @@ tickets:
   - TKT-021@0.1.0
   - TKT-022@0.1.0
   - TKT-023@0.1.0
-  - TKT-024@0.1.0
+  - TKT-029@0.1.0
+  - TKT-030@0.1.0
+  - TKT-031@0.1.0
   - TKT-025@0.1.0
   - TKT-026@0.1.0
   - TKT-027@0.1.0
@@ -577,7 +580,7 @@ persistent-memory + auto-skill-gen primitives provide concrete value matching th
    over multi-vendor abstract per dispatch §-1. PO can request a multi-vendor follow-up at any
    time; this is below-the-fold work, not blocking PRD-003@0.1.3 execution.
 
-### 1.4 PRD-NEXT research findings (Q-RM-2 evidence)
+#### 0.10.7 PRD-NEXT research findings (Q-RM-2 evidence)
 
 Cross-cluster synthesis from §0.10.3:
 
@@ -591,7 +594,7 @@ Cross-cluster synthesis from §0.10.3:
   fork-candidate skills for water / sleep / workout / mood tracking at PRD-003@0.1.3 specificity.
   All six new C16..C22 components are project-built.
 
-This §1.4 satisfies Q-RM-2 verbatim cluster-engagement requirement. Research is also captured
+This §0.10.7 satisfies Q-RM-2 verbatim cluster-engagement requirement. Research is also captured
 inline in ADR-014@0.1.0 §Context (cited there for the runtime-decision trade-off table) and in
 §0.10.2 (cited for the per-modality fork-candidate audit).
 
@@ -1717,6 +1720,10 @@ Section ordering: KBJU → water → sleep → workout → mood. Zero-event sect
 - C6 meal text: user-provided meal text is serialized as data inside a fixed schema field (`meal_text_ru`) and the system prompt explicitly says user text cannot change instructions, call tools, change output schema, or override PRD-001@0.2.0 NG6/NG7. Output must validate against the structured KBJU schema; malformed or instruction-like output routes to manual entry without retry.
 - C7 photos: any text visible in the image is treated as untrusted image content, not an instruction. The vision prompt requests only food items, portions, and confidence; all photo outputs require user confirmation and cannot persist directly.
 - C9 summaries: the model receives numeric aggregates, deltas, and PO persona from `PERSONA_PATH`; it does not receive arbitrary user meal prose unless needed for a numeric correction note. ADR-006@0.1.0 system prompt plus deterministic validator blocks medical/clinical, vitamins, supplements, drugs/medications, hydration, glycemic index, meal timing, micronutrients, diagnosis, treatment, and exercise/fitness recommendations.
+- C16 Modality Router: hard-constrained label set `{KBJU, WATER, SLEEP, WORKOUT, MOOD, AMBIGUOUS}` per ADR-006@0.1.0 forced-output guardrail; deterministic chain runs FIRST per ADR-015@0.1.0 amended §Decision, LLM-only invoked on ambiguous/zero-match. Risk surface: arbitrary user text. Mitigation: forced-output single-token response + chain-fallback to clarifying-reply on out-of-set return.
+- C19 Workout Logger: forced-output JSON schema per ADR-016@0.1.0; deterministic post-validator on extracted fields (`workout_type` ∈ closed enum, `duration` ≥ 0, `distance` ≥ 0, `sets` ≥ 0, `repetitions` ≥ 0). Reject on schema violation → route to clarifying-reply per PRD-003@0.1.3 §5 US-3.
+- C20 Mood Logger: score-range guardrail (`mood_score` ∈ [1,10] integer); optional comment truncation to ≤200 chars (rule: drop comment if overlength rather than fail-open). Reject on out-of-range → route to clarifying-reply.
+- C22 Adaptive Summary Composer: inputs are post-validated event-rows from PostgreSQL; no untrusted-user-text surface. No separate prompt-injection mitigation needed beyond existing C6/C7/C9/C16/C19/C20 guards on upstream components.
 - All LLM outputs use schema validation before Telegram delivery. Suspicious model output is a validation failure, not a retry trigger, to avoid prompt-injection amplification.
 
 ### 9.5 PII Handling and Deletion
@@ -1753,8 +1760,26 @@ Gateway bridge: install/register the repo-owned `kbju-bridge` OpenClaw plugin, c
 - VPS floor from PO Q2: 6 shared x86_64 vCPU, 7.6 GiB RAM, about 5.7 GiB available at idle, 75 GB ext4 with about 61 GB free, Ubuntu 24.04.4, Docker 29.4.0, no GPU.
 - PRD-001@0.2.0 §7 budget: KBJU stack <=25% VPS CPU p95 and <=2 GiB resident RAM steady state.
 - Expected steady RAM: OpenClaw Gateway 256 MiB; KBJU sidecar 512 MiB; PostgreSQL 512 MiB; OmniRoute local/private endpoint 256 MiB; in-process metrics/logging overhead 128 MiB; temp media headroom 128 MiB; total target 1.75 GiB.
-- CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, vision, and LLM inference off the CPU/GPU-limited host.
+- CPU target: <=1.5 vCPU p95 across the KBJU stack on the 6 vCPU VPS. Remote Fireworks/OmniRoute model calls keep transcription, voice, and LLM inference off the CPU/GPU-limited host.
 - Disk target: PostgreSQL plus logs/backups <=10 GB during 30-day pilot; Docker log rotation from §8 caps live diagnostic logs at about 50 MB per service.
+
+#### 10.3.1 v0.6.0 modality LLM cost delta
+
+Additional LLM calls per user per day per ADR-018@0.1.0 picks:
+
+| Site | Calls/user/day | Per-call est | Source |
+|---|---|---|---|
+| C16 fallback classifier | ~1.2 | $0.0001 | GPT-OSS-20B (Fireworks); 10% fallback rate on ~12 events/day per PRD-003@0.1.3 §8 R1 telemetry assumption |
+| C17 water volume extractor | ~2 | $0.0001 | GPT-OSS-20B (Fireworks); ADR-018@0.1.0 §Decision |
+| C18 sleep duration extractor | ~1 | $0.0002 | Qwen3 VL 30B A3B (Fireworks); ADR-018@0.1.0 §Decision |
+| C19 workout extractor | ~0.5 | $0.0003 | Qwen3 VL 30B A3B (Fireworks); §0.10.4 capacity planning |
+| C20 mood inferrer | ~1 | $0.0008 | Deepseek V3.2 (Fireworks); §0.10.4 capacity planning |
+| C22 summary composer | ~1 | $0.0003 | C9 LLM extension; incremental tokens beyond base KBJU summary |
+
+**Daily per-user delta:** ~$0.0018/user/day.
+**Monthly delta (2-user pilot):** ~$0.11/month.
+**PRD-001@0.2.0 §7 ceiling:** $10/month.
+**Headroom:** ~$9.89/month — well within ceiling.
 
 ### 10.4 Deploy Sequence
 ```bash
@@ -1997,7 +2022,7 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 
 - **R13: C16 Modality Router seed keyword set staleness.** Deterministic priority chain (ADR-015@0.1.0) does not adapt to Russian-morphology drift over PRD-003@0.1.3 lifetime. Mitigation: hot-reloadable matcher chain (TKT-022@0.1.0); rolling-30-day misclassification telemetry (PRD-003@0.1.3 §8 R1 / TKT-025@0.1.0); explicit Option C upgrade contemplated in ADR-015@0.1.0 §Consequences.
 - **R14: C18 Sleep Logger 24-hour pairing TTL drops orphaned evening events silently.** A user who logs "лёг" then doesn't message for >24 h has the pairing GC'd. Recoverable via path #5 (single-event morning duration report) but not surfaced. PRD-003@0.1.3 §3 NG11 forbids retroactive backfill so user cannot correct after the fact. Mitigation: clarifying-reply on morning-no-pair path #4 nudges user to submit duration. Future PRD may revisit.
-- **R15: PRD-003@0.1.3 modality LLM extraction (water volume, workout closed-enum, mood inference) reuses OmniRoute (ADR-002@0.1.0) without modality-specific routing tuning.** Per Architect Phase 5 LLM-pick exception, LLM-provider/model picks are deferred to Q_TO_BUSINESS for PO ratification — but in this v0.6.0, OmniRoute's existing extraction surface is reused without a per-modality shortlist. If extraction quality misses K2 (workout ≥80% recognition / ≥70% per-field accuracy), a follow-up ADR may be needed to pick a per-modality model. Mitigation: PO-ratified 50-event golden test set (TKT-024@0.1.0) gives empirical ground for any future tune.
+- **R15: PRD-003@0.1.3 modality LLM extraction (water volume, workout closed-enum, mood inference) reuses OmniRoute (ADR-002@0.1.0) without modality-specific routing tuning.** Per Architect Phase 5 LLM-pick exception, LLM-provider/model picks are deferred to Q_TO_BUSINESS for PO ratification — but in this v0.6.0, OmniRoute's existing extraction surface is reused without a per-modality shortlist. If extraction quality misses K2 (workout ≥80% recognition / ≥70% per-field accuracy), a follow-up ADR may be needed to pick a per-modality model. Mitigation: PO-ratified 50-event golden test set (TKT-029@0.1.0 / TKT-030@0.1.0 / TKT-031@0.1.0) gives empirical ground for any future tune.
 - **R16: PRD-003@0.1.3 modality LLM picks deferred to Q_TO_BUSINESS rather than ratified now.** Per the Phase 5 LLM-pick exception, this ArchSpec does NOT pick specific OmniRoute targets for the four new prompt sites (water volume extraction, workout JSON-schema extraction, mood free-form-text inference, sleep duration extraction). All four reuse the existing OmniRoute provider abstraction, so the LLM-pick is what OmniRoute currently routes to. If PO wants a modality-specific lock, raise as a future ratification.
 - **R17: Hardware envelope (Q-RM-1) is single-vendor (Hetzner) and based on per-user load projection rather than measured production load.** §0.10.4 cites only Hetzner EX44; the projection is an engineer estimate, not a measured benchmark. Mitigation: at the 1,000-user scale the EX44 has ample headroom; PO can request a measured benchmark at any time. PO can also request a multi-vendor comparison if procurement diversification matters.
 
@@ -2035,3 +2060,22 @@ Any Executor ticket that touches `src/main.ts`, sidecar HTTP server wiring, Dock
 - [ ] §10.1 HYBRID two-process deployment entry added
 - [ ] §11 TKT-016@0.1.0..TKT-020@0.1.0 work-breakdown rows present
 - [ ] §12.1 v0.5.0 risks (R7-R10) + Q_TO_BUSINESS_3
+
+## revision_log
+
+### 2026-05-06 — v0.6.1 amendment cycle (RV-SPEC-013@0.1.0)
+
+Remediated all 8 findings from RV-SPEC-013@0.1.0 pass_with_changes verdict:
+
+- **F-M1**: ADR-015@0.1.0 amended Decision now has formal `## Why the losers lost` h2 between the current `## Decision` and the rejected-historic-Decision block (§5).
+- **F-M2**: Renamed `### 1.4 PRD-NEXT research findings` to `#### 0.10.7 PRD-NEXT research findings` (Option b — keep adjacent to §0.10 Recon Delta). Rationale: the content is Q-RM-2 evidence sourced from §0.10.3 cluster detail; it logically belongs inside §0.10, not under §1 Context. Cross-references to §1.4 were internal sub-labels of §0.10.3, not refs to the orphan section; no external cross-references needed updating.
+- **F-M3**: DAG asymmetry resolved: removed TKT-025@0.1.0 from TKT-021@0.1.0.blocks (transitive via TKT-022@0.1.0); removed all blocks claims from TKT-028@0.1.0 and documented soft-dep rationale in TKT-028@0.1.0 §3 Constraints (C21 settings service is runtime config, handlers can build/test with mocked settings).
+- **F-M4**: TKT-024@0.1.0 split into three sub-tickets for C17 Water Logger, C19 Workout Logger, C20 Mood Logger — three tickets at 0.1.0, sequential single Executor (`deepseek-v4-pro`). Rationale: C19 has different LLM surface, test surface, and failure modes from C17/C20; splitting prevents a C19 vision-surface bug from blocking C17/C20 shipment.
+- **F-M5**: §9.4 extended with prompt-injection mitigations for C16 (forced-output label set + chain-fallback), C19 (JSON schema + deterministic post-validator), C20 (score-range guardrail + comment truncation), C22 (post-validated event-rows, no untrusted-text surface).
+- **F-M6**: §10.3 cost delta added — monthly delta ~$0.11/month vs $10/month ceiling, headroom ~$9.89 — well within budget.
+- **F-L1**: ADR-014@0.1.0, ADR-016@0.1.0, ADR-017@0.1.0 `## Why the losers lost` heading applied uniformly (h2 sibling of `## Decision`) for consistency with ADR-018@0.1.0 and ADR-015@0.1.0 (post-F-M1).
+- **F-L2**: ADR-018@0.1.0 format note added explaining per-site pick tables deviation from standard single A/B/C Options structure.
+
+**Q1 answer** (TKT-024@0.1.0 atomicity): Split into three sub-tickets (C17 Water Logger, C19 Workout Logger, C20 Mood Logger) with sequential single Executor (`deepseek-v4-pro`). C19 vision-surface complexity would block C17/C20 from shipping in a bundled ticket; splitting preserves independent shipment velocity. Single Executor runs all three sequentially to avoid OmniRoute key contention and to keep the executor dispatch overhead bounded for a 2-user pilot.
+
+**Q2 answer** (§1.4 placement): Placement was an editing artifact from the v0.6.0 mid-PR amendment cycle (ADR-015@0.1.0 flip + ADR-018@0.1.0 addition). Content is Q-RM-2 synthesis sourced from §0.10.3, so it logically belongs inside §0.10. Option (b) renumber to `#### 0.10.7` chosen as minimal-change fix.
