@@ -110,3 +110,55 @@ The 7 entries below split into:
 **Severity:** Low (clerical, no correctness or process impact; closure-PR rename is a 1-line `git mv`). Implement opportunistically; can ride along with the next Reviewer-prompt edit.
 
 **ArchSpec dependency:** None.
+
+## TKT-NEW-v0.1-runnable-entrypoint-missing-CRITICAL
+
+**Source:** PO empirical deployment attempt 2026-05-04 following `docs/meta/po-self-testing-guide.md` §1; PO chat (verbatim, 2026-05-04): «инструкция предполагала, что в репе есть готовый main-файл, запускающий Telegram-бота. Его нет.». Devin Orchestrator code-audit confirmed all three symptoms below on `main` HEAD `a2cb490` during the 2026-05-04 cold-handoff session.
+
+**The issue:** v0.1 KBJU Coach has no runnable boot path on `main`. Three concrete defects compound:
+
+1. **Dockerfile CMD path mismatch with `tsconfig.json` rootDir.** `Dockerfile:10` declares `CMD ["node", "dist/index.js"]`, but `tsconfig.json:15` sets `rootDir: "."` and `tsconfig.json:18` sets `include: ["src/**/*.ts", "tests/**/*.ts"]`, so `src/index.ts` compiles to `dist/src/index.js`, not `dist/index.js`. `docker compose up -d --build` from a clean clone produces a container that immediately exits with `Cannot find module '/app/dist/index.js'`. Symptom verified empirically by PO + DeepSeek deployment helper on the dev-VPS and reproduced locally on the cold-handoff Devin VM.
+
+2. **`src/index.ts` is a barrel-file with zero executable code.** All 46 lines are `export type` re-exports from `src/shared/config.ts` and `src/shared/types.ts`. Even after the Dockerfile CMD path is corrected to `dist/src/index.js`, `node` exits with code 0 immediately because nothing runs.
+
+3. **No integration layer between OpenClaw and KBJU handlers.** `routeMessage` and `routeCallbackQuery` are defined in `src/telegram/entrypoint.ts` and tested in `tests/telegram/entrypoint.test.ts`, but no source file in `src/` calls them. No code constructs the `C1Deps` object (sendMessage / sendChatAction / logger / metricsRegistry). No code instantiates `TenantStore`, `MealOrchestrator`, `HistoryService`. No code starts a Telegram long-polling loop or registers a webhook. `package.json` `dependencies` contains only `{ "pg": "^8.20.0" }` — no `openclaw` runtime dep, no Telegram-bot library. Verified via `grep -rln "routeMessage\|routeCallbackQuery" src/` returning only the defining file plus tests.
+
+**Why every prior closure-audit missed it:** The pilot-readiness smoke suite (`src/pilot/pilotReadinessReport.ts`, `tests/pilot/*.test.ts` from TKT-014) is mocked at every external boundary; no test in `tests/` ever actually starts the application process. Five Ticket Orchestrator pilots × (Reviewer Kimi K2.6 + PR-Agent + Ticket Orchestrator audit pass-1 + Devin Orchestrator ratification audit pass-2) = 15+ audit gates, plus the `docs/meta/po-self-testing-guide.md` §1 path that PO followed, all rely on artefacts being present in `src/` and on green unit-test mocks rather than on a green container start. Captured separately in `docs/backlog/pilot-kpi-smoke-followups.md §TKT-NEW-mocked-end-to-end-smoke-tests-false-confidence-process-retro` as a process-retro entry.
+
+**Proposed fix shape (Architect Phase-0 Recon owns the design):** Resolution lands in ARCH-001 v0.5.0 (or sibling ARCH-002, Architect chooses) as part of the combined v0.1-integration-fix + PRD-002@0.2.1 Observability ArchSpec dispatch (Option A authorised by PO chat 2026-05-04: «1. А»). The ArchSpec must specify:
+- The boot entry point shape (where `main()` lives, who imports it, how `Dockerfile` CMD references it).
+- The `C1Deps` factory contract (how `sendMessage`/`sendChatAction`/`logger`/`metricsRegistry` are constructed from env vars + which Telegram client library powers them).
+- The OpenClaw runtime integration shape (resolved jointly with §TKT-NEW-openclaw-runtime-shape-recon-CRITICAL below).
+- The `Dockerfile` CMD path correction.
+- An ArchSpec-mandated test that **actually starts the application process** as a smoke test (per the `pilot-kpi-smoke-followups.md` process retro entry).
+
+Implementation tickets follow the normal pipeline (Architect produces TKT-NNN, Executor implements, Reviewer reviews, PO merges).
+
+**Severity:** CRITICAL — blocks the entire v0.1 organic 30-day pilot (PRD-001@0.2.0 §6 K1-K7 baselines remain `n/a` until a real Telegram message actually reaches a KBJU handler) and blocks PRD-002@0.2.1 G1/G2/G3 telemetry deployment (the breach detector / stall detector / PR-Agent telemetry instrumentation all assume an instrumentable boot path).
+
+**ArchSpec dependency:** ARCH-001@0.4.0 §3 Components and §10 Operational Procedures collectively assume a runnable boot path; the gap is in the level of detail, not in the existence of components. Resolution = ARCH-001 v0.5.0 expansion (Option A) covering both this gap and PRD-002@0.2.1.
+
+**Forensics inputs (PO-side empirical Recon material for Architect):** PO ran a deployment-helper opencode session (DeepSeek V4 Pro) on the dev-VPS (`/home/adminpzfq/openclown-assistant`) which empirically discovered (a) the Dockerfile CMD path mismatch (compensated locally by patching CMD to `dist/src/index.js`, then to `openclaw gateway`), (b) the barrel-file problem, (c) a working `openclaw gateway` configuration with `channels.telegram.enabled: true` and `gateway.mode: "local"`. None of these patches landed in `main` or in any branch — they live only on the dev-VPS as untracked working-directory state, plus a `Dockerfile` modification flagged by `git status`. They are valid PO-side scouting per CONTRIBUTING.md row 9 («Product Owner — MAY write Anything (final authority)»). The 8-file forensics-bundle (`forensics-git-status.txt`, `forensics-git-diff.txt`, `forensics-dockerfile-modified.txt`, `forensics-openclaw-json.txt`, `forensics-compose-ps.txt`, `forensics-app-logs.txt`, `forensics-pg-logs.txt`, `forensics-openclaw-state.txt`) is preserved locally with PO and is available as Recon input for the Architect dispatch.
+
+## TKT-NEW-openclaw-runtime-shape-recon-CRITICAL
+
+**Source:** PO deployment forensics 2026-05-04 (`forensics-app-logs.txt` lines 13, 14, 21-24); Devin Orchestrator empirical check via `npm view openclaw` and `openclaw --help` output forwarded by PO from the dev-VPS opencode session.
+
+**The issue:** `docs/knowledge/openclaw.md` (Architect Phase-0 Recon required reading per CONTRIBUTING.md hard rule 5) describes OpenClaw as «a self-hosted gateway / agent-runtime that hosts "skills" written in TypeScript on Node 24» and specifies a skill anatomy («`metadata` / `init(ctx)` / `handle(input, ctx)` / optional `cron(ctx)`»). The npm package `openclaw@2026.5.3-1` (npmjs.org, MIT, multi-channel AI gateway) is a **finished gateway product** that ships an embedded LLM agent (default `agent model: openai/gpt-5.5`) and 7 channel/sidecar plugins (`browser`, `device-pair`, `file-transfer`, `memory-core`, `phone-control`, `talk-voice`, `telegram`). When invoked as `openclaw gateway` with `channels.telegram.enabled: true`, the gateway routes incoming Telegram messages to its **embedded** agent, not to externally-registered skill classes — at least when no skill / plugin registration is performed.
+
+Empirically verified on the dev-VPS:
+- `forensics-app-logs.txt:14` — `[gateway] http server listening (7 plugins: browser, device-pair, file-transfer, memory-core, phone-control, talk-voice, telegram; 10.0s)`.
+- `forensics-app-logs.txt:13` — `[gateway] agent model: openai/gpt-5.5`.
+- `forensics-app-logs.txt:21-24` — Telegram update reached the gateway, was dispatched to `lane=main` (the embedded agent), and failed with `Error: No API key found for provider "openai". Auth store: /root/.openclaw/agents/main/agent/auth-profiles.json` — confirming that `routeMessage`/`routeCallbackQuery` from `src/telegram/entrypoint.ts` were never invoked, because the gateway has no registration linking them to the Telegram channel.
+
+PO-forwarded `openclaw --help` (chat 2026-05-04) lists subcommands including `agent`, `agents`, `channels`, `chat`, `clawbot`, `commitments`, `cron`, `gateway`, `plugin`, `skills`, `tools`. The presence of `skills` and `plugin` subcommands strongly suggests the npm package **does** support custom skill / plugin loading — the integration mechanism described in `docs/knowledge/openclaw.md` likely exists in some form, but the exact contract (config file location, plugin manifest schema, how a custom skill claims a channel/route, how `OMNIROUTE_API_KEY` env var is wired into the gateway's `auth-profiles.json` store, what `gateway.mode` values mean in practice) was not exercised by the forensics-bundle and is not documented in the repo.
+
+**Proposed Architect Phase-0 Recon outcome:** The combined ARCH-001 v0.5.0 ArchSpec (Option A) MUST resolve in §0 Recon Report and §3 Components:
+- Empirical mapping of the npm `openclaw` skill / plugin loading mechanism (read `openclaw skills --help`, `openclaw plugin --help`, [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw#readme), and the npm package's bundled docs).
+- A build-vs-fork-vs-skip decision per `docs/prompts/architect.md` Phase-0: either (a) integrate via the `openclaw skills` registration mechanism if it exists and matches our needs; (b) integrate via a webhook-channel pattern where openclaw forwards Telegram messages to our HTTP endpoint; (c) abandon the openclaw runtime and use a raw Telegram bot library (e.g. `grammy`, already a transitive dep of openclaw, or `node-telegram-bot-api`).
+- Update `docs/knowledge/openclaw.md` (within Architect Phase-0 write-zone) so future Architects do not re-incur this mismatch.
+- A new ADR (numbering continues from ADR-010, e.g. `ADR-011-openclaw-integration-shape.md`) documenting the chosen integration option and its trade-offs.
+
+**Severity:** CRITICAL — gates the resolution of `§TKT-NEW-v0.1-runnable-entrypoint-missing-CRITICAL` above. Cannot author the integration-layer ArchSpec section without first resolving which integration mechanism the chosen runtime supports.
+
+**ArchSpec dependency:** ARCH-001@0.4.0 §3.1 (C1 Access-Controlled Telegram Entrypoint) asserts the `routeMessage`/`routeCallbackQuery` shape; the gap is between that interface and the actual openclaw runtime that hosts (or doesn't host) it. `docs/knowledge/openclaw.md` is the proximal Recon-knowledge source affected.
